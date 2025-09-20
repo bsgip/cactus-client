@@ -1,0 +1,49 @@
+[tool.black]
+line-length = 120
+
+[tool.pytest.ini_options]
+pythonpath = ["src/"]
+testpaths = "tests"
+
+[tool.isort]
+profile = "black"
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+
+[tool.mypy]
+exclude = ["tests", "build"]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+namespace_packages = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+
+[build-system]
+requires = ["setuptools >= 40.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cactus_client"
+version = "0.0.1"
+description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
+dependencies = [
+    "cactus-test-definitions @ git+https://github.com/bsgip/cactus-test-definitions.git@main",
+    "envoy-schema>=0.27.0",
+    "rich",
+    "aiohttp>=3.11.12,<4",
+]
+
+[project.optional-dependencies]
+dev = ["bandit", "black", "coverage", "flake8", "flake8-bugbear", "mypy"]
+test = ["pytest"]
+
+[tool.setuptools.package-data]
+"my_app" = ["py.typed"]
+
+[project.scripts]
+cactus = "cactus_client.main:cli_entrypoint"
