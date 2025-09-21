@@ -70,10 +70,10 @@ class GlobalConfig(YAMLWizard):  # type: ignore
             return f"{output_dir} is either not a directory or doesn't exist"
 
         if self.server is None or not self.server.device_capability_uri:
-            return f"No server configuration has been specified or device_capability_uri isn't set."
+            return "No server configuration has been specified or device_capability_uri isn't set."
 
         if not self.clients:
-            return f"No client configuration has been specified."
+            return "No client configuration has been specified."
 
         for c in self.clients:
             if not Path(c.certificate_file).exists():

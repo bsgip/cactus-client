@@ -3,9 +3,18 @@ from datetime import datetime
 from ssl import SSLContext
 from typing import Optional
 
+from aiohttp import ClientSession
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_test_definitions.server.test_procedures import TestProcedure
 from envoy_schema.server.schema.sep2.identification import Resource
 
+from cactus_client.model.config import ClientConfig
+from cactus_client.model.execution import StepExecution, StepExecutionList
+from cactus_client.model.progress import (
+    ProgressTracker,
+    ResponseTracker,
+    WarningTracker,
+)
 from cactus_client.time import utc_now
 
 
@@ -54,24 +63,32 @@ class ResourceStore:
 
 
 @dataclass
-class WarningStore:
-    """A warning represents some form of (minor) failure of a test that doesn't block the execution but should be
-    reported at the end. Example warnings could include a non critical XSD error."""
-
-    warnings: list[str]
-
-    def __init__(self) -> None:
-        self.warnings = []
-
-    def log_resource_warning(self, type: CSIPAusResource, message: str) -> None:
-        self.warnings.append(f"{type}: {message}")
-
-
-@dataclass
 class ClientContext:
     """This represents the snapshot of the client's 'memory' that has been built up over interactions with the
     server."""
 
-    resources: ResourceStore
-    warnings: WarningStore
-    ssl_context: SSLContext  # How will SSL/TLS connections be validated (should be loaded with client certs)
+    test_procedure_alias: str  # What will the test procedure YAML be referring to this context as?
+    client_config: ClientConfig
+    discovered_resources: ResourceStore
+    session: ClientSession  # Used for making HTTP requests - will have base_url, timeouts, ssl_context set
+
+
+@dataclass
+class ExecutionContext:
+    """Represents all state/config required for a test run execution"""
+
+    test_procedure: TestProcedure  # The test procedure being run
+    dcap_path: str  # The URI path component of the device_capability_uri
+    clients_by_alias: dict[str, ClientContext]  # The Clients in use for this test, keyed by their test procedure alias
+    steps: StepExecutionList
+    warnings: WarningTracker
+    progress: ProgressTracker
+    responses: ResponseTracker
+
+    def session(self, step: StepExecution) -> ClientSession:
+        """Convenience function for accessing the ClientSession for a specific step (based on client alias)"""
+        return self.clients_by_alias[step.client_alias].session
+
+    def discovered_resources(self, step: StepExecution) -> ResourceStore:
+        """Convenience function for accessing the ResourceStore for a specific step (based on client alias)"""
+        return self.clients_by_alias[step.client_resources_alias].discovered_resources
