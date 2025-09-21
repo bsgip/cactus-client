@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from ssl import SSLContext
 from typing import Optional
 
 from cactus_test_definitions.csipaus import CSIPAusResource
@@ -67,9 +68,10 @@ class WarningStore:
 
 
 @dataclass
-class Context:
+class ClientContext:
     """This represents the snapshot of the client's 'memory' that has been built up over interactions with the
     server."""
 
     resources: ResourceStore
     warnings: WarningStore
+    ssl_context: SSLContext  # How will SSL/TLS connections be validated (should be loaded with client certs)

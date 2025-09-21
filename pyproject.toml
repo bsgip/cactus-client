@@ -37,14 +37,24 @@ dependencies = [
     "rich",
     "treelib",
     "aiohttp>=3.11.12,<4",
+    "pyyaml>=6.0.2,<7",
+    "dataclass-wizard>=0.35.0,<1",
 ]
 
 [project.optional-dependencies]
-dev = ["bandit", "black", "coverage", "flake8", "flake8-bugbear", "mypy"]
+dev = [
+    "bandit",
+    "black",
+    "coverage",
+    "flake8",
+    "flake8-bugbear",
+    "mypy",
+    "types-PyYAML",
+]
 test = ["assertical", "pytest"]
 
 [tool.setuptools.package-data]
-"my_app" = ["py.typed"]
+"cactus_client" = ["py.typed"]
 
 [project.scripts]
 cactus = "cactus_client.main:cli_entrypoint"
