@@ -56,7 +56,7 @@ dev = [
     "lxml-stubs",
     "types-reportlab",
 ]
-test = ["assertical", "pytest", "freezegun"]
+test = ["assertical", "pytest", "pytest-aiohttp", "freezegun"]
 
 [tool.setuptools.package-data]
 "cactus_client" = ["py.typed", "**/*.xsd"]

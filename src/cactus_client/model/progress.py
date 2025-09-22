@@ -1,14 +1,9 @@
 import logging
-from dataclasses import dataclass
-from datetime import datetime
-from http import HTTPMethod, HTTPStatus
 
-from aiohttp import ClientResponse
 from cactus_test_definitions.csipaus import CSIPAusResource
 
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
-from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +18,14 @@ class WarningTracker:
         self.warnings = []
 
     def log_resource_warning(self, type: CSIPAusResource, message: str) -> None:
-        warning = f"{type}: {message}"
+        """Log an warning about a specific type of CSIPAusResource"""
+        warning = f"Resource {type}: {message}"
+        self.warnings.append(warning)
+        logger.warning(warning)
+
+    def log_step_warning(self, step: StepExecution, message: str) -> None:
+        """Log a warning about a specific execution step"""
+        warning = f"Step {step.source.id}[{step.repeat_number}]: {message}"
         self.warnings.append(warning)
         logger.warning(warning)
 

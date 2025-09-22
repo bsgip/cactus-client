@@ -1,0 +1,5 @@
+<DeviceCapability xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" href="/envoy-svc-static-36/dcap" pollRate="60">
+    <TimeLink href="/envoy-svc-static-36/tm"/>
+    <EndDeviceListLink href="/envoy-svc-static-36/edev" all="2"/>
+    <MirrorUsagePointListLink href="/envoy-svc-static-36/mup" all="0"/>
+</DeviceCapability>

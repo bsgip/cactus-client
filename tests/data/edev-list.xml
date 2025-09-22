@@ -1,0 +1,22 @@
+<EndDeviceList xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" href="/envoy-svc-static-36/edev" subscribable="1" all="2" results="2" pollRate="60">
+    <EndDevice href="/envoy-svc-static-36/edev/0" subscribable="0">
+        <deviceCategory>00</deviceCategory>
+        <lFDI>42DD677C78A948919914EDB0FBE9DA89127415E5</lFDI>
+        <sFDI>179488992715</sFDI>
+        <changedTime>1758505619</changedTime>
+        <enabled>true</enabled>
+        <SubscriptionListLink href="/envoy-svc-static-36/edev/0/sub" all="0"/>
+    </EndDevice>
+    <EndDevice href="/envoy-svc-static-36/edev/1" subscribable="1">
+        <DERListLink href="/envoy-svc-static-36/edev/1/der" all="1"/>
+        <deviceCategory>00</deviceCategory>
+        <lFDI>3E4F45AB31EDFE5B67E343E5E4562E3100006F83</lFDI>
+        <LogEventListLink href="/envoy-svc-static-36/edev/1/lel"/>
+        <sFDI>16726121139</sFDI>
+        <changedTime>1758505603</changedTime>
+        <enabled>true</enabled>
+        <FunctionSetAssignmentsListLink href="/envoy-svc-static-36/edev/1/fsa" all="0"/>
+        <RegistrationLink href="/envoy-svc-static-36/edev/1/rg"/>
+        <csipaus:ConnectionPointLink href="/envoy-svc-static-36/edev/1/cp"/>
+    </EndDevice>
+</EndDeviceList>
