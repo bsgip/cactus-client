@@ -38,7 +38,7 @@ class ProgressTracker:
 
     async def log_step_progress(self, step: StepExecution, message: str) -> None:
         """Updates the progress information for a specific step"""
-        logger.info(f"{step.source.name}[{step.repeat_number}] Attempt {step.attempts}: {message}")
+        logger.info(f"{step.source.id}[{step.repeat_number}] Attempt {step.attempts}: {message}")
 
 
 class ResponseTracker:
@@ -46,9 +46,9 @@ class ResponseTracker:
 
     responses: list[ServerResponse]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.responses = []
 
-    async def log_response_body(self, r: ServerResponse):
+    async def log_response_body(self, r: ServerResponse) -> None:
         self.responses.append(r)
-        logger.info(f"{r.method} {r.uri} Yielded {r.status}: Received body of length {len(r.body)}.")
+        logger.info(f"{r.method} {r.url} Yielded {r.status}: Received body of length {len(r.body)}.")

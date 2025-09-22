@@ -3,8 +3,7 @@ from datetime import datetime
 from http import HTTPMethod
 from typing import Callable, TypeVar
 
-from aiohttp.client import LooseHeaders
-from envoy_schema.server.schema.sep2.identification import IdentifiedObject
+from envoy_schema.server.schema.sep2.identification import Resource
 
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import RequestException
@@ -15,41 +14,40 @@ from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 
-AnyIdentifiedObjectType = TypeVar("AnyIdentifiedObjectType", bound=IdentifiedObject)
+AnyResourceType = TypeVar("AnyResourceType", bound=Resource)
 AnyType = TypeVar("AnyType")
 
 
 async def request_for_step(
-    step: StepExecution, context: ExecutionContext, url: str, method: HTTPMethod, sep2_xml_body: str | None = None
+    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
 ) -> ServerResponse:
     """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
     logs the actions in the various context trackers. Raises a RequestException on connection failure."""
     session = context.session(step)
 
-    await context.progress.log_step_progress(step, f"Requesting {method} {url}")
+    await context.progress.log_step_progress(step, f"Requesting {method} {path}")
 
-    headers: LooseHeaders = LooseHeaders()
-    headers.add("Accept", MIME_TYPE_SEP2)
+    headers = {"Accept": MIME_TYPE_SEP2}
     if sep2_xml_body is not None:
-        headers.add("Content-Type", MIME_TYPE_SEP2)
+        headers["Content-Type"] = MIME_TYPE_SEP2
 
     requested_at = utc_now()
-    async with session.request(method=method, url=url, data=sep2_xml_body, headers=headers) as raw_response:
+    async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
         try:
             response = await ServerResponse.from_response(
                 raw_response, requested_at=requested_at, received_at=utc_now()
             )
         except Exception as exc:
-            logger.error(f"Caught exception attempting to {method} {url}", exc_info=exc)
-            raise RequestException(f"Caught exception attempting to {method} {url}: {exc}")
+            logger.error(f"Caught exception attempting to {method} {path}", exc_info=exc)
+            raise RequestException(f"Caught exception attempting to {method} {path}: {exc}")
 
         await context.responses.log_response_body(response)
         return response
 
 
-async def get_identified_object_for_step(
-    t: type[AnyIdentifiedObjectType], step: StepExecution, context: ExecutionContext, href: str
-) -> AnyIdentifiedObjectType:
+async def get_resource_for_step(
+    t: type[AnyResourceType], step: StepExecution, context: ExecutionContext, href: str
+) -> AnyResourceType:
     """Makes a GET request for a particular href and parses the resulting XML into an expected type (t). Raises a
     RequestException if the connection fails, returns an error or fails to parse to t"""
     # Make the raw request
@@ -83,13 +81,13 @@ def build_paging_params(
     return "?" + "&".join(parts)
 
 
-async def paginate_list_object_items(
-    list_type: type[AnyIdentifiedObjectType],
+async def paginate_list_resource_items(
+    list_type: type[AnyResourceType],
     step: StepExecution,
     context: ExecutionContext,
     list_href: str,
     page_size: int,
-    item_callback: Callable[[AnyIdentifiedObjectType], list[AnyType]],
+    item_callback: Callable[[AnyResourceType], list[AnyType] | None],
     max_pages_requested: int = 20,
 ) -> list[AnyType]:
     """Helper function for paginating through an entire list object (eg EndDeviceList) over multiple requests and
@@ -107,12 +105,14 @@ async def paginate_list_object_items(
     pages_requested = 0
     start = 0
     every_all_value: list[int] = []
-    all_received_items: list[AnyType] = []
+    all_items: list[AnyType] = []
     while True:
         page_href = list_href + build_paging_params(start=start, limit=page_size)
-        latest_list = await get_identified_object_for_step(list_type, step, context, page_href)
+        latest_list = await get_resource_for_step(list_type, step, context, page_href)
         latest_items = item_callback(latest_list)
-        all_received_items.extend(latest_items)
+        if latest_items is None:
+            latest_items = []  # pydantic-xml  can parse a missing/empty list as None - we need to compensate
+        all_items.extend(latest_items)
 
         # Start pulling apart the response and doing some cursory checks
         received_all: int | None = getattr(latest_list, "all_", None)
@@ -142,9 +142,15 @@ async def paginate_list_object_items(
             )
 
     # Final check of the all attributes
+    expected_count = 0 if len(every_all_value) == 0 else every_all_value[0]
     if len(set(every_all_value)) > 1:
         context.warnings.log_step_warning(
-            step, f"The 'all' attribute at {list_href} has varied while paginating through."
+            step, f"The 'all' attribute at {list_href} has varied while paginating through. This is likely an error."
+        )
+    elif expected_count != len(all_items):
+        context.warnings.log_step_warning(
+            step,
+            f"The 'all' attribute at {list_href} indicated {expected_count} items but {len(all_items)} items returned.",
         )
 
-    return all_received_items
+    return all_items

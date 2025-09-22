@@ -1,4 +1,4 @@
-<EndDeviceList xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" href="/envoy-svc-static-36/edev" subscribable="1" all="2" results="2" pollRate="60">
+<EndDeviceList xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" href="/envoy-svc-static-36/edev" subscribable="1" all="3" results="2" pollRate="60">
     <EndDevice href="/envoy-svc-static-36/edev/0" subscribable="0">
         <deviceCategory>00</deviceCategory>
         <lFDI>42DD677C78A948919914EDB0FBE9DA89127415E5</lFDI>

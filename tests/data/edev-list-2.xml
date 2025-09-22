@@ -1,0 +1,14 @@
+<EndDeviceList xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" href="/envoy-svc-static-36/edev" subscribable="1" all="3" results="1" pollRate="60">
+    <EndDevice href="/envoy-svc-static-36/edev/2" subscribable="1">
+        <DERListLink href="/envoy-svc-static-36/edev/2/der" all="1"/>
+        <deviceCategory>00</deviceCategory>
+        <lFDI>FBFAC1A000ED111B674443875456123100006F83</lFDI>
+        <LogEventListLink href="/envoy-svc-static-36/edev/2/lel"/>
+        <sFDI>12345654321</sFDI>
+        <changedTime>1758505604</changedTime>
+        <enabled>true</enabled>
+        <FunctionSetAssignmentsListLink href="/envoy-svc-static-36/edev/2/fsa" all="0"/>
+        <RegistrationLink href="/envoy-svc-static-36/edev/2/rg"/>
+        <csipaus:ConnectionPointLink href="/envoy-svc-static-36/edev/2/cp"/>
+    </EndDevice>
+</EndDeviceList>

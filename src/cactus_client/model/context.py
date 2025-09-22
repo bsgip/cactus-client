@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from ssl import SSLContext
-from typing import Optional
+from typing import Callable, Generator, Optional, TypeVar, cast
 
 from aiohttp import ClientSession
 from cactus_test_definitions.csipaus import CSIPAusResource
@@ -16,6 +16,8 @@ from cactus_client.model.progress import (
     WarningTracker,
 )
 from cactus_client.time import utc_now
+
+AnyType = TypeVar("AnyType")
 
 
 @dataclass(frozen=True)
@@ -36,7 +38,12 @@ class ResourceStore:
         """Fully resets this store to its initial state"""
         self.store.clear()
 
-    def set_single(self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource) -> StoredResource:
+    def clear_resource(self, type: CSIPAusResource) -> None:
+        """Updates the store so that future calls to get (for type) will return an empty list."""
+        if type in self.store:
+            del self.store[type]
+
+    def set_resource(self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource) -> StoredResource:
         """Updates the store so that future calls to get (for type) will return ONLY resource. Any existing resources
         of this type will be deleted.
 
@@ -45,21 +52,37 @@ class ResourceStore:
         self.store[type] = [new_resource]
         return new_resource
 
-    def set_many(
-        self, type: CSIPAusResource, parent: StoredResource | None, resources: list[Resource]
-    ) -> list[StoredResource]:
-        """Updates the store so that future calls to get (for type) will return ONLY resources. Any existing resources
-        of this type will be deleted.
+    def append_resource(
+        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource
+    ) -> StoredResource:
+        """Updates the store so that future calls to get (for type) will return their current value(s) PLUS this new
+        value.
 
-        Returns the StoredResources that were inserted."""
-        now = utc_now()
-        new_resources = [StoredResource(now, type, parent, r) for r in resources]
-        self.store[type] = new_resources
-        return new_resources
+        Returns the StoredResource that was inserted"""
+        new_resource = StoredResource(utc_now(), type, parent, resource)
+        existing = self.store.get(type, None)
+        if existing is None:
+            self.store[type] = [new_resource]
+        else:
+            existing.append(new_resource)
+
+        return new_resource
 
     def get(self, type: CSIPAusResource) -> list[StoredResource]:
         """Finds all StoredResources of the specified resource type. Returns empty list if none are found"""
         return self.store.get(type, [])
+
+    def get_resource_hrefs(
+        self, type: CSIPAusResource, get_href: Callable[[StoredResource], str | None]
+    ) -> Generator[tuple[StoredResource, str], None, None]:
+        """Finds all StoredResources of resource type - Then enumerates them, applying get_href to each instance
+        and then only returning the values with a non None/empty value.
+
+        This is primarily a convenience function for finding only specified hrefs for a resource set"""
+        for sr in self.get(type):
+            child_href = get_href(sr)
+            if child_href:
+                yield (sr, child_href)
 
 
 @dataclass
