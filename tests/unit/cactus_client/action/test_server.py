@@ -7,10 +7,6 @@ import pytest
 from aiohttp import ClientSession, web
 from aiohttp.test_utils import TestClient
 from assertical.asserts.type import assert_list_type
-from assertical.fake.generator import generate_class_instance
-from cactus_test_definitions.server.test_procedures import (
-    TestProcedure,
-)
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
@@ -23,14 +19,6 @@ from cactus_client.action.server import (
 )
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import RequestException
-from cactus_client.model.config import ClientConfig
-from cactus_client.model.context import ClientContext, ExecutionContext, ResourceStore
-from cactus_client.model.execution import StepExecution, StepExecutionList
-from cactus_client.model.progress import (
-    ProgressTracker,
-    ResponseTracker,
-    WarningTracker,
-)
 
 
 @dataclass
@@ -68,45 +56,13 @@ async def create_test_session(
     yield ClientSession(base_url=client.server.make_url("/"))
 
 
-def create_testing_contexts(tp: TestProcedure, client_session) -> tuple[ExecutionContext, StepExecution]:
-
-    client_alias = tp.preconditions.required_clients[0].id
-    client_context = ClientContext(
-        test_procedure_alias=client_alias,
-        client_config=generate_class_instance(ClientConfig, optional_is_none=True),
-        discovered_resources=ResourceStore(),
-        session=client_session,
-    )
-
-    execution_context = ExecutionContext(
-        tp,
-        "/my/dcap/path",
-        {client_alias: client_context},
-        StepExecutionList(),
-        WarningTracker(),
-        ProgressTracker(),
-        ResponseTracker(),
-    )
-
-    # attempts: int  # How many times has this step been attempted
-    step_execution = generate_class_instance(
-        StepExecution,
-        optional_is_none=True,
-        generate_relationships=True,
-        client_alias=client_alias,
-        client_resources_alias=client_alias,
-    )
-
-    return (execution_context, step_execution)
-
-
 @pytest.mark.asyncio
-async def test_get_resource_for_step_success(aiohttp_client, dummy_test_procedure):
+async def test_get_resource_for_step_success(aiohttp_client, testing_contexts_factory):
     """Does get_resource_for_step handle parsing the XML and returning the correct data"""
     async with create_test_session(
         aiohttp_client, HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
         result = await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
 
     # Assert - contents of response
@@ -120,14 +76,14 @@ async def test_get_resource_for_step_success(aiohttp_client, dummy_test_procedur
 
 
 @pytest.mark.asyncio
-async def test_get_resource_for_step_bad_request(aiohttp_client, dummy_test_procedure):
+async def test_get_resource_for_step_bad_request(aiohttp_client, testing_contexts_factory):
     """Does get_resource_for_step properly raise exceptions if a failure status is returned"""
 
     # We will try and trick the code by returning a normal dcap but with a proper error
     async with create_test_session(
         aiohttp_client, HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "dcap.xml")]
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
 
         with pytest.raises(RequestException):
             await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
@@ -137,14 +93,14 @@ async def test_get_resource_for_step_bad_request(aiohttp_client, dummy_test_proc
 
 
 @pytest.mark.asyncio
-async def test_get_resource_for_step_xml_failure(aiohttp_client, dummy_test_procedure):
-    """Does get_resource_for_step properly raise exceptions if a failure status is returned"""
+async def test_get_resource_for_step_xml_failure(aiohttp_client, testing_contexts_factory):
+    """Does get_resource_for_step properly raise exceptions if the XML can't parse into the desired type"""
 
     # The server is sending valid sep2 XML but the type doesn't match what we want
     async with create_test_session(
-        aiohttp_client, HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "edev-list.xml")]
+        aiohttp_client, HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "edev-list-1.xml")]
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
 
         with pytest.raises(RequestException):
             await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
@@ -154,7 +110,7 @@ async def test_get_resource_for_step_xml_failure(aiohttp_client, dummy_test_proc
 
 
 @pytest.mark.asyncio
-async def test_paginate_list_resource_items(aiohttp_client, dummy_test_procedure):
+async def test_paginate_list_resource_items(aiohttp_client, testing_contexts_factory):
     """Does paginate_list_resource_items work with EndDevice lists of multiple pages"""
     async with create_test_session(
         aiohttp_client,
@@ -166,7 +122,7 @@ async def test_paginate_list_resource_items(aiohttp_client, dummy_test_procedure
             RouteBehaviour.xml(HTTPStatus.OK, "edev-list-empty.xml"),
         ],
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
         result = await paginate_list_resource_items(
             EndDeviceListResponse,
             step_execution,
@@ -191,7 +147,7 @@ async def test_paginate_list_resource_items(aiohttp_client, dummy_test_procedure
 
 
 @pytest.mark.asyncio
-async def test_paginate_list_resource_items_handle_failure(aiohttp_client, dummy_test_procedure):
+async def test_paginate_list_resource_items_handle_failure(aiohttp_client, testing_contexts_factory):
     """Does paginate_list_resource_items handle failures in one of the pagination requests"""
     async with create_test_session(
         aiohttp_client,
@@ -203,7 +159,7 @@ async def test_paginate_list_resource_items_handle_failure(aiohttp_client, dummy
             RouteBehaviour.xml(HTTPStatus.OK, "edev-list-empty.xml"),  # Should never run
         ],
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
 
         with pytest.raises(RequestException):
             await paginate_list_resource_items(
@@ -223,7 +179,7 @@ async def test_paginate_list_resource_items_handle_failure(aiohttp_client, dummy
 
 
 @pytest.mark.asyncio
-async def test_paginate_list_resource_items_bad_all_count(aiohttp_client, dummy_test_procedure):
+async def test_paginate_list_resource_items_bad_all_count(aiohttp_client, testing_contexts_factory):
     """Does paginate_list_resource_items check the"""
     async with create_test_session(
         aiohttp_client,
@@ -234,7 +190,7 @@ async def test_paginate_list_resource_items_bad_all_count(aiohttp_client, dummy_
             RouteBehaviour.xml(HTTPStatus.OK, "edev-list-empty.xml"),
         ],
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
         result = await paginate_list_resource_items(
             EndDeviceListResponse,
             step_execution,
@@ -257,7 +213,7 @@ async def test_paginate_list_resource_items_bad_all_count(aiohttp_client, dummy_
 
 
 @pytest.mark.asyncio
-async def test_paginate_list_resource_items_empty_list(aiohttp_client, dummy_test_procedure):
+async def test_paginate_list_resource_items_empty_list(aiohttp_client, testing_contexts_factory):
     """Does paginate_list_resource_items work with an empty list"""
     behaviour = RouteBehaviour.xml(HTTPStatus.OK, "edev-list-empty.xml")
     behaviour.body = behaviour.body.decode().replace('all="3"', 'all="0"').encode()  # Make this a proper empty list
@@ -267,7 +223,7 @@ async def test_paginate_list_resource_items_empty_list(aiohttp_client, dummy_tes
         "/foo/bar",
         [behaviour],
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
         result = await paginate_list_resource_items(
             EndDeviceListResponse,
             step_execution,
@@ -287,7 +243,7 @@ async def test_paginate_list_resource_items_empty_list(aiohttp_client, dummy_tes
 
 
 @pytest.mark.asyncio
-async def test_paginate_list_resource_items_too_many_requests(aiohttp_client, dummy_test_procedure):
+async def test_paginate_list_resource_items_too_many_requests(aiohttp_client, testing_contexts_factory):
     """Does paginate_list_resource_items handle failures in one of the pagination requests"""
     async with create_test_session(
         aiohttp_client,
@@ -299,7 +255,7 @@ async def test_paginate_list_resource_items_too_many_requests(aiohttp_client, du
             RouteBehaviour.xml(HTTPStatus.OK, "edev-list-empty.xml"),  # Should never run
         ],
     ) as session:
-        (execution_context, step_execution) = create_testing_contexts(dummy_test_procedure, session)
+        (execution_context, step_execution) = testing_contexts_factory(session)
 
         with pytest.raises(RequestException):
             await paginate_list_resource_items(
