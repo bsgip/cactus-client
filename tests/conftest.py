@@ -18,6 +18,7 @@ from cactus_client.model.progress import (
     ResponseTracker,
     WarningTracker,
 )
+from cactus_client.model.resource import CSIPAusResourceTree
 
 
 @pytest.fixture
@@ -52,11 +53,12 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
     containing a fully populated ExecutionContext and StepExcecution"""
 
     def create_testing_contexts(client_session) -> tuple[ExecutionContext, StepExecution]:
+        tree = CSIPAusResourceTree()
         client_alias = dummy_test_procedure.preconditions.required_clients[0].id
         client_context = ClientContext(
             test_procedure_alias=client_alias,
             client_config=generate_class_instance(ClientConfig, optional_is_none=True),
-            discovered_resources=ResourceStore(),
+            discovered_resources=ResourceStore(tree),
             session=client_session,
         )
 
@@ -68,6 +70,7 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
             WarningTracker(),
             ProgressTracker(),
             ResponseTracker(),
+            tree,
         )
 
         # attempts: int  # How many times has this step been attempted

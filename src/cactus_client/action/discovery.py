@@ -2,96 +2,37 @@ import asyncio
 from datetime import datetime
 from typing import Any, Callable, cast
 
-from aiohttp import ClientSession
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
-from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
 from envoy_schema.server.schema.sep2.der import (
-    DER,
-    DefaultDERControl,
-    DERCapability,
     DERControlListResponse,
-    DERControlResponse,
     DERListResponse,
     DERProgramListResponse,
-    DERProgramResponse,
-    DERSettings,
-    DERStatus,
 )
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
-    EndDeviceResponse,
-    RegistrationResponse,
 )
 from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsListResponse,
-    FunctionSetAssignmentsResponse,
 )
-from envoy_schema.server.schema.sep2.identification import Link, Resource
-from envoy_schema.server.schema.sep2.metering_mirror import (
-    MirrorMeterReading,
-    MirrorUsagePoint,
-    MirrorUsagePointListResponse,
-)
-from envoy_schema.server.schema.sep2.time import TimeResponse
-from treelib import Tree
+from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
+from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
 from cactus_client.action.server import (
     get_resource_for_step,
     paginate_list_resource_items,
 )
 from cactus_client.error import CactusClientException
-from cactus_client.model.context import ExecutionContext, ResourceStore, StoredResource
+from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
+from cactus_client.model.resource import (
+    RESOURCE_SEP2_TYPES,
+    ResourceStore,
+)
 from cactus_client.time import utc_now
 
 DISCOVERY_LIST_PAGE_SIZE = 3  # We want something suitably small (to ensure pagination is tested)
-
-
-def get_resource_tree() -> Tree:
-    """Returns the tree of CSIPAusResource parent/child relationships. DeviceCapability is forming the root"""
-
-    tree = Tree()
-    tree.create_node(identifier=CSIPAusResource.DeviceCapability, parent=None)
-    tree.create_node(identifier=CSIPAusResource.Time, parent=CSIPAusResource.DeviceCapability)
-    tree.create_node(identifier=CSIPAusResource.MirrorUsagePointList, parent=CSIPAusResource.DeviceCapability)
-    tree.create_node(identifier=CSIPAusResource.EndDeviceList, parent=CSIPAusResource.DeviceCapability)
-    tree.create_node(identifier=CSIPAusResource.MirrorUsagePoint, parent=CSIPAusResource.MirrorUsagePointList)
-    tree.create_node(identifier=CSIPAusResource.EndDevice, parent=CSIPAusResource.EndDeviceList)
-    tree.create_node(identifier=CSIPAusResource.ConnectionPoint, parent=CSIPAusResource.EndDevice)
-    tree.create_node(identifier=CSIPAusResource.Registration, parent=CSIPAusResource.EndDevice)
-    tree.create_node(identifier=CSIPAusResource.FunctionSetAssignmentsList, parent=CSIPAusResource.EndDevice)
-    tree.create_node(
-        identifier=CSIPAusResource.FunctionSetAssignments, parent=CSIPAusResource.FunctionSetAssignmentsList
-    )
-    tree.create_node(identifier=CSIPAusResource.DERProgramList, parent=CSIPAusResource.FunctionSetAssignments)
-    tree.create_node(identifier=CSIPAusResource.DERProgram, parent=CSIPAusResource.DERProgramList)
-    tree.create_node(identifier=CSIPAusResource.DefaultDERControl, parent=CSIPAusResource.DERProgram)
-    tree.create_node(identifier=CSIPAusResource.DERControlList, parent=CSIPAusResource.DERProgram)
-    tree.create_node(identifier=CSIPAusResource.DERControl, parent=CSIPAusResource.DERControlList)
-    tree.create_node(identifier=CSIPAusResource.DERList, parent=CSIPAusResource.EndDevice)
-    tree.create_node(identifier=CSIPAusResource.DER, parent=CSIPAusResource.DERList)
-    tree.create_node(identifier=CSIPAusResource.DERCapability, parent=CSIPAusResource.DER)
-    tree.create_node(identifier=CSIPAusResource.DERSettings, parent=CSIPAusResource.DER)
-    tree.create_node(identifier=CSIPAusResource.DERStatus, parent=CSIPAusResource.DER)
-
-    return tree
-
-
-def discover_resource_plan(tree: Tree, target_resources: list[CSIPAusResource]) -> list[CSIPAusResource]:
-    """Given a list of resource targets and their hierarchy - calculate the ordered sequence of requests required
-    to "walk" the tree such that all target_resources are hit (and nothing is double fetched)"""
-
-    visit_order: list[CSIPAusResource] = []
-    visited_nodes: set[CSIPAusResource] = set()
-    for target in target_resources:
-        for step in reversed(list(tree.rsearch(target))):
-            if step in visited_nodes:
-                continue
-            visited_nodes.add(step)
-            visit_order.append(step)
-
-    return visit_order
 
 
 def calculate_wait_next_polling_window(now: datetime, discovered_resources: ResourceStore) -> int:
@@ -110,278 +51,72 @@ def calculate_wait_next_polling_window(now: datetime, discovered_resources: Reso
     return poll_rate_seconds - (now_seconds % poll_rate_seconds)
 
 
-def get_link_href(link: Link | None) -> str | None:
-    """Convenience function to reduce boilerplate - returns the href (if available) or None"""
-    if link is None:
-        return None
-    return link.href
-
-
-async def do_discovery_singular(
-    target_resource: CSIPAusResource,
-    target_type: type[Resource],
-    parent_resource: CSIPAusResource,
-    get_href: Callable[[StoredResource], str | None],
-    step: StepExecution,
-    context: ExecutionContext,
-) -> None:
-    """Enumerates all parent_resources - extracts all child hrefs for target and then makes requests for those target.
-
-    This is for requesting resources that return a SINGLE instance per request"""
-    resource_store = context.discovered_resources(step)
-    resource_store.clear_resource(target_resource)
-
-    # For every parent resource - make a request for a single entity of target_type
-    for sr, href in resource_store.get_resource_hrefs(parent_resource, get_href):
-        target_entity = await get_resource_for_step(target_type, step, context, href)
-        resource_store.append_resource(target_resource, sr, target_entity)
-
-
-async def do_discovery_list_items(
-    target_resource: CSIPAusResource,
-    list_resource: CSIPAusResource,
-    list_type: type[Resource],
-    get_list_href: Callable[[StoredResource], str | None],
-    get_list_items: Callable[[Resource], list[Any] | None],
-    step: StepExecution,
-    context: ExecutionContext,
-) -> None:
-    """Enumerates all parent_resources - extracts all child hrefs for target and then makes requests for those targets.
-
-    This is for requesting resources that site underneath a list type"""
-    resource_store = context.discovered_resources(step)
-    resource_store.clear_resource(target_resource)
-
-    # Find EVERY parent list that exists (there might be multiple)
-    for sr, href in resource_store.get_resource_hrefs(list_resource, get_list_href):
-
-        # Paginate through each of the lists - each of those items are the things we want to store
-        list_items = await paginate_list_resource_items(
-            list_type, step, context, href, DISCOVERY_LIST_PAGE_SIZE, get_list_items
-        )
-        for item in list_items:
-            resource_store.append_resource(target_resource, sr, item)
-
-
 async def discover_resource(resource: CSIPAusResource, step: StepExecution, context: ExecutionContext) -> None:
     """Performs discovery for the particular resource - it is assumed that all parent resources have been previously
     fetched."""
-    match resource:
-        case CSIPAusResource.DeviceCapability:
-            context.discovered_resources(step).set_resource(
-                resource,
-                None,
-                await get_resource_for_step(DeviceCapabilityResponse, step, context, context.dcap_path),
-            )
 
-        case CSIPAusResource.Time:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=TimeResponse,
-                parent_resource=CSIPAusResource.DeviceCapability,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DeviceCapabilityResponse, sr.resource).TimeLink),
-            )
+    resource_store = context.discovered_resources(step)
+    resource_store.clear_resource(resource)
 
-        case CSIPAusResource.MirrorUsagePointList:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=MirrorUsagePointListResponse,
-                parent_resource=CSIPAusResource.DeviceCapability,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DeviceCapabilityResponse, sr.resource).MirrorUsagePointListLink),
-            )
+    # Find the link / parent list that we will be querying
+    # We need to check if there is a direct Link.href reference to this resource (from a parent)
+    # We need to also check if the parent resource is a list type and this resource is a member of that list
+    parent_resource = context.resource_tree.parent_resource(resource)
+    if parent_resource is None:
+        # We have device capability - this is a special case
+        resource_store.append_resource(
+            CSIPAusResource.DeviceCapability,
+            None,
+            await get_resource_for_step(DeviceCapabilityResponse, step, context, context.dcap_path),
+        )
+        return
 
-        case CSIPAusResource.MirrorUsagePoint:
-            await do_discovery_list_items(
-                target_resource=resource,
-                list_resource=CSIPAusResource.MirrorUsagePointList,
-                list_type=MirrorUsagePointListResponse,
-                get_list_href=lambda sr: cast(MirrorUsagePointListResponse, sr.resource).href,
-                get_list_items=lambda list_: cast(MirrorUsagePointListResponse, list_).mirrorUsagePoints,
-                step=step,
-                context=context,
-            )
+    if is_list_resource(parent_resource):
+        # If this is a member of a list (eg resource is EndDevice and parent_resource is EndDeviceList)
 
-        case CSIPAusResource.EndDeviceList:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=EndDeviceListResponse,
-                parent_resource=CSIPAusResource.DeviceCapability,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DeviceCapabilityResponse, sr.resource).EndDeviceListLink),
-            )
+        # We need to know how to decompose a parent list to get at the child items
+        get_list_items: Callable[[Resource], list[Resource] | None] | None = None
+        match (parent_resource):
+            case CSIPAusResource.MirrorUsagePointList:
+                get_list_items = lambda list_: cast(MirrorUsagePointListResponse, list_).mirrorUsagePoints  # type: ignore # noqa: E731
+            case CSIPAusResource.EndDeviceList:
+                get_list_items = lambda list_: cast(EndDeviceListResponse, list_).EndDevice  # type: ignore # noqa: E731
+            case CSIPAusResource.DERList:
+                get_list_items = lambda list_: cast(DERListResponse, list_).DER_  # type: ignore # noqa: E731
+            case CSIPAusResource.DERProgramList:
+                get_list_items = lambda list_: cast(DERProgramListResponse, list_).DERProgram  # type: ignore # noqa: E731
+            case CSIPAusResource.DERControlList:
+                get_list_items = lambda list_: cast(DERControlListResponse, list_).DERControl  # type: ignore # noqa: E731
+            case CSIPAusResource.FunctionSetAssignmentsList:
+                get_list_items = lambda list_: cast(FunctionSetAssignmentsListResponse, list_).FunctionSetAssignments  # type: ignore # noqa: E731
+            case CSIPAusResource.SubscriptionList:
+                get_list_items = lambda list_: cast(SubscriptionListResponse, list_).subscriptions  # type: ignore # noqa: E731
 
-        case CSIPAusResource.EndDevice:
-            await do_discovery_list_items(
-                target_resource=resource,
-                list_resource=CSIPAusResource.EndDeviceList,
-                list_type=EndDeviceListResponse,
-                get_list_href=lambda sr: cast(EndDeviceListResponse, sr.resource).href,
-                get_list_items=lambda list_: cast(EndDeviceListResponse, list_).EndDevice,
-                step=step,
-                context=context,
-            )
+        if get_list_items is None:
+            raise CactusClientException(f"resource {parent_resource} has no registered get_list_items function.")
 
-        case CSIPAusResource.ConnectionPoint:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=ConnectionPointResponse,
-                parent_resource=CSIPAusResource.EndDevice,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(EndDeviceResponse, sr.resource).ConnectionPointLink),
-            )
+        # Each of our parent resources will be a List - time to paginate through them
+        for parent_sr in resource_store.get(parent_resource):
+            list_href = parent_sr.resource.href
+            if not list_href:
+                continue
 
-        case CSIPAusResource.Registration:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=RegistrationResponse,
-                parent_resource=CSIPAusResource.EndDevice,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(EndDeviceResponse, sr.resource).RegistrationLink),
+            # Paginate through each of the lists - each of those items are the things we want to store
+            list_items = await paginate_list_resource_items(
+                RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, DISCOVERY_LIST_PAGE_SIZE, get_list_items
             )
-
-        case CSIPAusResource.FunctionSetAssignmentsList:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=FunctionSetAssignmentsListResponse,
-                parent_resource=CSIPAusResource.EndDevice,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(EndDeviceResponse, sr.resource).FunctionSetAssignmentsListLink),
-            )
-
-        case CSIPAusResource.FunctionSetAssignments:
-            await do_discovery_list_items(
-                target_resource=resource,
-                list_resource=CSIPAusResource.FunctionSetAssignmentsList,
-                list_type=FunctionSetAssignmentsListResponse,
-                get_list_href=lambda sr: cast(FunctionSetAssignmentsListResponse, sr.resource).href,
-                get_list_items=lambda list_: cast(FunctionSetAssignmentsListResponse, list_).FunctionSetAssignments,
-                step=step,
-                context=context,
-            )
-
-        case CSIPAusResource.DERProgramList:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DERProgramResponse,
-                parent_resource=CSIPAusResource.FunctionSetAssignments,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(FunctionSetAssignmentsResponse, sr.resource).DERProgramListLink),
-            )
-
-        case CSIPAusResource.DERProgram:
-            await do_discovery_list_items(
-                target_resource=resource,
-                list_resource=CSIPAusResource.DERProgramList,
-                list_type=DERProgramListResponse,
-                get_list_href=lambda sr: cast(DERProgramListResponse, sr.resource).href,
-                get_list_items=lambda list_: cast(DERProgramListResponse, list_).DERProgram,
-                step=step,
-                context=context,
-            )
-
-        case CSIPAusResource.DefaultDERControl:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DefaultDERControl,
-                parent_resource=CSIPAusResource.DERProgram,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DERProgramResponse, sr.resource).DefaultDERControlLink),
-            )
-
-        case CSIPAusResource.DefaultDERControl:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DefaultDERControl,
-                parent_resource=CSIPAusResource.DERProgram,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DERProgramResponse, sr.resource).DefaultDERControlLink),
-            )
-
-        case CSIPAusResource.DERControlList:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DERControlListResponse,
-                parent_resource=CSIPAusResource.DERProgram,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DERProgramResponse, sr.resource).DERControlListLink),
-            )
-
-        case CSIPAusResource.DERControl:
-            await do_discovery_list_items(
-                target_resource=resource,
-                list_resource=CSIPAusResource.DERControlList,
-                list_type=DERControlListResponse,
-                get_list_href=lambda sr: cast(DERControlListResponse, sr.resource).href,
-                get_list_items=lambda list_: cast(DERControlListResponse, list_).DERControl,
-                step=step,
-                context=context,
-            )
-
-        case CSIPAusResource.DERList:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DERListResponse,
-                parent_resource=CSIPAusResource.EndDevice,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(EndDeviceResponse, sr.resource).DERListLink),
-            )
-
-        case CSIPAusResource.DER:
-            await do_discovery_list_items(
-                target_resource=resource,
-                list_resource=CSIPAusResource.DERList,
-                list_type=DERListResponse,
-                get_list_href=lambda sr: cast(DERListResponse, sr.resource).href,
-                get_list_items=lambda list_: cast(DERListResponse, list_).DER_,
-                step=step,
-                context=context,
-            )
-
-        case CSIPAusResource.DERCapability:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DERCapability,
-                parent_resource=CSIPAusResource.DER,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DER, sr.resource).DERCapabilityLink),
-            )
-
-        case CSIPAusResource.DERSettings:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DERSettings,
-                parent_resource=CSIPAusResource.DER,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DER, sr.resource).DERSettingsLink),
-            )
-
-        case CSIPAusResource.DERStatus:
-            await do_discovery_singular(
-                target_resource=resource,
-                target_type=DERStatus,
-                parent_resource=CSIPAusResource.DER,
-                step=step,
-                context=context,
-                get_href=lambda sr: get_link_href(cast(DER, sr.resource).DERStatusLink),
-            )
-
-        case _:
-            raise CactusClientException(f"Resource {resource} is not supported in this version of cactus.")
+            for item in list_items:
+                resource_store.append_resource(resource, parent_sr, item)
+    else:
+        # Not a list item - look for direct links from parent (eg an EndDevice.ConnectionPointLink -> ConnectionPoint)
+        for parent_sr in resource_store.get(parent_resource):
+            href = parent_sr.resource_link_hrefs.get(resource, None)
+            if href:
+                resource_store.append_resource(
+                    resource,
+                    parent_sr,
+                    await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href),
+                )
 
 
 async def action_discovery(
@@ -399,10 +134,7 @@ async def action_discovery(
         await asyncio.sleep(delay_seconds)
 
     # Start making requests for resources
-    for resource in discover_resource_plan(RESOURCE_TREE, resources):
+    for resource in context.resource_tree.discover_resource_plan(resources):
         await discover_resource(resource, step, context)
 
     return ActionResult.done()
-
-
-RESOURCE_TREE = get_resource_tree()  # This shouldn't be changing during execution

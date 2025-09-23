@@ -7,6 +7,14 @@ from cactus_test_definitions.server.test_procedures import Step
 
 
 @dataclass
+class CheckResult:
+    """Represents the results of a running a single check"""
+
+    passed: bool  # True if the check is considered passed or successful. False otherwise
+    description: str | None  # Human readable description of what the check "considered" or wants to elaborate about
+
+
+@dataclass
 class ActionResult:
     repeat: bool  # If true - this will trigger the action to retrigger again (with a higher repeat number)
     not_before: datetime | None  # If repeat is true - this will be the new value for StepExecution.not_before
