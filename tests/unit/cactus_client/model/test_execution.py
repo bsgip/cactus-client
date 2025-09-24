@@ -11,11 +11,13 @@ def test_StepExecutionList():
 
     # Empty list should still work OK
     assert se_list.pop(now) is None
+    assert se_list.peek(now) is None
     assert se_list.time_until_next(now) is None
     assert len(se_list) == 0
 
     se1 = generate_class_instance(StepExecution, seed=101, primacy=10, not_before=now + timedelta(seconds=10))
     se_list.add(se1)
+    assert se_list.peek(now) is None, "Not before is in the future"
     assert se_list.pop(now) is None, "Not before is in the future"
     assert se_list.time_until_next(now) == timedelta(seconds=10)
     assert se_list.time_until_next(now + timedelta(seconds=20)) == timedelta(seconds=0)
@@ -24,8 +26,10 @@ def test_StepExecutionList():
     se2 = generate_class_instance(StepExecution, seed=202, primacy=12, not_before=now + timedelta(seconds=5))
     se_list.add(se2)
     assert se_list.time_until_next(now) == timedelta(seconds=5)
+    assert se_list.peek(now) is None, "Not before is in the future"
     assert se_list.pop(now) is None, "Not before is in the future"
     assert len(se_list) == 2
+    assert se_list.peek(now + timedelta(seconds=5)) == se2
     assert se_list.pop(now + timedelta(seconds=5)) == se2
     assert len(se_list) == 1
     se_list.add(se2)  # re-add se2
@@ -40,12 +44,19 @@ def test_StepExecutionList():
     se_list.add(se6)
     assert se_list.time_until_next(now) == timedelta(seconds=0)
     assert len(se_list) == 6
+    assert se_list.peek(now) == se4
     assert se_list.pop(now) == se4
+    assert se_list.peek(now) == se6
     assert se_list.pop(now) == se6
+    assert se_list.peek(now) == se5
     assert se_list.pop(now) == se5
+
+    assert se_list.peek(now + timedelta(seconds=20)) == se1
     assert se_list.pop(now + timedelta(seconds=20)) == se1
+    assert se_list.peek(now + timedelta(seconds=20)) == se2
     assert se_list.pop(now + timedelta(seconds=20)) == se2
     assert se_list.time_until_next(now) == timedelta(0)
+    assert se_list.peek(now + timedelta(seconds=20)) == se3
     assert se_list.pop(now + timedelta(seconds=20)) == se3
     assert se_list.time_until_next(now) is None
     assert len(se_list) == 0

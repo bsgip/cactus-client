@@ -37,7 +37,7 @@ class ExecutionContext:
 
     test_procedure: TestProcedure  # The test procedure being run
     test_procedures_version: str
-    output_directory: Path # The root output directory for any outputs from this test
+    output_directory: Path  # The root output directory for any outputs from this test
     dcap_path: str  # The URI path component of the device_capability_uri
     clients_by_alias: dict[str, ClientContext]  # The Clients in use for this test, keyed by their test procedure alias
     steps: StepExecutionList
@@ -45,7 +45,6 @@ class ExecutionContext:
     progress: ProgressTracker
     responses: ResponseTracker
     resource_tree: CSIPAusResourceTree
-    
 
     def client_config(self, step: StepExecution) -> ClientConfig:
         """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""

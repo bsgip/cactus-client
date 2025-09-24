@@ -5,6 +5,8 @@ from ssl import SSLContext
 from aiohttp import ClientSession
 from cactus_test_definitions.server.test_procedures import Step
 
+MAX_PRIMACY = 0xEFFFFFFF  # If we're dealing with primacies bigger than this - something has gone wrong
+
 
 @dataclass
 class CheckResult:
@@ -26,6 +28,13 @@ class ActionResult:
 
 
 @dataclass
+class ExecutionResult:
+    """Represents the final result from a full execution of a test procedure"""
+
+    completed: bool  # True if the execution completed without an exception being raised (successful or not)
+
+
+@dataclass
 class StepExecution:
     """Represents a planned execution of a Step's actions/checks."""
 
@@ -37,6 +46,14 @@ class StepExecution:
     not_before: datetime | None  # If set - this step cannot start execution until after this point in time
 
     attempts: int  # How many times has this step been attempted
+
+    def executable_delay_required(self, now: datetime) -> timedelta:
+        """Can this step be executed at this exact moment based on not_before? If so - return timedelta(0) otherwise
+        return the delay required"""
+        if self.not_before is None or self.not_before <= now:
+            return timedelta(0)
+
+        return self.not_before - now
 
 
 class StepExecutionList:
@@ -52,28 +69,9 @@ class StepExecutionList:
     def __len__(self) -> int:
         return len(self._items)
 
-    def time_until_next(self, now: datetime) -> timedelta | None:
-        """Calculates the time until the next item from pop() will be available. Returns timedelta(0) if something is
-        available now. Returns None if there is nothing left in the list"""
-
-        if len(self._items) == 0:
-            return None
-
-        earliest_not_before = datetime(9999, 1, 1, tzinfo=now.tzinfo)
-        for se in self._items:
-            if se.not_before is None:
-                return timedelta(0)
-            elif se.not_before < earliest_not_before:
-                earliest_not_before = se.not_before
-
-        # Don't serve a negative delta
-        if earliest_not_before <= now:
-            return timedelta(0)
-
-        return earliest_not_before - now
-
-    def pop(self, now: datetime) -> StepExecution | None:
-        """Finds the highest priority StepExecution in the queue (whose not_before is <= now)"""
+    def peek(self, now: datetime) -> StepExecution | None:
+        """Returns the lowest primacy StepExecution whose not_before is either None or <= now. Does NOT remove the
+        step from the list."""
         lowest_primacy = 0xEFFFFFFF  # If we're dealing with primacies bigger than this - something has gone wrong
         lowest: StepExecution | None = None
         for se in self._items:
@@ -84,10 +82,51 @@ class StepExecutionList:
                 lowest = se
                 lowest_primacy = se.primacy
 
-        # If we ever start dealing with 100s of steps - this method will need to be improved
-        if lowest is not None:
-            self._items.remove(lowest)
         return lowest
+
+    def peek_next_no_wait(self, now: datetime) -> StepExecution | None:
+        """Similar to peek - but if nothing is immediately available - picks the item with the soonest not_before"""
+        next_step = self.peek(now)
+        if next_step is not None:
+            return next_step
+
+        # Time to search for the lowest not_before
+        earliest_not_before = datetime(9999, 1, 1, tzinfo=now.tzinfo)
+        earliest: StepExecution | None = None
+        for se in self._items:
+            # Should technically not happen due to the earlier call to peek but just in case
+            if se.not_before is None:
+                return se
+
+            if se.not_before < earliest_not_before:
+                earliest_not_before = se.not_before
+                earliest = se
+
+        return earliest
+
+    def time_until_next(self, now: datetime) -> timedelta | None:
+        """Calculates the time until the next item from pop() will be available. Returns timedelta(0) if something is
+        available now. Returns None if there is nothing left in the list"""
+
+        if len(self._items) == 0:
+            return None
+
+        next_item = self.peek_next_no_wait(now)
+        if next_item is None:
+            return None
+
+        if next_item.not_before is None or next_item.not_before <= now:
+            return timedelta(0)
+
+        return next_item.not_before - now
+
+    def pop(self, now: datetime) -> StepExecution | None:
+        """Finds the lowest primacy StepExecution (whose not_before is <= now), removes it from the list and returns
+        it"""
+        next_step = self.peek(now)
+        if next_step is not None:
+            self._items.remove(next_step)
+        return next_step
 
     def add(self, se: StepExecution) -> None:
         self._items.append(se)

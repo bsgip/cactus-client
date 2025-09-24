@@ -1,6 +1,7 @@
 import logging
 
 from cactus_client.action.discovery import action_discovery
+from cactus_client.action.noop import action_noop
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -26,6 +27,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         )
 
     match (action_info.type):
+        case "no-op":
+            return await action_noop()
         case "discovery":
             return await action_discovery(resolved_params, step, context)
         case _:
