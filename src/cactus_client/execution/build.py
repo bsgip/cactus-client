@@ -18,7 +18,7 @@ from cactus_client.model.config import (
     ServerConfig,
 )
 from cactus_client.model.context import ClientContext, ExecutionContext
-from cactus_client.model.execution import StepExecutionList
+from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.progress import (
     ProgressTracker,
     ResponseTracker,
@@ -98,7 +98,37 @@ def build_dcap_parts(server: ServerConfig) -> tuple[str, str]:
     return (f"{dcap_scheme}://{dcap_host}/", dcap_path)
 
 
-def build_execution_context(user_config: GlobalConfig, run_config: RunConfig) -> ExecutionContext:
+def build_initial_step_execution_list(tp: TestProcedure) -> StepExecutionList:
+    """Creates a step execution list from a test procedure definition"""
+    result = StepExecutionList()
+    client_aliases: list[str] = [c.id for c in tp.preconditions.required_clients]
+    if not client_aliases:
+        raise ConfigException("Expected at least one client in the test definition. This is a test definition bug.")
+
+    for idx, step in enumerate(tp.steps):
+        client_alias: str | None = step.client
+        if not client_alias:
+            client_alias = client_aliases[0]  # By convention - an unspecified client_alias means the first client
+
+        client_resource_alias = client_alias
+        if step.use_client_context:
+            client_resource_alias = step.use_client_context
+
+        result.add(
+            StepExecution(
+                source=step,
+                client_alias=client_alias,
+                client_resources_alias=client_resource_alias,
+                primacy=idx,  # Use index as the primacy so that the steps execute in order
+                repeat_number=0,
+                not_before=None,
+                attempts=0,
+            )
+        )
+    return result
+
+
+async def build_execution_context(user_config: GlobalConfig, run_config: RunConfig) -> ExecutionContext:
     """Takes all the information from the user's configuration AND the supplied config for this run and generates
     an ExecutionContext that's ready to start a run.
 
@@ -111,6 +141,9 @@ def build_execution_context(user_config: GlobalConfig, run_config: RunConfig) ->
     tp = all_test_procedures.test_procedures.get(tp_id, None)
     if tp is None:
         raise ConfigException(f"Test Procedure ID '{tp_id}' isn't recognised for version {tp_version}.")
+
+    if run_config.version not in tp.target_versions:
+        raise ConfigException(f"The requested version {run_config.version} is not supported by {tp_id}")
 
     if not user_config.output_dir:
         raise ConfigException("output_dir has not been specified.")
@@ -138,7 +171,7 @@ def build_execution_context(user_config: GlobalConfig, run_config: RunConfig) ->
         output_directory=output_dir,
         dcap_path=dcap_path,
         clients_by_alias=clients_by_alias,
-        steps=StepExecutionList(),
+        steps=build_initial_step_execution_list(tp),
         progress=ProgressTracker(),
         resource_tree=resource_tree,
         responses=ResponseTracker(),

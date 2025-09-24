@@ -49,7 +49,6 @@ class RunConfig:
 
     test_procedure_id: TestProcedureId  # What test procedure is being run?
     client_ids: list[str]  # What clients are being
-    output_dir: str  # Working directory for all outputs associated with this test
     version: str  # What version of the tests are being evaluated?
 
 
