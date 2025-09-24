@@ -193,6 +193,57 @@ def test_ResourceStore():
     assert s.get(CSIPAusResource.DeviceCapability) == []
 
 
+def test_ResourceStore_get_descendents_of():
+    """Tests the various "normal" ways of looking descendents of"""
+    s = ResourceStore(CSIPAusResourceTree())
+
+    # We are building the following tree
+    #
+    #                         /- derp1
+    #       /- edev1 - derpl1 - derp2 - dderc1
+    # edevl
+    #       \- edev2 - derpl2 - derp3
+    #
+    #
+    # mupl
+
+    edevl = generate_class_instance(EndDeviceListResponse, seed=101, generate_relationships=True)
+    edev_1 = generate_class_instance(EndDeviceResponse, seed=202, generate_relationships=True)
+    edev_2 = generate_class_instance(EndDeviceResponse, seed=303, generate_relationships=True)
+    derpl_1 = generate_class_instance(DERProgramListResponse, seed=404, generate_relationships=True)
+    derpl_2 = generate_class_instance(DERProgramListResponse, seed=505, generate_relationships=True)
+    derp_1 = generate_class_instance(DERProgramResponse, seed=606, generate_relationships=True)
+    derp_2 = generate_class_instance(DERProgramResponse, seed=707, generate_relationships=True)
+    derp_3 = generate_class_instance(DERProgramResponse, seed=808, generate_relationships=True)
+    dderc_1 = generate_class_instance(DefaultDERControl, seed=909, generate_relationships=True)
+    mupl = generate_class_instance(MirrorUsagePointListResponse, seed=1010, generate_relationships=True)
+
+    sr_edevl = s.append_resource(CSIPAusResource.EndDeviceList, None, edevl)
+    sr_edev_1 = s.append_resource(CSIPAusResource.EndDevice, sr_edevl, edev_1)
+    sr_edev_2 = s.append_resource(CSIPAusResource.EndDevice, sr_edevl, edev_2)
+    sr_derpl_1 = s.append_resource(CSIPAusResource.DERProgramList, sr_edev_1, derpl_1)
+    sr_derpl_2 = s.append_resource(CSIPAusResource.DERProgramList, sr_edev_2, derpl_2)
+    sr_derp_1 = s.append_resource(CSIPAusResource.DERProgram, sr_derpl_1, derp_1)
+    sr_derp_2 = s.append_resource(CSIPAusResource.DERProgram, sr_derpl_1, derp_2)
+    sr_derp_3 = s.append_resource(CSIPAusResource.DERProgram, sr_derpl_2, derp_3)
+    sr_dderc_1 = s.append_resource(CSIPAusResource.DefaultDERControl, sr_derp_2, dderc_1)
+    sr_mupl = s.append_resource(CSIPAusResource.MirrorUsagePointList, None, mupl)
+
+    assert s.get_descendents_of(CSIPAusResource.DERProgramList, sr_edev_1) == [sr_derpl_1]
+
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edev_1) == [sr_derp_1, sr_derp_2]
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edev_2) == [sr_derp_3]
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edevl) == [sr_derp_1, sr_derp_2, sr_derp_3]
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_mupl) == []
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_dderc_1) == []
+
+    assert s.get_descendents_of(CSIPAusResource.DefaultDERControl, sr_derp_1) == []
+    assert s.get_descendents_of(CSIPAusResource.DefaultDERControl, sr_derp_2) == [sr_dderc_1]
+    assert s.get_descendents_of(CSIPAusResource.DefaultDERControl, sr_derpl_1) == [sr_dderc_1]
+    assert s.get_descendents_of(CSIPAusResource.DefaultDERControl, sr_derpl_2) == []
+    assert s.get_descendents_of(CSIPAusResource.DefaultDERControl, sr_mupl) == []
+
+
 SEP2_TYPES_WITH_LINKS: list[tuple[CSIPAusResource, type]] = [
     (CSIPAusResource.DeviceCapability, DeviceCapabilityResponse),
     (CSIPAusResource.EndDevice, EndDeviceResponse),

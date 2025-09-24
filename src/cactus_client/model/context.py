@@ -43,6 +43,10 @@ class ExecutionContext:
     responses: ResponseTracker
     resource_tree: CSIPAusResourceTree
 
+    def client_config(self, step: StepExecution) -> ClientConfig:
+        """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""
+        return self.clients_by_alias[step.client_alias].client_config
+
     def session(self, step: StepExecution) -> ClientSession:
         """Convenience function for accessing the ClientSession for a specific step (based on client alias)"""
         return self.clients_by_alias[step.client_alias].session

@@ -131,16 +131,29 @@ class CSIPAusResourceTree:
         return self.tree.ancestor(target)  # type: ignore
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class StoredResource:
     created_at: datetime  # When did this resource get created/stored
     resource_type: CSIPAusResource
     parent: Optional["StoredResource"]  # The parent of this resource (at the time of discovery)
-    resource: Resource  # The common 2030.5 Resource that is being stored. List items "may" have some children populated
     resource_link_hrefs: dict[
         CSIPAusResource, str
     ]  # hrefs from Link.href values found in this resource, keyed by the resource type they point to.
     member_of_list: CSIPAusResource | None  # If specified - this resource is a member of a List of this type
+
+    resource: Resource  # The common 2030.5 Resource that is being stored. List items "may" have some children populated
+
+    def __hash__(self):
+        return hash(
+            (
+                self.created_at,
+                self.resource_type,
+                self.parent,
+                tuple(self.resource_link_hrefs.items()),
+                self.member_of_list,
+                id(self.resource),
+            )
+        )
 
     @staticmethod
     def from_resource(
@@ -208,6 +221,26 @@ class ResourceStore:
     def get(self, type: CSIPAusResource) -> list[StoredResource]:
         """Finds all StoredResources of the specified resource type. Returns empty list if none are found"""
         return self.store.get(type, [])
+
+    def get_descendents_of(self, type: CSIPAusResource, parent: StoredResource) -> list[StoredResource]:
+        """Finds all StoredResources of the specified resource type that ALSO list parent in the their chain of parents
+        (at any level). Returns empty list if none are found."""
+        matches: list[StoredResource] = []
+
+        for potential_match in self.get(type):
+            visited_parents: set[StoredResource] = {potential_match}  # Stop infinite loops
+            current_ancestor = potential_match.parent
+            while current_ancestor is not None:
+                if current_ancestor in visited_parents:
+                    break  # No match - we've looped back around somehow (this is bad)
+                if current_ancestor is parent:
+                    matches.append(potential_match)
+                    break  # We found a match - stop walking the parents
+
+                visited_parents.add(current_ancestor)
+                current_ancestor = current_ancestor.parent  # Keep searching up the parents
+
+        return matches
 
 
 def get_link_href(link: Link | None) -> str | None:
