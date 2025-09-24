@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Callable
 
 import pytest
@@ -64,6 +65,8 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
 
         execution_context = ExecutionContext(
             dummy_test_procedure,
+            "1.2.3.4.5",
+            Path("."),  # Just a dummy value
             "/my/dcap/path",
             {client_alias: client_context},
             StepExecutionList(),
