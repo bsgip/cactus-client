@@ -95,9 +95,11 @@ def test_load_config(yaml: str, expected: GlobalConfig):
     with tempfile.TemporaryDirectory() as tempdirname:
         path = Path(tempdirname) / Path("file.yaml")
         path.write_text(yaml)
-        actual = load_config(path)
+        (actual, path_used) = load_config(path)
         assert isinstance(actual, GlobalConfig)
+        assert isinstance(path_used, Path)
         assert expected == actual
+        assert path == path_used
 
 
 def assert_validation_error(cfg: GlobalConfig, valid: bool):

@@ -99,21 +99,23 @@ def resolve_config_path() -> Path:
     raise ConfigException(f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir.")
 
 
-def load_config(config_file_path_override: str | None) -> GlobalConfig:
+def load_config(config_file_path_override: str | None) -> tuple[GlobalConfig, Path]:
     """Main configuration entrypoint - if config_file_path_override is specified it will be used, otherwise local/home
-    default locations will be checked"""
+    default locations will be checked.
+
+    Returns (config, config_file_path)"""
 
     if config_file_path_override is None:
-        global_config_path = resolve_config_path()
+        cfg_path = resolve_config_path()
     else:
-        global_config_path = Path(config_file_path_override)
+        cfg_path = Path(config_file_path_override)
 
     try:
-        config = GlobalConfig.from_yaml_file(global_config_path)
+        config = GlobalConfig.from_yaml_file(cfg_path)
     except Exception as exc:
         raise ConfigException(f"Error reading config {exc}")
 
     if not isinstance(config, GlobalConfig):
         raise ConfigException(f"Received an invalid type for config: {type(config)}. This is likely a corrupted file.")
 
-    return config
+    return config, cfg_path

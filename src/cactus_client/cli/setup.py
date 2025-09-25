@@ -91,7 +91,7 @@ def run_action(args: argparse.Namespace) -> None:  # noqa: C901
 
     # Now try and update the config to use this working dir
     try:
-        config = load_config(str(cfg_file.absolute()))
+        config, cfg_file = load_config(str(cfg_file.absolute()))
     except ConfigException:
         print(f"Config file {cfg_file} is not readable / doesn't exist. It will be overridden.")
         config = GlobalConfig(output_dir=str(working_dir.absolute()))
