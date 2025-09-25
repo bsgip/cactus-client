@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 from typing import Callable
 
@@ -10,8 +11,14 @@ from cactus_test_definitions.server.test_procedures import (
     RequiredClient,
     TestProcedure,
 )
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
-from cactus_client.model.config import ClientConfig
+from cactus_client.model.config import (
+    ClientConfig,
+)
 from cactus_client.model.context import ClientContext, ExecutionContext, ResourceStore
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.progress import (
@@ -20,6 +27,7 @@ from cactus_client.model.progress import (
     WarningTracker,
 )
 from cactus_client.model.resource import CSIPAusResourceTree
+from cactus_client.time import utc_now
 
 
 @pytest.fixture
@@ -88,3 +96,49 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
         return (execution_context, step_execution)
 
     return create_testing_contexts
+
+
+@pytest.fixture
+def generate_testing_key_cert():
+    """Shared function for generating a self signed PEM encoded RSA key + cert to a location on disk"""
+
+    def _generate_testing_key_cert(key_file: Path, cert_file: Path):
+
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COUNTRY_NAME, "AU"),
+                x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "ACT"),
+                x509.NameAttribute(NameOID.LOCALITY_NAME, "Canberra"),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Australian National University"),
+                x509.NameAttribute(NameOID.COMMON_NAME, cert_file.name),
+            ]
+        )
+
+        cert = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(utc_now())
+            .not_valid_after(utc_now() + timedelta(hours=1))
+            .add_extension(
+                x509.BasicConstraints(ca=False, path_length=None),
+                critical=True,
+            )
+            .sign(private_key=key, algorithm=hashes.SHA256())
+        )
+
+        with open(key_file, "wb") as f:
+            f.write(
+                key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,  # PKCS#1 format
+                    encryption_algorithm=serialization.NoEncryption(),  # No password
+                )
+            )
+        with open(cert_file, "wb") as f:
+            f.write(cert.public_bytes(serialization.Encoding.PEM))
+
+    return _generate_testing_key_cert

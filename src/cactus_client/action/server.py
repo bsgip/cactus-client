@@ -25,7 +25,7 @@ async def request_for_step(
     logs the actions in the various context trackers. Raises a RequestException on connection failure."""
     session = context.session(step)
 
-    await context.progress.log_step_progress(step, f"Requesting {method} {path}")
+    await context.progress.log_step_execution_progress(step, f"Requesting {method} {path}")
 
     headers = {"Accept": MIME_TYPE_SEP2}
     if sep2_xml_body is not None:

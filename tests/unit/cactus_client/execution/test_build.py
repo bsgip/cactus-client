@@ -26,46 +26,6 @@ from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.time import utc_now
 
 
-def generate_testing_key_cert(key_file: Path, cert_file: Path):
-
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name(
-        [
-            x509.NameAttribute(NameOID.COUNTRY_NAME, "AU"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "ACT"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, "Canberra"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Australian National University"),
-            x509.NameAttribute(NameOID.COMMON_NAME, cert_file.name),
-        ]
-    )
-
-    cert = (
-        x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(issuer)
-        .public_key(key.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(utc_now())
-        .not_valid_after(utc_now() + timedelta(hours=1))
-        .add_extension(
-            x509.BasicConstraints(ca=False, path_length=None),
-            critical=True,
-        )
-        .sign(private_key=key, algorithm=hashes.SHA256())
-    )
-
-    with open(key_file, "wb") as f:
-        f.write(
-            key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,  # PKCS#1 format
-                encryption_algorithm=serialization.NoEncryption(),  # No password
-            )
-        )
-    with open(cert_file, "wb") as f:
-        f.write(cert.public_bytes(serialization.Encoding.PEM))
-
-
 def generate_valid_config(
     output_dir: str, key_file: str, cert_file: str
 ) -> tuple[ClientConfig, GlobalConfig, RunConfig]:
@@ -101,7 +61,7 @@ def generate_valid_config(
 
 
 @pytest.mark.asyncio
-async def test_build_execution_context_s_all_01():
+async def test_build_execution_context_s_all_01(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"
@@ -124,7 +84,7 @@ async def test_build_execution_context_s_all_01():
 
 
 @pytest.mark.asyncio
-async def test_build_execution_context_junk_certs():
+async def test_build_execution_context_junk_certs(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"
@@ -153,7 +113,7 @@ async def test_build_execution_context_missing_certs():
 
 
 @pytest.mark.asyncio
-async def test_build_execution_context_bad_client_reference():
+async def test_build_execution_context_bad_client_reference(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"
@@ -169,7 +129,7 @@ async def test_build_execution_context_bad_client_reference():
 
 
 @pytest.mark.asyncio
-async def test_build_execution_context_bad_test_id():
+async def test_build_execution_context_bad_test_id(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"

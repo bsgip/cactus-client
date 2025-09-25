@@ -1,13 +1,9 @@
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
-from ssl import SSLContext
-from typing import Callable, Generator, Optional, TypeVar, cast
 
 from aiohttp import ClientSession
-from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import TestProcedure
-from envoy_schema.server.schema.sep2.identification import Resource
 
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
@@ -17,7 +13,6 @@ from cactus_client.model.progress import (
     WarningTracker,
 )
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
-from cactus_client.time import utc_now
 
 
 @dataclass
@@ -45,6 +40,10 @@ class ExecutionContext:
     progress: ProgressTracker
     responses: ResponseTracker
     resource_tree: CSIPAusResourceTree
+
+    repeat_delay: timedelta = timedelta(
+        seconds=5
+    )  # If during execution an action is to be run in a tight loop, use this delay
 
     def client_config(self, step: StepExecution) -> ClientConfig:
         """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""

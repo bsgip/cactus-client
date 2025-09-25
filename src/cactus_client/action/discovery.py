@@ -130,7 +130,9 @@ async def action_discovery(
     # We may hold up execution waiting for the next polling window
     if next_polling_window:
         delay_seconds = calculate_wait_next_polling_window(now, discovered_resources)
-        await context.progress.log_step_progress(step, f"Delaying {delay_seconds}s until next polling window.")
+        await context.progress.log_step_execution_progress(
+            step, f"Delaying {delay_seconds}s until next polling window."
+        )
         await asyncio.sleep(delay_seconds)
 
     # Start making requests for resources
