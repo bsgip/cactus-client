@@ -62,4 +62,4 @@ test = ["assertical", "pytest", "pytest-aiohttp", "freezegun", "cryptography"]
 "cactus_client" = ["py.typed", "**/*.xsd"]
 
 [project.scripts]
-cactus = "cactus_client.main:cli_entrypoint"
+cactus = "cactus_client.cli.main:cli_entrypoint"

@@ -10,6 +10,9 @@ from cactus_client.error import ConfigException
 
 CONFIG_FILE_NAME = Path(".cactus.yaml")  # Name of the config
 
+CONFIG_CWD = Path(".") / CONFIG_FILE_NAME
+CONFIG_HOME = Path.home() / CONFIG_FILE_NAME
+
 
 def strenum_representer(dumper: yaml.Dumper, data: Any) -> yaml.ScalarNode:
     return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
@@ -87,14 +90,11 @@ class GlobalConfig(YAMLWizard):  # type: ignore
 def resolve_config_path() -> Path:
     """Attempts to resolve a config file path for the global config (or raises ConfigException on failure)"""
 
-    # Check for a config file in the current working dir
-    local_file = Path.cwd() / CONFIG_FILE_NAME
-    if Path.exists(local_file):
-        return local_file
+    if Path.exists(CONFIG_CWD):
+        return CONFIG_CWD
 
-    home_file = Path.home() / CONFIG_FILE_NAME
-    if Path.exists(local_file):
-        return home_file
+    if Path.exists(CONFIG_HOME):
+        return CONFIG_HOME
 
     raise ConfigException(f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir.")
 
