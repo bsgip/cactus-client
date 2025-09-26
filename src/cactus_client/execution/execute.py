@@ -34,13 +34,13 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
         await context.progress.log_current_step_execution(current_step, delay=None)
         try:
             action_result = await execute_action(current_step, context)
-        except CactusClientException as exc:
+        except Exception as exc:
             await context.progress.log_step_execution_exception(current_step, exc)
             return ExecutionResult(completed=False)
 
         try:
             check_result = await execute_checks(current_step, context)
-        except CactusClientException as exc:
+        except Exception as exc:
             await context.progress.log_step_execution_exception(current_step, exc)
             return ExecutionResult(completed=False)
 

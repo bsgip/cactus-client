@@ -19,6 +19,7 @@ from cryptography.x509.oid import NameOID
 
 from cactus_client.model.config import (
     ClientConfig,
+    ServerConfig,
 )
 from cactus_client.model.context import ClientContext, ExecutionContext, ResourceStore
 from cactus_client.model.execution import StepExecution, StepExecutionList
@@ -78,6 +79,7 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
             "1.2.3.4.5",
             Path("."),  # Just a dummy value
             "/my/dcap/path",
+            generate_class_instance(ServerConfig),
             {client_alias: client_context},
             StepExecutionList(),
             WarningTracker(),

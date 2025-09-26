@@ -171,6 +171,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         test_procedures_version=tp_version,
         output_directory=output_dir,
         dcap_path=dcap_path,
+        server_config=user_config.server,
         clients_by_alias=clients_by_alias,
         steps=build_initial_step_execution_list(tp),
         progress=ProgressTracker(),

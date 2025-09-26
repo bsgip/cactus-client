@@ -9,7 +9,7 @@ from cactus_test_definitions.server.test_procedures import (
     TestProcedureId,
 )
 
-from cactus_client.model.config import ClientConfig
+from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.progress import (
     ProgressTracker,
@@ -41,6 +41,7 @@ class ExecutionContext:
 
     output_directory: Path  # The root output directory for any outputs from this test
     dcap_path: str  # The URI path component of the device_capability_uri
+    server_config: ServerConfig  # The server config used to generate this context - purely informational
     clients_by_alias: dict[str, ClientContext]  # The Clients in use for this test, keyed by their test procedure alias
     steps: StepExecutionList
     warnings: WarningTracker

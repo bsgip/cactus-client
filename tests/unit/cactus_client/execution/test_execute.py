@@ -15,7 +15,7 @@ from cactus_test_definitions.server.test_procedures import (
 
 from cactus_client.error import CactusClientException
 from cactus_client.execution.execute import execute_for_context
-from cactus_client.model.config import ClientConfig
+from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
@@ -143,6 +143,7 @@ async def test_execute_for_context_success_cases_with_repeats(
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
         dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
                 "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock()
@@ -237,6 +238,7 @@ async def test_execute_for_context_failure_stops_early(
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
         dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
                 "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock()
@@ -320,6 +322,7 @@ async def test_execute_for_context_action_exception(
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
         dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
                 "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock()
@@ -406,6 +409,7 @@ async def test_execute_for_context_check_exception(
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
         dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
                 "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock()
@@ -475,6 +479,7 @@ async def test_execute_for_context_success_cases_with_delays(
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
         dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
                 "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock()

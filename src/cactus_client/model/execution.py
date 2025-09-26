@@ -1,9 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from ssl import SSLContext
 
 from aiohttp import ClientSession
 from cactus_test_definitions.server.test_procedures import Step
+
+from cactus_client.time import utc_now
 
 MAX_PRIMACY = 0xEFFFFFFF  # If we're dealing with primacies bigger than this - something has gone wrong
 
@@ -32,6 +34,7 @@ class ExecutionResult:
     """Represents the final result from a full execution of a test procedure"""
 
     completed: bool  # True if the execution completed without an exception being raised (successful or not)
+    created_at: datetime = field(default_factory=utc_now, init=False)
 
 
 @dataclass
