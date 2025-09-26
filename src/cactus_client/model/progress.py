@@ -110,7 +110,7 @@ class ProgressTracker:
     async def log_step_execution_exception(self, step: StepExecution, exc: Exception) -> None:
         """Logs that a step action/check raised an unhandled exception - this will likely be the end of this test run"""
         self.step_execution_progress.append(
-            StepExecutionProgress(step=step, action_result=None, check_result=None, exc=exc)
+            StepExecutionProgress(step_execution=step, action_result=None, check_result=None, exc=exc)
         )
         self.step_results.append(StepResult(step=step.source, failure_result=None, exc=exc))
         logger.info(f"{step.source.id}[{step.repeat_number}] Attempt {step.attempts}: Exception", exc_info=exc)

@@ -10,6 +10,7 @@ from cactus_test_definitions.server.test_procedures import (
     Preconditions,
     RequiredClient,
     TestProcedure,
+    TestProcedureId,
 )
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -72,6 +73,7 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
         )
 
         execution_context = ExecutionContext(
+            TestProcedureId.S_ALL_01,
             dummy_test_procedure,
             "1.2.3.4.5",
             Path("."),  # Just a dummy value

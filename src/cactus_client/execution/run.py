@@ -17,4 +17,4 @@ async def run_entrypoint(console: Console, global_config: GlobalConfig, run_conf
     async with await build_execution_context(global_config, run_config) as context:
         execute_result = await execute_for_context(context)
 
-        await render_console(console, context)
+        await render_console(console, context, execute_result)

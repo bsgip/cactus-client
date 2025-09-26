@@ -166,6 +166,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
     )
 
     return ExecutionContext(
+        test_procedure_id=tp_id,
         test_procedure=tp,
         test_procedures_version=tp_version,
         output_directory=output_dir,

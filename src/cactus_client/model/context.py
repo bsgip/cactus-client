@@ -4,7 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from aiohttp import ClientSession
-from cactus_test_definitions.server.test_procedures import TestProcedure
+from cactus_test_definitions.server.test_procedures import (
+    TestProcedure,
+    TestProcedureId,
+)
 
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
@@ -32,8 +35,10 @@ class ClientContext:
 class ExecutionContext:
     """Represents all state/config required for a test run execution"""
 
+    test_procedure_id: TestProcedureId
     test_procedure: TestProcedure  # The test procedure being run
     test_procedures_version: str
+
     output_directory: Path  # The root output directory for any outputs from this test
     dcap_path: str  # The URI path component of the device_capability_uri
     clients_by_alias: dict[str, ClientContext]  # The Clients in use for this test, keyed by their test procedure alias
@@ -46,7 +51,7 @@ class ExecutionContext:
     repeat_delay: timedelta = timedelta(
         seconds=5
     )  # If during execution an action is to be run in a tight loop, use this delay
-    created_at: datetime = field(default_factory=utc_now)
+    created_at: datetime = field(default_factory=utc_now, init=False)
 
     def client_config(self, step: StepExecution) -> ClientConfig:
         """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""

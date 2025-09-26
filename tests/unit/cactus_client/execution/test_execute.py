@@ -10,6 +10,7 @@ from cactus_test_definitions.server.test_procedures import (
     Check,
     Step,
     TestProcedure,
+    TestProcedureId,
 )
 
 from cactus_client.error import CactusClientException
@@ -91,10 +92,10 @@ def handle_mock_execute_checks(current_step: StepExecution, context: ExecutionCo
         raise NotImplementedError(f"Unsupported check type {check_type}")
 
 
-@mock.patch("cactus_client.execution.run.execute_action")
-@mock.patch("cactus_client.execution.run.execute_checks")
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
 @pytest.mark.asyncio
-async def execute_for_context_success_cases_with_repeats(
+async def test_execute_for_context_success_cases_with_repeats(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -137,6 +138,7 @@ async def execute_for_context_success_cases_with_repeats(
 
     tree = CSIPAusResourceTree()
     context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
@@ -171,14 +173,23 @@ async def execute_for_context_success_cases_with_repeats(
     assert mock_execute_action.call_count == 5
 
     assert len(context.warnings.warnings) == 0
+    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "1", "2", "2", "3"]
     assert [p.is_success() for p in context.progress.step_execution_progress] == [False, True, True, True, True]
     assert [r.is_passed() for r in context.progress.step_results] == [True, True, True]
 
+    for p in context.progress.step_execution_progress:
+        assert_nowish(p.created_at)
+        assert p.exc is None
 
-@mock.patch("cactus_client.execution.run.execute_action")
-@mock.patch("cactus_client.execution.run.execute_checks")
+    for r in context.progress.step_results:
+        assert_nowish(r.created_at)
+        assert r.exc is None
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
 @pytest.mark.asyncio
-async def execute_for_context_failure_stops_early(
+async def test_execute_for_context_failure_stops_early(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -221,6 +232,7 @@ async def execute_for_context_failure_stops_early(
 
     tree = CSIPAusResourceTree()
     context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
@@ -252,14 +264,15 @@ async def execute_for_context_failure_stops_early(
     assert mock_execute_action.call_count == 2, "Only the first two steps should execute due to step 2 failing"
 
     assert len(context.warnings.warnings) == 0
+    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2"]
     assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
     assert [r.is_passed() for r in context.progress.step_results] == [True, False]
 
 
-@mock.patch("cactus_client.execution.run.execute_action")
-@mock.patch("cactus_client.execution.run.execute_checks")
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
 @pytest.mark.asyncio
-async def execute_for_context_action_exception(
+async def test_execute_for_context_action_exception(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -302,6 +315,7 @@ async def execute_for_context_action_exception(
 
     tree = CSIPAusResourceTree()
     context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
@@ -333,6 +347,7 @@ async def execute_for_context_action_exception(
     assert mock_execute_action.call_count == 2, "Test is aborted at step 2"
 
     assert len(context.warnings.warnings) == 0
+    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2"]
     assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
     assert [r.is_passed() for r in context.progress.step_results] == [True, False]
 
@@ -340,10 +355,10 @@ async def execute_for_context_action_exception(
     assert context.progress.step_results[1].exc
 
 
-@mock.patch("cactus_client.execution.run.execute_action")
-@mock.patch("cactus_client.execution.run.execute_checks")
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
 @pytest.mark.asyncio
-async def execute_for_context_check_exception(
+async def test_execute_for_context_check_exception(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -386,6 +401,7 @@ async def execute_for_context_check_exception(
 
     tree = CSIPAusResourceTree()
     context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
@@ -413,21 +429,16 @@ async def execute_for_context_check_exception(
     assert isinstance(result, ExecutionResult)
     assert not result.completed
 
-    assert mock_execute_checks.call_count == 2, "Test is aborted at step 2"
-    assert mock_execute_action.call_count == 2, "Test is aborted at step 2 (during check execution)"
-
+    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2"]
+    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
+    assert [r.is_passed() for r in context.progress.step_results] == [True, False]
     assert len(context.warnings.warnings) == 0
-    assert len(context.progress.passed_steps) == 1
-    assert len(context.progress.failed_steps) == 0
-    assert len(context.progress.aborted_step_executions) == 1
-    assert len(context.progress.success_step_executions) == 1
-    assert len(context.progress.failed_step_executions) == 0
 
 
-@mock.patch("cactus_client.execution.run.execute_action")
-@mock.patch("cactus_client.execution.run.execute_checks")
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
 @pytest.mark.asyncio
-async def execute_for_context_success_cases_with_delays(
+async def test_execute_for_context_success_cases_with_delays(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -459,6 +470,7 @@ async def execute_for_context_success_cases_with_delays(
 
     tree = CSIPAusResourceTree()
     context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
         output_directory=Path("."),  # Shouldn't be used to do anything in this test
@@ -494,13 +506,10 @@ async def execute_for_context_success_cases_with_delays(
     #  Step 1 - Runs and then asks for a repeat in 2 seconds
     #  Step 2 - Runs (as it is the lowest primacy that isn't on a delay)
     #  Step 1 - Repeats later
-    assert [se.source.id for se, _ in context.progress.success_step_executions] == ["1", "2", "1"]
+    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2", "1"]
+    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, True, True]
+    assert [r.is_passed() for r in context.progress.step_results] == [True, True]
 
     assert mock_execute_checks.call_count == 3
     assert mock_execute_action.call_count == 3
-
     assert len(context.warnings.warnings) == 0
-    assert len(context.progress.passed_steps) == 2
-    assert len(context.progress.failed_steps) == 0
-    assert len(context.progress.success_step_executions) == 3
-    assert len(context.progress.failed_step_executions) == 0
