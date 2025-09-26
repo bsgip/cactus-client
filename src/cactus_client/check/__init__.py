@@ -30,7 +30,7 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
 
         last_result: CheckResult | None = None
         match (check.type):
-            case "discovery":
+            case "discovered":
                 last_result = check_discovered(resolved_params, step, context)
             case "time-synced":
                 last_result = check_time_synced(step, context)

@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.server.test_procedures import (
     Action,
@@ -12,7 +13,7 @@ from cactus_test_definitions.server.test_procedures import (
 )
 
 from cactus_client.error import CactusClientException
-from cactus_client.execution.run import execute
+from cactus_client.execution.execute import execute_for_context
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.model.execution import (
@@ -93,7 +94,7 @@ def handle_mock_execute_checks(current_step: StepExecution, context: ExecutionCo
 @mock.patch("cactus_client.execution.run.execute_action")
 @mock.patch("cactus_client.execution.run.execute_checks")
 @pytest.mark.asyncio
-async def test_execute_success_cases_with_repeats(
+async def execute_for_context_success_cases_with_repeats(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -158,7 +159,7 @@ async def test_execute_success_cases_with_repeats(
 
     # Act
     start_time = utc_now()
-    result = await execute(context)
+    result = await execute_for_context(context)
     duration = utc_now() - start_time
 
     # Assert
@@ -170,16 +171,14 @@ async def test_execute_success_cases_with_repeats(
     assert mock_execute_action.call_count == 5
 
     assert len(context.warnings.warnings) == 0
-    assert len(context.progress.passed_steps) == 3
-    assert len(context.progress.failed_steps) == 0
-    assert len(context.progress.success_step_executions) == 4
-    assert len(context.progress.failed_step_executions) == 1
+    assert [p.is_success() for p in context.progress.step_execution_progress] == [False, True, True, True, True]
+    assert [r.is_passed() for r in context.progress.step_results] == [True, True, True]
 
 
 @mock.patch("cactus_client.execution.run.execute_action")
 @mock.patch("cactus_client.execution.run.execute_checks")
 @pytest.mark.asyncio
-async def test_execute_failure_stops_early(
+async def execute_for_context_failure_stops_early(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -243,7 +242,7 @@ async def test_execute_failure_stops_early(
     mock_execute_action.side_effect = handle_mock_execute_action
 
     # Act
-    result = await execute(context)
+    result = await execute_for_context(context)
 
     # Assert
     assert isinstance(result, ExecutionResult)
@@ -253,16 +252,14 @@ async def test_execute_failure_stops_early(
     assert mock_execute_action.call_count == 2, "Only the first two steps should execute due to step 2 failing"
 
     assert len(context.warnings.warnings) == 0
-    assert len(context.progress.passed_steps) == 1
-    assert len(context.progress.failed_steps) == 1
-    assert len(context.progress.success_step_executions) == 1
-    assert len(context.progress.failed_step_executions) == 1
+    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
+    assert [r.is_passed() for r in context.progress.step_results] == [True, False]
 
 
 @mock.patch("cactus_client.execution.run.execute_action")
 @mock.patch("cactus_client.execution.run.execute_checks")
 @pytest.mark.asyncio
-async def test_execute_action_exception(
+async def execute_for_context_action_exception(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -326,7 +323,7 @@ async def test_execute_action_exception(
     mock_execute_action.side_effect = handle_mock_execute_action
 
     # Act
-    result = await execute(context)
+    result = await execute_for_context(context)
 
     # Assert
     assert isinstance(result, ExecutionResult)
@@ -336,17 +333,17 @@ async def test_execute_action_exception(
     assert mock_execute_action.call_count == 2, "Test is aborted at step 2"
 
     assert len(context.warnings.warnings) == 0
-    assert len(context.progress.passed_steps) == 1
-    assert len(context.progress.failed_steps) == 0
-    assert len(context.progress.aborted_step_executions) == 1
-    assert len(context.progress.success_step_executions) == 1
-    assert len(context.progress.failed_step_executions) == 0
+    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
+    assert [r.is_passed() for r in context.progress.step_results] == [True, False]
+
+    assert context.progress.step_execution_progress[1].exc
+    assert context.progress.step_results[1].exc
 
 
 @mock.patch("cactus_client.execution.run.execute_action")
 @mock.patch("cactus_client.execution.run.execute_checks")
 @pytest.mark.asyncio
-async def test_execute_check_exception(
+async def execute_for_context_check_exception(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -410,7 +407,7 @@ async def test_execute_check_exception(
     mock_execute_action.side_effect = handle_mock_execute_action
 
     # Act
-    result = await execute(context)
+    result = await execute_for_context(context)
 
     # Assert
     assert isinstance(result, ExecutionResult)
@@ -430,7 +427,7 @@ async def test_execute_check_exception(
 @mock.patch("cactus_client.execution.run.execute_action")
 @mock.patch("cactus_client.execution.run.execute_checks")
 @pytest.mark.asyncio
-async def test_execute_success_cases_with_delays(
+async def execute_for_context_success_cases_with_delays(
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
 ):
@@ -484,7 +481,7 @@ async def test_execute_success_cases_with_delays(
 
     # Act
     start_time = utc_now()
-    result = await execute(context)
+    result = await execute_for_context(context)
     duration = utc_now() - start_time
 
     # Assert

@@ -52,8 +52,8 @@ def update_server_key(
         match config_key:
             case ServerConfigKey.DCAP:
                 parsed = urlparse(new_value)
-                if parsed.scheme not in {"http" or "https"} or not parsed.netloc:
-                    raise ValueError(f"{new_value} doesn't appear to be a valid URI")
+                if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                    raise ValueError(f"{new_value} doesn't appear to be a valid URI. Got: {parsed}")
                 return replace(server, device_capability_uri=new_value)
             case ServerConfigKey.VERIFY:
                 if new_value.lower() in {"true", "t", "1", "y", "yes"}:

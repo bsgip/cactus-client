@@ -1,6 +1,7 @@
-from dataclasses import dataclass
-from datetime import timedelta
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from aiohttp import ClientSession
 from cactus_test_definitions.server.test_procedures import TestProcedure
@@ -13,6 +14,7 @@ from cactus_client.model.progress import (
     WarningTracker,
 )
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
+from cactus_client.time import utc_now
 
 
 @dataclass
@@ -44,6 +46,7 @@ class ExecutionContext:
     repeat_delay: timedelta = timedelta(
         seconds=5
     )  # If during execution an action is to be run in a tight loop, use this delay
+    created_at: datetime = field(default_factory=utc_now)
 
     def client_config(self, step: StepExecution) -> ClientConfig:
         """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""
@@ -56,3 +59,11 @@ class ExecutionContext:
     def discovered_resources(self, step: StepExecution) -> ResourceStore:
         """Convenience function for accessing the ResourceStore for a specific step (based on client alias)"""
         return self.clients_by_alias[step.client_resources_alias].discovered_resources
+
+    async def __aenter__(self) -> "ExecutionContext":
+        return self
+
+    async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
+        if self.clients_by_alias:
+            for c in self.clients_by_alias.values():
+                await c.session.close()
