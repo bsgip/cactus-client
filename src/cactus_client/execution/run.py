@@ -4,9 +4,9 @@ from rich.console import Console
 
 from cactus_client.execution.build import build_execution_context
 from cactus_client.execution.execute import execute_for_context
-from cactus_client.execution.results import render_console
 from cactus_client.model.config import GlobalConfig, RunConfig
 from cactus_client.model.context import ExecutionContext
+from cactus_client.results.console import render_console
 
 
 async def run_entrypoint(console: Console, global_config: GlobalConfig, run_config: RunConfig) -> None:

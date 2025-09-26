@@ -59,8 +59,10 @@ def build_clients_by_alias(
             )
 
         # Load the client certs into a SSLContext
-        ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
+        ssl_context = SSLContext(ssl.PROTOCOL_TLS_CLIENT)  # TLS 1.2 required by 2030.5
+        ssl_context.check_hostname = verify_ssl
         ssl_context.verify_mode = ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE
+
         try:
             ssl_context.load_cert_chain(client_config.certificate_file, client_config.key_file)
         except Exception:
@@ -73,7 +75,7 @@ def build_clients_by_alias(
             test_procedure_alias=tp_client_precondition.id,
             client_config=client_config,
             discovered_resources=ResourceStore(resource_tree),
-            session=ClientSession(base_url=base_uri, connector=TCPConnector(ssl_context=ssl_context)),
+            session=ClientSession(base_url=base_uri, connector=TCPConnector(ssl=ssl_context)),
         )
 
     return clients_by_alias

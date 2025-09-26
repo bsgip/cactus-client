@@ -1,15 +1,13 @@
 from typing import Any
 
-from rich.columns import Columns
 from rich.console import Console, Group, RenderableType
-from rich.layout import Layout
 from rich.panel import Panel
 from rich.table import Table
 
-from cactus_client.model.config import GlobalConfig, RunConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
-from cactus_client.time import utc_now
+from cactus_client.model.progress import StepExecutionProgress
+from cactus_client.results.common import relative_time
 
 
 def style_str(success: bool, content: Any) -> str:
@@ -17,8 +15,21 @@ def style_str(success: bool, content: Any) -> str:
     return f"[{color}]{content}[/{color}]"
 
 
-async def render_console(console: Console, context: ExecutionContext, execute_result: ExecutionResult) -> None:
+def calculate_step_progress_by_step_id(context: ExecutionContext) -> dict[str, list[StepExecutionProgress]]:
+    """Collects step progress from the context under the parent step id"""
+    step_progress_by_step_id: dict[str, list[StepExecutionProgress]] = {}
+    for step_progress in context.progress.step_execution_progress:
+        step_id = step_progress.step_execution.source.id
+        existing_items = step_progress_by_step_id.get(step_id, None)
+        if existing_items is None:
+            step_progress_by_step_id[step_id] = [step_progress]
+        else:
+            existing_items.append(step_progress)
+    return step_progress_by_step_id
 
+
+async def render_console(console: Console, context: ExecutionContext, execute_result: ExecutionResult) -> None:
+    """Renders a "results report" to the console output"""
     all_steps_passed = all((sr.is_passed() for sr in context.progress.step_results))
     total_warnings = len(context.warnings.warnings)
     total_xsd_errors = sum((bool(r.xsd_errors) for r in context.responses.responses))
@@ -67,11 +78,46 @@ async def render_console(console: Console, context: ExecutionContext, execute_re
             warnings_table.add_row(warning, style="red")
         panel_items.append(warnings_table)
 
+    # Steps table - show the results of any step executions grouped by their parent step
+    steps_table = Table(title="Steps", title_justify="left", show_header=False)
+    step_progress_by_id = calculate_step_progress_by_step_id(context)
+    for step in context.test_procedure.steps:
+        all_progress = step_progress_by_id.get(step.id, [])
+
+        # "Header" row
+        if not all_progress:
+            steps_table.add_row(step.id, "Not Executed", style="b yellow")
+        elif all_progress[-1].is_success():
+            steps_table.add_row(step.id, "Success", style="b green")
+        else:
+            steps_table.add_row(step.id, "Failed", style="b red")
+
+        # Then show each attempt
+        for progress in all_progress:
+            if progress.exc:
+                progress_result = f"Exception: {progress.exc}"
+            elif progress.check_result and not progress.check_result.passed:
+                progress_result = f"Check Failure: {progress.check_result.description}"
+            else:
+                progress_result = "Passed"
+            steps_table.add_row(
+                relative_time(context, progress.created_at),
+                progress_result,
+                style="green" if progress.is_success() else "red",
+            )
+
+        steps_table.add_section()
+    panel_items.append(steps_table)
+
     requests_table = Table(title="Requests", title_justify="left", show_header=False, expand=True)
     for response in context.responses.responses:
 
-        xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
+        if response.body:
+            xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
+        else:
+            xsd = ""
         requests_table.add_row(
+            relative_time(context, response.requested_at),
             response.method,
             response.url,
             str(response.status),
