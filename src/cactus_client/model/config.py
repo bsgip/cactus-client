@@ -54,6 +54,7 @@ class RunConfig:
     test_procedure_id: TestProcedureId  # What test procedure is being run?
     client_ids: list[str]  # What clients are being
     csip_aus_version: str  # What csip aus version of the tests are being evaluated? (Will be mapped to CSIPAusVersion)
+    headless: bool  # If set - don't run a terminal UI - just spit out logs and the final report
 
 
 @dataclass(frozen=True)

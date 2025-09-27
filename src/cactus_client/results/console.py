@@ -9,9 +9,11 @@ from cactus_client.constants import (
     CACTUS_TEST_DEFINITIONS_VERSION,
 )
 from cactus_client.model.context import ExecutionContext
-from cactus_client.model.execution import ExecutionResult
 from cactus_client.model.output import RunOutputManager
-from cactus_client.results.common import context_relative_time
+from cactus_client.results.common import (
+    ResultsEvaluation,
+    context_relative_time,
+)
 
 
 def style_str(success: bool, content: Any) -> str:
@@ -20,16 +22,13 @@ def style_str(success: bool, content: Any) -> str:
 
 
 def render_console(
-    console: Console, context: ExecutionContext, execute_result: ExecutionResult, output_manager: RunOutputManager
+    console: Console, context: ExecutionContext, results: ResultsEvaluation, output_manager: RunOutputManager
 ) -> None:
     """Renders a "results report" to the console output"""
-    all_steps_passed = all((sr.is_passed() for sr in context.progress.all_results))
-    total_warnings = len(context.warnings.warnings)
-    total_xsd_errors = sum((bool(r.xsd_errors) for r in context.responses.responses))
+
     exception_steps = [sr for sr in context.progress.all_results if sr.exc]
 
-    success = execute_result.completed and all_steps_passed and total_warnings == 0 and total_xsd_errors == 0
-    successful_steps = sum([sr.is_passed() for sr in context.progress.all_results])
+    success = results.has_passed()
     success_color = "green" if success else "red"
 
     panel_items: list[RenderableType] = [
@@ -44,14 +43,14 @@ def render_console(
     metadata_table = Table(show_header=False, expand=True)
     metadata_table.add_column(style="b")
     metadata_table.add_column()
-    metadata_table.add_row("Completed", style_str(execute_result.completed, execute_result.completed))
+    metadata_table.add_row("Completed", style_str(results.execution_complete, results.execution_complete))
     metadata_table.add_row(
-        "Steps", style_str(all_steps_passed, f"{successful_steps}/{len(context.test_procedure.steps)} passed")
+        "Steps", style_str(results.all_steps_passed, f"{results.total_steps_passed}/{results.total_steps} passed")
     )
-    metadata_table.add_row("Warnings", style_str(total_warnings == 0, f"[b]{total_warnings}[/b]"))
-    metadata_table.add_row("XSD Errors", style_str(total_xsd_errors == 0, f"[b]{total_xsd_errors}[/b]"))
+    metadata_table.add_row("Warnings", style_str(results.no_warnings, f"[b]{results.total_warnings}[/b]"))
+    metadata_table.add_row("XSD Errors", style_str(results.no_xsd_errors, f"[b]{results.total_xsd_errors}[/b]"))
     metadata_table.add_row("Started", context.created_at.strftime("%Y-%m-%d %H:%M:%S"))
-    metadata_table.add_row("Duration", str(execute_result.created_at - context.created_at))
+    metadata_table.add_row("Duration", str(results.created_at - context.created_at))
     panel_items.append(metadata_table)
 
     server_table = Table(title="Server", title_justify="left", show_header=False, expand=True)
