@@ -27,6 +27,8 @@ from cactus_client.model.execution import (
 from cactus_client.model.progress import (
     ProgressTracker,
     ResponseTracker,
+    StepExecutionCompletion,
+    StepProgress,
     WarningTracker,
 )
 from cactus_client.model.resource import (
@@ -90,6 +92,19 @@ def handle_mock_execute_checks(current_step: StepExecution, context: ExecutionCo
         raise CactusClientException("mocked exception")
     else:
         raise NotImplementedError(f"Unsupported check type {check_type}")
+
+
+def assert_step_result(tracker: ProgressTracker, step_id: str, passed: bool | None) -> None:
+    """Asserts the step result - if None, assert that no result is logged"""
+    if passed is None:
+        progress = tracker.progress_by_step_id.get(step_id, None)
+        if progress is not None:
+            assert progress.result is None
+    else:
+        assert step_id in tracker.progress_by_step_id
+        progress = tracker.progress_by_step_id[step_id]
+        assert progress.result is not None
+        assert progress.result.is_passed() is passed
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")
@@ -174,17 +189,16 @@ async def test_execute_for_context_success_cases_with_repeats(
     assert mock_execute_action.call_count == 5
 
     assert len(context.warnings.warnings) == 0
-    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "1", "2", "2", "3"]
-    assert [p.is_success() for p in context.progress.step_execution_progress] == [False, True, True, True, True]
-    assert [r.is_passed() for r in context.progress.step_results] == [True, True, True]
 
-    for p in context.progress.step_execution_progress:
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "1", "2", "2", "3"]
+    assert [p.is_success() for p in context.progress.all_completions] == [False, True, True, True, True]
+    assert_step_result(context.progress, "1", True)
+    assert_step_result(context.progress, "2", True)
+    assert_step_result(context.progress, "3", True)
+
+    for p in context.progress.all_completions:
         assert_nowish(p.created_at)
         assert p.exc is None
-
-    for r in context.progress.step_results:
-        assert_nowish(r.created_at)
-        assert r.exc is None
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")
@@ -265,10 +279,13 @@ async def test_execute_for_context_failure_stops_early(
     assert mock_execute_checks.call_count == 2, "Only the first two steps should execute due to step 2 failing"
     assert mock_execute_action.call_count == 2, "Only the first two steps should execute due to step 2 failing"
 
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
+    assert [p.is_success() for p in context.progress.all_completions] == [True, False]
+    assert_step_result(context.progress, "1", True)
+    assert_step_result(context.progress, "2", False)
+    assert_step_result(context.progress, "3", None)
+
     assert len(context.warnings.warnings) == 0
-    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2"]
-    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
-    assert [r.is_passed() for r in context.progress.step_results] == [True, False]
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")
@@ -350,12 +367,15 @@ async def test_execute_for_context_action_exception(
     assert mock_execute_action.call_count == 2, "Test is aborted at step 2"
 
     assert len(context.warnings.warnings) == 0
-    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2"]
-    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
-    assert [r.is_passed() for r in context.progress.step_results] == [True, False]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
+    assert [p.is_success() for p in context.progress.all_completions] == [True, False]
+    assert [p.exc is None for p in context.progress.all_completions] == [True, False]
+    assert_step_result(context.progress, "1", True)
+    assert_step_result(context.progress, "2", False)
+    assert_step_result(context.progress, "3", None)
 
-    assert context.progress.step_execution_progress[1].exc
-    assert context.progress.step_results[1].exc
+    assert context.progress.progress_by_step_id["1"].result.exc is None
+    assert context.progress.progress_by_step_id["2"].result.exc is not None
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")
@@ -433,9 +453,11 @@ async def test_execute_for_context_check_exception(
     assert isinstance(result, ExecutionResult)
     assert not result.completed
 
-    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2"]
-    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, False]
-    assert [r.is_passed() for r in context.progress.step_results] == [True, False]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
+    assert [p.is_success() for p in context.progress.all_completions] == [True, False]
+    assert_step_result(context.progress, "1", True)
+    assert_step_result(context.progress, "2", False)
+    assert_step_result(context.progress, "3", None)
     assert len(context.warnings.warnings) == 0
 
 
@@ -511,9 +533,10 @@ async def test_execute_for_context_success_cases_with_delays(
     #  Step 1 - Runs and then asks for a repeat in 2 seconds
     #  Step 2 - Runs (as it is the lowest primacy that isn't on a delay)
     #  Step 1 - Repeats later
-    assert [p.step_execution.source.id for p in context.progress.step_execution_progress] == ["1", "2", "1"]
-    assert [p.is_success() for p in context.progress.step_execution_progress] == [True, True, True]
-    assert [r.is_passed() for r in context.progress.step_results] == [True, True]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2", "1"]
+    assert [p.is_success() for p in context.progress.all_completions] == [True, True, True]
+    assert_step_result(context.progress, "1", True)
+    assert_step_result(context.progress, "2", True)
 
     assert mock_execute_checks.call_count == 3
     assert mock_execute_action.call_count == 3

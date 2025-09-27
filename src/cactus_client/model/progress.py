@@ -1,13 +1,14 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import Any, Callable, overload
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import Step
 
 from cactus_client.model.execution import ActionResult, CheckResult, StepExecution
-from cactus_client.model.http import ServerResponse
-from cactus_client.time import utc_now
+from cactus_client.model.http import ServerRequest, ServerResponse
+from cactus_client.time import relative_time, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,16 @@ class WarningTracker:
 
 
 @dataclass(frozen=True)
-class StepExecutionProgress:
+class LogEntry:
+    message: str  # The log entry
+    step_execution: StepExecution  # The step execution that generated this log entry
+    created_at: datetime = field(default_factory=utc_now, init=False)
+
+
+@dataclass(frozen=True)
+class StepExecutionCompletion:
+    """Represents the completion of a StepExecution (successful or otherwise)"""
+
     step_execution: StepExecution
     action_result: ActionResult | None  # None if aborted due to exception
     check_result: CheckResult | None  # None if aborted due to exception
@@ -56,6 +66,8 @@ class StepExecutionProgress:
 
 @dataclass(frozen=True)
 class StepResult:
+    """Represents the pass/failure result of an entire step"""
+
     step: Step
     failure_result: CheckResult | None
     exc: Exception | None
@@ -66,73 +78,130 @@ class StepResult:
         return self.failure_result is None and self.exc is None
 
 
+@dataclass
+class StepProgress:
+    """Captures the progress of a top level Step as it undergoes execution. Will be created at first progress"""
+
+    step: Step  # The step definition
+    result: StepResult | None  # The result of this step (if fully completed)
+    step_execution_completions: list[StepExecutionCompletion]  # Populated when StepExecutions complete (pass or fail)
+    log_entries: list[LogEntry]  # general log entries associated with StepExecutions occurring under this step
+
+    created_at: datetime = field(default_factory=utc_now, init=False)
+
+    @staticmethod
+    def empty(step: Step) -> "StepProgress":
+        return StepProgress(step, None, [], [])
+
+
 class ProgressTracker:
     """A utility for allowing step execution operations to update the user facing progress of those operations"""
 
     current_step_execution: StepExecution | None  # What step is currently undergoing execution / waiting
+    progress_by_step_id: dict[str, StepProgress]
 
-    step_execution_progress: list[StepExecutionProgress]
-    step_results: list[StepResult]
+    all_completions: list[StepExecutionCompletion]  # Every completion (across steps) sorted by their insertion time
+    all_results: list[StepResult]  # Every result logged, sorted by their insertion time
 
     def __init__(self) -> None:
-        self.step_execution_progress = []
-        self.step_results = []
+        self.current_step_execution = None
+        self.progress_by_step_id = {}
+        self.all_completions = []
+        self.all_results = []
 
-    async def log_current_step_execution(self, step: StepExecution, delay: timedelta | None) -> None:
-        self.current_step_execution = step
+    def _update_progress(self, step_execution: StepExecution, update: Callable[[StepProgress], Any]) -> None:
+        step_id = step_execution.source.id
+        progress = self.progress_by_step_id.get(step_id, None)
+        if progress is None:
+            self.progress_by_step_id[step_id] = progress = StepProgress.empty(step_execution.source)
+
+        update(progress)
+
+    async def add_log(self, step_execution: StepExecution, message: str) -> None:
+        """Adds a log entry for a specific StepExecution"""
+        log = LogEntry(message, step_execution)
+        step_id = step_execution.source.id
+        logger.info(f"{step_id}[{step_execution.repeat_number}] Attempt {step_execution.attempts}: {message}")
+
+        self._update_progress(step_execution, lambda p: p.log_entries.append(log))
+
+    async def update_current_step(self, step_execution: StepExecution, delay: timedelta | None) -> None:
+        """Updates the tracker with what the currently executing StepExecution is"""
+        self.current_step_execution = step_execution
         if delay:
-            logger.info(
-                f"{step.source.id}[{step.repeat_number}] Attempt {step.attempts}: Waiting {delay.seconds}s for start."
-            )
+            await self.add_log(step_execution, f"Waiting {relative_time(delay)} for start.")
         else:
-            logger.info(f"{step.source.id}[{step.repeat_number}] Attempt {step.attempts}: Beginning Execution.")
+            await self.add_log(step_execution, "Beginning execution.")
 
-    async def log_step_execution_progress(self, step: StepExecution, message: str) -> None:
-        """Updates the progress information for a specific step"""
-        logger.info(f"{step.source.id}[{step.repeat_number}] Attempt {step.attempts}: {message}")
+    async def add_step_execution_exception(self, step_execution: StepExecution, exc: Exception) -> None:
+        """Logs that a step action/check raised an unhandled exception - this will also mark the step as failed"""
 
-    async def log_step_execution_completed(
-        self, s: StepExecution, action_result: ActionResult, check_result: CheckResult
+        completion = StepExecutionCompletion(
+            step_execution=step_execution, action_result=None, check_result=None, exc=exc
+        )
+        result = StepResult(step=step_execution.source, failure_result=None, exc=exc)
+
+        await self.add_log(step_execution, f"Exception raised during action/check: {exc}")
+        self.all_completions.append(completion)
+        self.all_results.append(result)
+
+        def do_update(progress: StepProgress) -> None:
+            progress.step_execution_completions.append(completion)
+            progress.result = result
+
+        self._update_progress(step_execution, do_update)
+
+    async def add_step_execution_completion(
+        self, step_execution: StepExecution, action_result: ActionResult, check_result: CheckResult
     ) -> None:
         """Logs that a step and its checks have completed without an exception (either pass or fail)"""
-        self.current_step_execution = None
 
-        self.step_execution_progress.append(
-            StepExecutionProgress(step_execution=s, action_result=action_result, check_result=check_result, exc=None)
+        completion = StepExecutionCompletion(
+            step_execution=step_execution, action_result=action_result, check_result=check_result, exc=None
         )
+        self.all_completions.append(completion)
+        self._update_progress(step_execution, lambda p: p.step_execution_completions.append(completion))
         if check_result.passed:
-            logger.info(
-                f"{s.source.id}[{s.repeat_number}] Attempt {s.attempts}: Success, repeat: {action_result.repeat}"
-            )
+            await self.add_log(step_execution, "Success with all checks passing.")
         else:
-            logger.info(f"{s.source.id}[{s.repeat_number}] Attempt {s.attempts}: Failed: {check_result.description}")
+            await self.add_log(step_execution, f"Check Failure: {check_result.description}")
 
-    async def log_step_execution_exception(self, step: StepExecution, exc: Exception) -> None:
-        """Logs that a step action/check raised an unhandled exception - this will likely be the end of this test run"""
-        self.step_execution_progress.append(
-            StepExecutionProgress(step_execution=step, action_result=None, check_result=None, exc=exc)
-        )
-        self.step_results.append(StepResult(step=step.source, failure_result=None, exc=exc))
-        logger.info(f"{step.source.id}[{step.repeat_number}] Attempt {step.attempts}: Exception", exc_info=exc)
-
-    async def log_final_step_execution(self, step: StepExecution, check_result: CheckResult) -> None:
+    async def set_step_result(self, step_execution: StepExecution, check_result: CheckResult) -> None:
         """Logs that a step execution is that LAST time the underlying step will run."""
-        self.step_results.append(
-            StepResult(step=step.source, failure_result=None if check_result.passed else check_result, exc=None)
+
+        result = StepResult(
+            step=step_execution.source, failure_result=None if check_result.passed else check_result, exc=None
         )
+        self.all_results.append(result)
+
+        def do_update(progress: StepProgress) -> None:
+            progress.result = result
+
+        self._update_progress(step_execution, do_update)
+
         if check_result.passed:
-            logger.info(f"{step.source.id} has been marked as successful")
+            await self.add_log(step_execution, f"{step_execution.source.id} has been marked as successful")
         else:
-            logger.info(f"{step.source.id} has been marked as failed: {check_result.description}")
+            await self.add_log(
+                step_execution, f"{step_execution.source.id} has been marked as failed: {check_result.description}"
+            )
 
 
 class ResponseTracker:
     """A utility for tracking raw responses received from the utility server and their validity"""
 
     responses: list[ServerResponse]
+    active_request: ServerRequest | None
 
     def __init__(self) -> None:
         self.responses = []
+        self.active_request = None
+
+    async def set_active_request(self, method: str, url: str, body: str | None, headers: dict[str, str]) -> None:
+        self.active_request = ServerRequest(url=url, method=method, body=body, headers=headers)
+
+    async def clear_active_request(self) -> None:
+        self.active_request = None
 
     async def log_response_body(self, r: ServerResponse) -> None:
         self.responses.append(r)

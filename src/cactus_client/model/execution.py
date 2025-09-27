@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from ssl import SSLContext
+from uuid import UUID, uuid4
 
 from aiohttp import ClientSession
 from cactus_test_definitions.server.test_procedures import Step

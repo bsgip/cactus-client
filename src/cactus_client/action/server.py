@@ -25,12 +25,13 @@ async def request_for_step(
     logs the actions in the various context trackers. Raises a RequestException on connection failure."""
     session = context.session(step)
 
-    await context.progress.log_step_execution_progress(step, f"Requesting {method} {path}")
+    await context.progress.add_log(step, f"Requesting {method} {path}")
 
     headers = {"Accept": MIME_TYPE_SEP2}
     if sep2_xml_body is not None:
         headers["Content-Type"] = MIME_TYPE_SEP2
 
+    await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
     requested_at = utc_now()
     async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
         try:
@@ -39,9 +40,11 @@ async def request_for_step(
             )
         except Exception as exc:
             logger.error(f"Caught exception attempting to {method} {path}", exc_info=exc)
+            await context.responses.clear_active_request()
             raise RequestException(f"Caught exception attempting to {method} {path}: {exc}")
 
         await context.responses.log_response_body(response)
+        await context.responses.clear_active_request()
         return response
 
 

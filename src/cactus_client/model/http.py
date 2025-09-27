@@ -1,9 +1,20 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from aiohttp import ClientResponse
 
 from cactus_client.schema.validator import validate_xml
+from cactus_client.time import utc_now
+
+
+@dataclass
+class ServerRequest:
+    url: str  # The HTTP url that was resolved
+    method: str  # Was this a GET/PUT/POST etc?
+    body: str | None  # The raw request body sent (if any)
+    headers: dict[str, str]
+
+    created_at: datetime = field(default_factory=utc_now, init=False)
 
 
 @dataclass
