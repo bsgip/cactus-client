@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from http import HTTPMethod
@@ -34,6 +35,9 @@ async def request_for_step(
     await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
     requested_at = utc_now()
     async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
+        await asyncio.sleep(1)  # bacon - adding delay for testing UI
+        context.warnings.log_step_warning(step, "Oh boy - we have an bacon error")
+
         try:
             response = await ServerResponse.from_response(
                 raw_response, requested_at=requested_at, received_at=utc_now()

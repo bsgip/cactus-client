@@ -19,7 +19,7 @@ def style_str(success: bool, content: Any) -> str:
     return f"[{color}]{content}[/{color}]"
 
 
-async def render_console(
+def render_console(
     console: Console, context: ExecutionContext, execute_result: ExecutionResult, output_manager: RunOutputManager
 ) -> None:
     """Renders a "results report" to the console output"""
