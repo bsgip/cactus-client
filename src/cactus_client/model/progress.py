@@ -13,33 +13,35 @@ from cactus_client.time import relative_time, utc_now
 logger = logging.getLogger(__name__)
 
 
-class WarningTracker:
-    """A warning represents some form of (minor) failure of a test that doesn't block the execution but should be
-    reported at the end. Example warnings could include a non critical XSD error."""
-
-    warnings: list[str]
-
-    def __init__(self) -> None:
-        self.warnings = []
-
-    def log_resource_warning(self, type: CSIPAusResource, message: str) -> None:
-        """Log an warning about a specific type of CSIPAusResource"""
-        warning = f"Resource {type}: {message}"
-        self.warnings.append(warning)
-        logger.warning(warning)
-
-    def log_step_warning(self, step: StepExecution, message: str) -> None:
-        """Log a warning about a specific execution step"""
-        warning = f"Step {step.source.id}[{step.repeat_number}]: {message}"
-        self.warnings.append(warning)
-        logger.warning(warning)
-
-
 @dataclass(frozen=True)
 class LogEntry:
     message: str  # The log entry
     step_execution: StepExecution  # The step execution that generated this log entry
     created_at: datetime = field(default_factory=utc_now, init=False)
+
+
+class WarningTracker:
+    """A warning represents some form of (minor) failure of a test that doesn't block the execution but should be
+    reported at the end. Example warnings could include a non critical XSD error."""
+
+    warnings: list[LogEntry]
+
+    def __init__(self) -> None:
+        self.warnings = []
+
+    # def log_resource_warning(self, type: CSIPAusResource, message: str) -> None:
+    #     """Log an warning about a specific type of CSIPAusResource"""
+    #     warning = f"Resource {type}: {message}"
+    #     self.warnings.append(warning)
+    #     logger.warning(warning)
+
+    def log_step_warning(self, step_execution: StepExecution, message: str) -> None:
+        """Log a warning about a specific execution step"""
+        self.warnings.append(LogEntry(message, step_execution))
+
+        logger.warning(
+            f"{step_execution.source.id}[{step_execution.repeat_number}] Attempt {step_execution.attempts}: {message}"
+        )
 
 
 @dataclass(frozen=True)

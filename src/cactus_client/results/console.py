@@ -69,13 +69,18 @@ def render_console(
     panel_items.append(client_table)
 
     if context.warnings.warnings:
-        warnings_table = Table(title="Warnings", title_justify="left", show_header=False)
+        warnings_table = Table(title="Warnings", title_justify="left", show_header=False, expand=True)
         for warning in context.warnings.warnings:
-            warnings_table.add_row(warning, style="red")
+            warnings_table.add_row(
+                context_relative_time(context, warning.created_at),
+                warning.step_execution.source.id,
+                warning.message,
+                style="red",
+            )
         panel_items.append(warnings_table)
 
     # Steps table - show the results of any step executions grouped by their parent step
-    steps_table = Table(title="Steps", title_justify="left", show_header=False)
+    steps_table = Table(title="Steps", title_justify="left", show_header=False, expand=True)
 
     for step in context.test_procedure.steps:
         progress = context.progress.progress_by_step_id.get(step.id, None)
@@ -134,7 +139,7 @@ def render_console(
         title=f"{'[green]success[/green]' if success else '[red]failed[/red]'}",
         border_style="green" if success else "red",
         expand=False,
-        subtitle=f"cactus {CACTUS_CLIENT_VERSION} test definitions {CACTUS_TEST_DEFINITIONS_VERSION}",
+        subtitle=f"🌵 cactus {CACTUS_CLIENT_VERSION} test definitions {CACTUS_TEST_DEFINITIONS_VERSION} 🌵",
     )
 
     console.print(cert_panel)

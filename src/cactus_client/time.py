@@ -19,6 +19,6 @@ def relative_time(delta: timedelta) -> str:
     if magnitude < 5:
         return f"{sign}{int(magnitude*1000)}ms"
     elif magnitude < 120:
-        return f"{sign}{int(magnitude)}s"
+        return f"{sign}{magnitude:.1f}s"
     else:
         return f"{sign}{int(magnitude) // 60}m{int(magnitude) % 60}s"
