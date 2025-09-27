@@ -54,7 +54,7 @@ def generate_valid_config(
     run_config = RunConfig(
         test_procedure_id=TestProcedureId.S_ALL_01,
         client_ids=["my-client1"],
-        version=CSIPAusVersion.RELEASE_1_2,
+        csip_aus_version=CSIPAusVersion.RELEASE_1_2,
     )
 
     return (expected_client_config, user_config, run_config)

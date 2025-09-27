@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
 from dataclass_wizard import YAMLWizard
 
@@ -52,7 +53,7 @@ class RunConfig:
 
     test_procedure_id: TestProcedureId  # What test procedure is being run?
     client_ids: list[str]  # What clients are being
-    version: str  # What version of the tests are being evaluated?
+    csip_aus_version: str  # What csip aus version of the tests are being evaluated? (Will be mapped to CSIPAusVersion)
 
 
 @dataclass(frozen=True)

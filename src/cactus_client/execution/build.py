@@ -144,8 +144,8 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
     if tp is None:
         raise ConfigException(f"Test Procedure ID '{tp_id}' isn't recognised for version {tp_version}.")
 
-    if run_config.version not in tp.target_versions:
-        raise ConfigException(f"The requested version {run_config.version} is not supported by {tp_id}")
+    if run_config.csip_aus_version not in tp.target_versions:
+        raise ConfigException(f"The requested version {run_config.csip_aus_version} is not supported by {tp_id}")
 
     if not user_config.output_dir:
         raise ConfigException("output_dir has not been specified.")

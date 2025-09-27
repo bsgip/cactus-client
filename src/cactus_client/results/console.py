@@ -1,11 +1,17 @@
+from pathlib import Path
 from typing import Any
 
 from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.table import Table
 
+from cactus_client.constants import (
+    CACTUS_CLIENT_VERSION,
+    CACTUS_TEST_DEFINITIONS_VERSION,
+)
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
+from cactus_client.model.output import RunOutputManager
 from cactus_client.model.progress import StepExecutionProgress
 from cactus_client.results.common import relative_time
 
@@ -28,7 +34,9 @@ def calculate_step_progress_by_step_id(context: ExecutionContext) -> dict[str, l
     return step_progress_by_step_id
 
 
-async def render_console(console: Console, context: ExecutionContext, execute_result: ExecutionResult) -> None:
+async def render_console(
+    console: Console, context: ExecutionContext, execute_result: ExecutionResult, output_manager: RunOutputManager
+) -> None:
     """Renders a "results report" to the console output"""
     all_steps_passed = all((sr.is_passed() for sr in context.progress.step_results))
     total_warnings = len(context.warnings.warnings)
@@ -41,7 +49,10 @@ async def render_console(console: Console, context: ExecutionContext, execute_re
 
     panel_items: list[RenderableType] = [
         "",
+        f"[{success_color} b]Run #{output_manager.run_id}",
         f"[{success_color}][b]{context.test_procedure_id}[/b] {context.test_procedure.description}[/{success_color}]",
+        "",
+        f"[b]Output:[/b] {output_manager.run_output_dir.absolute()}",
         "",
     ]
 
@@ -135,7 +146,9 @@ async def render_console(console: Console, context: ExecutionContext, execute_re
     cert_panel = Panel(
         Group(*panel_items),
         title=f"{'[green]success[/green]' if success else '[red]failed[/red]'}",
+        border_style="green" if success else "red",
         expand=False,
+        subtitle=f"cactus {CACTUS_CLIENT_VERSION} test definitions {CACTUS_TEST_DEFINITIONS_VERSION}",
     )
 
     console.print(cert_panel)

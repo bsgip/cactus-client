@@ -143,7 +143,7 @@ class StoredResource:
 
     resource: Resource  # The common 2030.5 Resource that is being stored. List items "may" have some children populated
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(
             (
                 self.created_at,
