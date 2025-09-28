@@ -15,6 +15,7 @@ from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.types import DeviceCategory, ReasonCodeType
 
 from cactus_client.action.server import (
+    client_error_request_for_step,
     request_for_step,
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
@@ -62,11 +63,7 @@ async def action_insert_end_device(
     edev_xml = resource_to_sep2_xml(generate_end_device_request(step, context, force_lfdi))
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
-        response = await request_for_step(step, context, list_href, HTTPMethod.POST, edev_xml)
-        if not response.is_client_error():
-            raise CactusClientException(
-                f"Expected a 4XX error when executing POST {list_href} but got {response.status}."
-            )
+        await client_error_request_for_step(step, context, list_href, HTTPMethod.POST, edev_xml)
     else:
         # Otherwise insert and refetch the returned EndDevice
         inserted_edev = await submit_and_refetch_resource_for_step(
@@ -100,16 +97,7 @@ async def action_upsert_connection_point(
     cp_xml = resource_to_sep2_xml(ConnectionPointRequest(id=cp_id))
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
-        response = await request_for_step(step, context, href, HTTPMethod.PUT, cp_xml)
-        if not response.is_client_error():
-            raise CactusClientException(f"Expected a 4XX error when executing PUT {href} but got {response.status}.")
-
-        try:
-            error = ErrorResponse.from_xml(response.body)
-        except Exception as exc:
-            logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
-            logger.error(response.body)
-            raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+        error = await client_error_request_for_step(step, context, href, HTTPMethod.PUT, cp_xml)
 
         # This is a requirement of CSIP-Aus
         if error.reasonCode != ReasonCodeType.invalid_request_values:

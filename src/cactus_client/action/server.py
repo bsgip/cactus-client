@@ -4,6 +4,7 @@ from datetime import datetime
 from http import HTTPMethod
 from typing import Callable, TypeVar
 
+from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import Resource
 
 from cactus_client.constants import MIME_TYPE_SEP2
@@ -53,6 +54,25 @@ async def request_for_step(
         await context.responses.log_response_body(response)
         await context.responses.clear_active_request()
         return response
+
+
+async def client_error_request_for_step(
+    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
+) -> ErrorResponse:
+    """Similar to request_for_step but is only successful if the resulting response is returned as a valid sep2 error"""
+    response = await request_for_step(step, context, path, method, sep2_xml_body)
+
+    if not response.is_client_error():
+        raise RequestException(
+            f"Received status {response.status} but expected 4XX requesting {response.method} {path}."
+        )
+
+    try:
+        return ErrorResponse.from_xml(response.body)
+    except Exception as exc:
+        logger.error(f"Failure parsing ErrorResponse from {len(response.body)} chars at {path}", exc_info=exc)
+        logger.error(response.body)
+        raise RequestException(f"Failure parsing ErrorResponse from {len(response.body)} chars at {path}: {exc}")
 
 
 async def get_resource_for_step(

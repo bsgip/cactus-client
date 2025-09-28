@@ -60,7 +60,8 @@ def generate_scrolling_table(
 def generate_header(context: ExecutionContext, run_id: int) -> RenderableType:
     """Generates the highlighted header at the top of the UI"""
     if context.progress.current_step_execution:
-        instructions = ". ".join(context.progress.current_step_execution.source.instructions or [])
+        raw_instructions = ". ".join(context.progress.current_step_execution.source.instructions or [])
+        instructions = f"[blink on red]***[/][on red] {raw_instructions} [/][blink on red]***[/]"
     else:
         instructions = ""
 
@@ -69,7 +70,7 @@ def generate_header(context: ExecutionContext, run_id: int) -> RenderableType:
     grid.add_column(justify="right", ratio=1)
     grid.add_row(
         f"🌵 Run #{run_id} [b]{context.test_procedure_id}[/b] {context_relative_time(context, utc_now())}",
-        f"[blink on red]***[/][on red] {instructions} [/][blink on red]***[/]",
+        instructions,
     )
     return Panel(grid, style="white on blue")
 

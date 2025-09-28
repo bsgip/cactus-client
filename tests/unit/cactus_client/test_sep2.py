@@ -91,3 +91,8 @@ def test_lfdi_from_cert_file():
 def test_hex_binary_equal(a, b, expected):
     assert hex_binary_equal(a, b) is expected
     assert hex_binary_equal(b, a) is expected
+
+    assert hex_binary_equal(a, None) is False
+    assert hex_binary_equal(None, a) is False
+
+    assert hex_binary_equal(None, None) is True

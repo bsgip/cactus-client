@@ -1,9 +1,12 @@
 import logging
 
 from cactus_client.action.discovery import action_discovery
-from cactus_client.action.end_device import action_insert_end_device
+from cactus_client.action.end_device import (
+    action_insert_end_device,
+    action_upsert_connection_point,
+)
+from cactus_client.action.mup import action_insert_readings, action_upsert_mup
 from cactus_client.action.noop import action_noop
-from cactus_client.action.upsert_connection_point import action_upsert_connection_point
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -37,6 +40,10 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_insert_end_device(resolved_params, step, context)
         case "upsert-connection-point":
             return await action_upsert_connection_point(resolved_params, step, context)
+        case "upsert-mup":
+            return await action_upsert_mup(resolved_params, step, context)
+        case "insert-readings":
+            return await action_insert_readings(resolved_params, step, context)
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
             raise CactusClientException(

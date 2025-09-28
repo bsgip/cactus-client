@@ -52,8 +52,11 @@ def lfdi_from_cert_file(cert_file: str) -> str:
     return sha256_hash[:40].upper()
 
 
-def hex_binary_equal(a: int | str, b: int | str) -> bool:
+def hex_binary_equal(a: int | str | None, b: int | str | None) -> bool:
     """Returns true if two values are equivalent (regardless of a potential encoding to HexBinary or integer)"""
+    if a is None or b is None:
+        return a == b
+
     if isinstance(a, str):
         a = int(a, 16)
     if isinstance(b, str):

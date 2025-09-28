@@ -1,5 +1,6 @@
 import logging
 
+from cactus_client.check.der_controls import check_der_control
 from cactus_client.check.discovered import check_discovered
 from cactus_client.check.end_device import check_end_device
 from cactus_client.check.mup import check_mirror_usage_point
@@ -39,6 +40,8 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
                 last_result = check_end_device(resolved_params, step, context)
             case "mirror-usage-point":
                 last_result = check_mirror_usage_point(resolved_params, step, context)
+            case "der-control":
+                last_result = check_der_control(resolved_params, step, context)
             case _:
                 logger.error(f"Unrecognised check type {check.type} in step {step.source.id}")
                 raise CactusClientException(

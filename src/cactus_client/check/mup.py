@@ -38,6 +38,11 @@ def generate_hashed_mrid(seed: str, pen: int) -> str:
     return f"{hash.hexdigest()[:24]}{pen:08}".upper()
 
 
+def generate_mmr_mrid(mup_mrid: str, rt: CSIPAusReadingType, pen: int) -> str:
+    """Generates an mrid for a MirrorMeterReading that lives under a MirrorUsagePoint with mup_mrid"""
+    return generate_hashed_mrid(mup_mrid + str(rt), pen)
+
+
 def generate_mup_mrids(
     location: CSIPAusReadingLocation,
     reading_types: list[CSIPAusReadingType],
@@ -62,7 +67,7 @@ def generate_mup_mrids(
     # Otherwise continue to derive more hashed mrids
     return MirrorUsagePointMrids(
         mup_mrid=mup_mrid,
-        mmr_mrids=dict(((rt, generate_hashed_mrid(mup_mrid + str(rt), client.pen)) for rt in reading_types)),
+        mmr_mrids=dict(((rt, generate_mmr_mrid(mup_mrid, rt, client.pen)) for rt in reading_types)),
     )
 
 
@@ -206,7 +211,7 @@ def check_mirror_usage_point(
     if reading_types is not None:
         criteria_descriptions.append(f"Readings [{', '.join(reading_types)}]")
     if mmr_mrids is not None:
-        criteria_descriptions.append(f"Has specific mrids")
+        criteria_descriptions.append("Has specific mrids")
     if post_rate_seconds is not None:
         criteria_descriptions.append(f"postRate {post_rate_seconds}")
 
