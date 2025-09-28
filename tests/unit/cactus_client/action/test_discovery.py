@@ -13,6 +13,7 @@ from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
 
 
+@pytest.mark.parametrize("has_href", [True, False])
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
 @mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
 @pytest.mark.asyncio
@@ -20,12 +21,13 @@ async def test_discover_resource_dcap(
     mock_paginate_list_resource_items: mock.MagicMock,
     mock_get_resource_for_step: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    has_href: bool,
 ):
     """DeviceCapability is a special discovery case - it can go direct to the device capability URI"""
 
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
-    dcap = generate_class_instance(DeviceCapabilityResponse)
+    dcap = generate_class_instance(DeviceCapabilityResponse, href="/my/dcap/href" if has_href else "")
     mock_get_resource_for_step.return_value = dcap
 
     # Act
@@ -40,14 +42,23 @@ async def test_discover_resource_dcap(
     mock_get_resource_for_step.assert_called_once_with(DeviceCapabilityResponse, step, context, context.dcap_path)
     mock_paginate_list_resource_items.assert_not_called()
 
+    if has_href:
+        assert len(context.warnings.warnings) == 0
+    else:
+        assert len(context.warnings.warnings) == 1
+
 
 @pytest.mark.parametrize(
-    "resource, matched_parents",
+    "resource, matched_parents, has_href, expect_warnings",
     [
-        (CSIPAusResource.DERList, 1),
-        (CSIPAusResource.EndDeviceList, 2),
-        (CSIPAusResource.FunctionSetAssignmentsList, 2),
-        (CSIPAusResource.SubscriptionList, 0),
+        (CSIPAusResource.DERList, 1, True, False),
+        (CSIPAusResource.DERList, 1, False, True),
+        (CSIPAusResource.EndDeviceList, 2, True, False),
+        (CSIPAusResource.EndDeviceList, 2, False, True),
+        (CSIPAusResource.FunctionSetAssignmentsList, 2, True, False),
+        (CSIPAusResource.FunctionSetAssignmentsList, 2, False, True),
+        (CSIPAusResource.SubscriptionList, 0, True, False),
+        (CSIPAusResource.SubscriptionList, 0, False, False),  # No warnings as there are no items in the list
     ],
 )
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
@@ -59,6 +70,8 @@ async def test_discover_resource_singular(
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     resource: CSIPAusResource,
     matched_parents: int,
+    has_href: bool,
+    expect_warnings: bool,
 ):
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
@@ -90,7 +103,8 @@ async def test_discover_resource_singular(
     # Prep the returned resources
     expected_resource_type = RESOURCE_SEP2_TYPES[resource]
     fetched_resources = [
-        generate_class_instance(expected_resource_type, seed=idx * 101) for idx in range(matched_parents)
+        generate_class_instance(expected_resource_type, seed=idx * 101, optional_is_none=not has_href)
+        for idx in range(matched_parents)
     ]
     mock_get_resource_for_step.side_effect = fetched_resources
 
@@ -108,3 +122,8 @@ async def test_discover_resource_singular(
         for spr in stored_parent_resources
     )
     mock_paginate_list_resource_items.assert_not_called()
+
+    if expect_warnings:
+        assert len(context.warnings.warnings) > 0
+    else:
+        assert len(context.warnings.warnings) == 0

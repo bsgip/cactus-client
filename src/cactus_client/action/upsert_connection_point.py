@@ -1,0 +1,77 @@
+import logging
+from http import HTTPMethod
+from typing import Any, cast
+
+from cactus_test_definitions.csipaus import CSIPAusResource
+from envoy_schema.server.schema.csip_aus.connection_point import (
+    ConnectionPointRequest,
+    ConnectionPointResponse,
+)
+from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceRequest,
+    EndDeviceResponse,
+)
+from envoy_schema.server.schema.sep2.error import ErrorResponse
+from envoy_schema.server.schema.sep2.types import ReasonCodeType
+
+from cactus_client.action.server import (
+    request_for_step,
+    resource_to_sep2_xml,
+    submit_and_refetch_resource_for_step,
+)
+from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
+from cactus_client.error import CactusClientException, RequestException
+from cactus_client.model.context import ExecutionContext
+from cactus_client.model.execution import ActionResult, StepExecution
+
+logger = logging.getLogger(__name__)
+
+
+async def action_upsert_connection_point(
+    resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+) -> ActionResult:
+    """Adds a ConnectionPoint to a client's EndDevice"""
+    cp_id: str = resolved_parameters["connectionPointId"]  # mandatory param
+    expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
+
+    resource_store = context.discovered_resources(step)
+    client_config = context.client_config(step)
+    parent_edev = match_end_device_on_lfdi_caseless(resource_store, client_config.lfdi)
+    if parent_edev is None:
+        raise CactusClientException(f"Expected an already discovered EndDevice with LFDI {client_config.lfdi}.")
+
+    cp_link = cast(EndDeviceResponse, parent_edev.resource).ConnectionPointLink
+    if cp_link is None or not cp_link.href:
+        raise CactusClientException(
+            f"No ConnectionPointLink on EndDevice {parent_edev.resource.href} with LFDI {client_config.lfdi}."
+        )
+
+    href = cp_link.href
+    cp_xml = resource_to_sep2_xml(ConnectionPointRequest(id=cp_id))
+    if expect_rejection:
+        # If we're expecting rejection - make the request and check for a client error
+        response = await request_for_step(step, context, href, HTTPMethod.PUT, cp_xml)
+        if not response.is_client_error():
+            raise CactusClientException(f"Expected a 4XX error when executing PUT {href} but got {response.status}.")
+
+        try:
+            error = ErrorResponse.from_xml(response.body)
+        except Exception as exc:
+            logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
+            logger.error(response.body)
+            raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+
+        # This is a requirement of CSIP-Aus
+        if error.reasonCode != ReasonCodeType.invalid_request_values:
+            raise CactusClientException(
+                f"Expected ErrorResponse from PUT {href} with reasonCode=1. Received reasonCode={error.reasonCode}"
+            )
+
+    else:
+        # Otherwise insert and refetch the returned ConnectionPoint
+        inserted_edev = await submit_and_refetch_resource_for_step(
+            ConnectionPointResponse, step, context, HTTPMethod.PUT, href, cp_xml
+        )
+
+        resource_store.upsert_resource(CSIPAusResource.ConnectionPoint, parent_edev, inserted_edev)
+    return ActionResult.done()

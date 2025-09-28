@@ -193,6 +193,47 @@ def test_ResourceStore():
     assert s.get(CSIPAusResource.DeviceCapability) == []
 
 
+def test_ResourceStore_upsert_resource():
+    s = ResourceStore(CSIPAusResourceTree())
+    s.clear()  # Ensure we can clear an empty store
+
+    parent_r1 = generate_class_instance(EndDeviceListResponse, seed=101)
+    parent_r2 = generate_class_instance(EndDeviceListResponse, seed=202)
+    parent_r3 = generate_class_instance(EndDeviceListResponse, seed=202)
+
+    r1 = generate_class_instance(EndDeviceResponse, seed=303)
+    r2 = generate_class_instance(EndDeviceResponse, seed=404)
+    r3 = generate_class_instance(EndDeviceResponse, seed=505)
+    r1_dupe = generate_class_instance(EndDeviceResponse, seed=303)
+
+    p1 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r1)
+    p2 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r2)
+    p3 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r3)
+
+    cr1_dupe = s.append_resource(CSIPAusResource.EndDevice, p1, r1_dupe)
+    cr1 = s.append_resource(CSIPAusResource.EndDevice, p2, r1)
+    cr2 = s.append_resource(CSIPAusResource.EndDevice, p2, r2)
+    cr3 = s.append_resource(CSIPAusResource.EndDevice, p2, r3)
+
+    # Our initial state
+    assert s.get(CSIPAusResource.EndDevice) == [cr1_dupe, cr1, cr2, cr3]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2, p2]
+
+    # Add a new item (no clash)
+    r_insert = generate_class_instance(EndDeviceResponse, seed=606)
+    cr_insert = s.upsert_resource(CSIPAusResource.EndDevice, p2, r_insert)
+
+    assert s.get(CSIPAusResource.EndDevice) == [cr1_dupe, cr1, cr2, cr3, cr_insert]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2, p2, p2]
+
+    # Add a new item (with clash) - It will update r1 (not the dupe as thats under a different parent)
+    r_update = generate_class_instance(EndDeviceResponse, seed=303)
+    cr_update = s.upsert_resource(CSIPAusResource.EndDevice, p2, r_update)
+
+    assert s.get(CSIPAusResource.EndDevice) == [cr1_dupe, cr_update, cr2, cr3, cr_insert]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2, p2, p2]
+
+
 def test_ResourceStore_get_descendents_of():
     """Tests the various "normal" ways of looking descendents of"""
     s = ResourceStore(CSIPAusResourceTree())

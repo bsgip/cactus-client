@@ -69,7 +69,7 @@ def generate_header(context: ExecutionContext, run_id: int) -> RenderableType:
     grid.add_column(justify="right", ratio=1)
     grid.add_row(
         f"🌵 Run #{run_id} [b]{context.test_procedure_id}[/b] {context_relative_time(context, utc_now())}",
-        instructions,
+        f"[blink on red]***[/][on red] {instructions} [/][blink on red]***[/]",
     )
     return Panel(grid, style="white on blue")
 
@@ -174,7 +174,7 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
         )
 
     if se.attempts:
-        description += f", Attempt [b]#{se.attempts + 1}[/]]"
+        description += f", Attempt [b]#{se.attempts + 1}[/]"
     if se.repeat_number:
         description += f", Repeat [b]#{se.repeat_number}[/]"
 

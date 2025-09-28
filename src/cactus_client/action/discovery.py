@@ -51,6 +51,12 @@ def calculate_wait_next_polling_window(now: datetime, discovered_resources: Reso
     return poll_rate_seconds - (now_seconds % poll_rate_seconds)
 
 
+def check_item_for_href(step: StepExecution, context: ExecutionContext, href: str, item: Resource) -> Resource:
+    if not item.href:
+        context.warnings.log_step_warning(step, f"Entity at {href} was returned with no href.")
+    return item
+
+
 async def discover_resource(resource: CSIPAusResource, step: StepExecution, context: ExecutionContext) -> None:
     """Performs discovery for the particular resource - it is assumed that all parent resources have been previously
     fetched."""
@@ -67,7 +73,12 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
         resource_store.append_resource(
             CSIPAusResource.DeviceCapability,
             None,
-            await get_resource_for_step(DeviceCapabilityResponse, step, context, context.dcap_path),
+            check_item_for_href(
+                step,
+                context,
+                context.dcap_path,
+                await get_resource_for_step(DeviceCapabilityResponse, step, context, context.dcap_path),
+            ),
         )
         return
 
@@ -106,7 +117,7 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
                 RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, DISCOVERY_LIST_PAGE_SIZE, get_list_items
             )
             for item in list_items:
-                resource_store.append_resource(resource, parent_sr, item)
+                resource_store.append_resource(resource, parent_sr, check_item_for_href(step, context, list_href, item))
     else:
         # Not a list item - look for direct links from parent (eg an EndDevice.ConnectionPointLink -> ConnectionPoint)
         for parent_sr in resource_store.get(parent_resource):
@@ -115,7 +126,12 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
                 resource_store.append_resource(
                     resource,
                     parent_sr,
-                    await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href),
+                    check_item_for_href(
+                        step,
+                        context,
+                        href,
+                        await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href),
+                    ),
                 )
 
 
@@ -130,9 +146,7 @@ async def action_discovery(
     # We may hold up execution waiting for the next polling window
     if next_polling_window:
         delay_seconds = calculate_wait_next_polling_window(now, discovered_resources)
-        await context.progress.log_step_execution_progress(
-            step, f"Delaying {delay_seconds}s until next polling window."
-        )
+        await context.progress.add_log(step, f"Delaying {delay_seconds}s until next polling window.")
         await asyncio.sleep(delay_seconds)
 
     # Start making requests for resources

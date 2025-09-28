@@ -79,17 +79,21 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
             tasks.append(asyncio.create_task(run_tui(console=console, context=context, run_id=output_manager.run_id)))
 
         # Wait until any of the tasks is completed (the TUI task doesn't normally exit so it should be the execute task)
-        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        if execute_task not in done:
-            raise CactusClientException(
-                "It appears that the UI has exited prematurely. Aborting test run."
-                + f"Details at {log_file_path.absolute()}"
-            )
-        for task in pending:
-            task.cancel()
-            await task
+        try:
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            if execute_task not in done:
+                raise CactusClientException(
+                    "It appears that the UI has exited prematurely. Aborting test run."
+                    + f"Details at {log_file_path.absolute()}"
+                )
+            for task in pending:
+                task.cancel()
+                await task
 
-        results = ResultsEvaluation(context, execute_task.result())
+            results = ResultsEvaluation(context, execute_task.result())
+        except asyncio.CancelledError as exc:
+            logger.error("Aborting test due to cancellation.", exc_info=exc)
+            return False
         logger.info(f"Test passed: {results.has_passed()}")
         logger.debug(f"ResultsEvaluation: {results}")
 

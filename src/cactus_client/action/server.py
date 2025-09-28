@@ -19,6 +19,15 @@ AnyResourceType = TypeVar("AnyResourceType", bound=Resource)
 AnyType = TypeVar("AnyType")
 
 
+def resource_to_sep2_xml(resource: Resource) -> str:
+    xml = resource.to_xml(skip_empty=False, exclude_none=True, exclude_unset=True)
+    if xml is None:
+        return ""
+    if isinstance(xml, bytes):
+        return xml.decode()
+    return xml
+
+
 async def request_for_step(
     step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
 ) -> ServerResponse:
@@ -63,6 +72,38 @@ async def get_resource_for_step(
         logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
         logger.error(response.body)
         raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+
+
+async def submit_and_refetch_resource_for_step(
+    t: type[AnyResourceType],
+    step: StepExecution,
+    context: ExecutionContext,
+    method: HTTPMethod,
+    href: str,
+    sep2_xml_body: str,
+    no_location_header: bool = False,
+) -> AnyResourceType:
+    """Makes a method request to a particular href, submitting sep2_xml_body and expecting a success response. Then
+    parse the resulting response for a Location header and then GET that URI, returning the resulting resource.
+
+    if no_location_header is set - the initial response will not be checked for a Location header and instead href
+    will be used as the GET (use this for when updating a resource insitu, not creating a new resource)"""
+
+    # Make the submit request
+    response = await request_for_step(step, context, href, method, sep2_xml_body=sep2_xml_body)
+    if not response.is_success():
+        raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
+
+    if no_location_header:
+        refetch_href = href
+    else:
+        if not response.location:
+            raise RequestException(
+                f"{response.status} response from {response.method} {href} did not return an expected 'Location' header."
+            )
+        refetch_href = response.location
+
+    return await get_resource_for_step(t, step, context, refetch_href)
 
 
 def build_paging_params(

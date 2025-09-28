@@ -218,6 +218,27 @@ class ResourceStore:
 
         return new_resource
 
+    def upsert_resource(
+        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource
+    ) -> StoredResource:
+        """Similar to append_resource but if a resource with the same href+parent already exists, it will be
+        replaced."""
+        new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
+        existing = self.store.get(type, None)
+        if existing is None:
+            self.store[type] = [new_resource]
+            return new_resource
+
+        # Look for a conflict - replacing it if found
+        for idx, potential_match in enumerate(existing):
+            if potential_match.parent == parent and potential_match.resource.href == resource.href:
+                existing[idx] = new_resource
+                return new_resource
+
+        # Otherwise just append
+        existing.append(new_resource)
+        return new_resource
+
     def get(self, type: CSIPAusResource) -> list[StoredResource]:
         """Finds all StoredResources of the specified resource type. Returns empty list if none are found"""
         return self.store.get(type, [])
