@@ -1,11 +1,8 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from ssl import SSLContext
-from typing import Callable, Generator, Iterable, Optional, TypeVar, cast
+from typing import Iterable, Optional, TypeVar, cast
 
-from aiohttp import ClientSession
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
-from cactus_test_definitions.server.test_procedures import TestProcedure
 from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
 from envoy_schema.server.schema.sep2.der import (
     DER,
@@ -41,13 +38,6 @@ from envoy_schema.server.schema.sep2.pub_sub import (
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from treelib import Tree
 
-from cactus_client.model.config import ClientConfig
-from cactus_client.model.execution import StepExecution, StepExecutionList
-from cactus_client.model.progress import (
-    ProgressTracker,
-    ResponseTracker,
-    WarningTracker,
-)
 from cactus_client.time import utc_now
 
 AnyType = TypeVar("AnyType")
@@ -142,6 +132,9 @@ class StoredResource:
     member_of_list: CSIPAusResource | None  # If specified - this resource is a member of a List of this type
 
     resource: Resource  # The common 2030.5 Resource that is being stored. List items "may" have some children populated
+    alias: str | None = field(
+        compare=False
+    )  # Can be set by the test definition marking specific resources - is NOT used in equality checks.
 
     def __hash__(self) -> int:
         return hash(
@@ -152,12 +145,17 @@ class StoredResource:
                 tuple(self.resource_link_hrefs.items()),
                 self.member_of_list,
                 id(self.resource),
+                # We are deliberately NOT including alias in the hash
             )
         )
 
     @staticmethod
     def from_resource(
-        tree: CSIPAusResourceTree, type: CSIPAusResource, parent: Optional["StoredResource"], resource: Resource
+        tree: CSIPAusResourceTree,
+        type: CSIPAusResource,
+        parent: Optional["StoredResource"],
+        resource: Resource,
+        alias: str | None,
     ) -> "StoredResource":
         parent_type = tree.parent_resource(type)
         if parent_type and is_list_resource(parent_type):
@@ -171,6 +169,7 @@ class StoredResource:
             resource=resource,
             resource_link_hrefs=generate_resource_link_hrefs(type, resource),
             member_of_list=member_of_list,
+            alias=alias,
         )
 
 
@@ -193,23 +192,26 @@ class ResourceStore:
         if type in self.store:
             del self.store[type]
 
-    def set_resource(self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource) -> StoredResource:
+    def set_resource(
+        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource, alias: str | None = None
+    ) -> StoredResource:
         """Updates the store so that future calls to get (for type) will return ONLY resource. Any existing resources
-        of this type will be deleted.
+        of this type will be deleted. Alias can be used to mark this resource for future identification (is not used in
+        comparisons).
 
         Returns the StoredResource that was inserted."""
-        new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
+        new_resource = StoredResource.from_resource(self.tree, type, parent, resource, alias)
         self.store[type] = [new_resource]
         return new_resource
 
     def append_resource(
-        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource
+        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource, alias: str | None = None
     ) -> StoredResource:
         """Updates the store so that future calls to get (for type) will return their current value(s) PLUS this new
-        value.
+        value. Alias can be used to mark this resource for future identification (is not used in comparisons).
 
         Returns the StoredResource that was inserted"""
-        new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
+        new_resource = StoredResource.from_resource(self.tree, type, parent, resource, alias)
         existing = self.store.get(type, None)
         if existing is None:
             self.store[type] = [new_resource]
@@ -219,11 +221,11 @@ class ResourceStore:
         return new_resource
 
     def upsert_resource(
-        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource
+        self, type: CSIPAusResource, parent: StoredResource | None, resource: Resource, alias: str | None = None
     ) -> StoredResource:
         """Similar to append_resource but if a resource with the same href+parent already exists, it will be
-        replaced."""
-        new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
+        replaced. Alias can be used to mark this resource for future identification (is not used in comparisons)."""
+        new_resource = StoredResource.from_resource(self.tree, type, parent, resource, alias)
         existing = self.store.get(type, None)
         if existing is None:
             self.store[type] = [new_resource]

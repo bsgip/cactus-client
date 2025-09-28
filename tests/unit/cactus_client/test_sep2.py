@@ -2,8 +2,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from envoy_schema.server.schema.sep2.types import RoleFlagsType
 
-from cactus_client.sep2 import convert_lfdi_to_sfdi, lfdi_from_cert_file, sum_digits
+from cactus_client.sep2 import (
+    convert_lfdi_to_sfdi,
+    hex_binary_equal,
+    lfdi_from_cert_file,
+    sum_digits,
+)
 
 
 @pytest.mark.parametrize("n, expected", [(1, 1), (0, 0), (8, 8), (11, 2), (456, 15), (100001, 2)])
@@ -68,3 +74,20 @@ def test_lfdi_from_cert_file():
             fp.write(CERTIFICATE_CONTENTS)
 
         assert lfdi_from_cert_file(cert_file) == "854D10A201CA99E5E90D3C3E1F9BC1C3BD075F3B"
+
+
+@pytest.mark.parametrize(
+    "a, b, expected",
+    [
+        (0, 0, True),
+        ("0", "0", True),
+        ("010", 16, True),
+        ("000000f", 15, True),
+        ("000000f", 15, True),
+        (RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_PREMISES_AGGREGATION_POINT, "00003", True),
+        (RoleFlagsType.IS_PREMISES_AGGREGATION_POINT, "00003", False),
+    ],
+)
+def test_hex_binary_equal(a, b, expected):
+    assert hex_binary_equal(a, b) is expected
+    assert hex_binary_equal(b, a) is expected

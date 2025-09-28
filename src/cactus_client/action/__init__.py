@@ -1,7 +1,7 @@
 import logging
 
 from cactus_client.action.discovery import action_discovery
-from cactus_client.action.insert_end_device import action_insert_end_device
+from cactus_client.action.end_device import action_insert_end_device
 from cactus_client.action.noop import action_noop
 from cactus_client.action.upsert_connection_point import action_upsert_connection_point
 from cactus_client.error import CactusClientException

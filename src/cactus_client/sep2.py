@@ -50,3 +50,12 @@ def lfdi_from_cert_file(cert_file: str) -> str:
     # Compute SHA-256 hash
     sha256_hash = hashlib.sha256(der_bytes).hexdigest()
     return sha256_hash[:40].upper()
+
+
+def hex_binary_equal(a: int | str, b: int | str) -> bool:
+    """Returns true if two values are equivalent (regardless of a potential encoding to HexBinary or integer)"""
+    if isinstance(a, str):
+        a = int(a, 16)
+    if isinstance(b, str):
+        b = int(b, 16)
+    return a == b
