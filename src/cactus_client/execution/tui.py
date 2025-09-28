@@ -1,8 +1,7 @@
 import asyncio
 import logging
-from dataclasses import asdict
 from datetime import timedelta
-from typing import Any, Callable, OrderedDict, TypeVar
+from typing import Any, Callable, TypeVar
 
 import yaml
 from rich.align import Align
@@ -11,17 +10,15 @@ from rich.console import Console, Group, RenderableType
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.pretty import Pretty
 from rich.rule import Rule
-from rich.spinner import SPINNERS, Spinner
+from rich.spinner import Spinner
 from rich.syntax import Syntax
 from rich.table import Column, Table
-from rich.text import Text
 
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.http import ServerResponse
 from cactus_client.results.common import context_relative_time
-from cactus_client.time import relative_time, utc_now
+from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +84,7 @@ def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
             xsd = ""
         success = response.is_success() and not response.xsd_errors
         table.add_row(
-            context_relative_time(context, response.requested_at),
+            context_relative_time(context, response.request.created_at),
             response.method,
             response.url,
             str(response.status),

@@ -118,7 +118,7 @@ def render_console(
         else:
             xsd = ""
         requests_table.add_row(
-            context_relative_time(context, response.requested_at),
+            context_relative_time(context, response.request.created_at),
             response.method,
             response.url,
             str(response.status),

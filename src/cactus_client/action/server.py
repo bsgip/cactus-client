@@ -32,13 +32,10 @@ async def request_for_step(
     if sep2_xml_body is not None:
         headers["Content-Type"] = MIME_TYPE_SEP2
 
-    await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
-    requested_at = utc_now()
+    server_request = await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
     async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
         try:
-            response = await ServerResponse.from_response(
-                raw_response, requested_at=requested_at, received_at=utc_now()
-            )
+            response = await ServerResponse.from_response(raw_response, request=server_request)
         except Exception as exc:
             logger.error(f"Caught exception attempting to {method} {path}", exc_info=exc)
             await context.responses.clear_active_request()

@@ -199,8 +199,11 @@ class ResponseTracker:
         self.responses = []
         self.active_request = None
 
-    async def set_active_request(self, method: str, url: str, body: str | None, headers: dict[str, str]) -> None:
+    async def set_active_request(
+        self, method: str, url: str, body: str | None, headers: dict[str, str]
+    ) -> ServerRequest:
         self.active_request = ServerRequest(url=url, method=method, body=body, headers=headers)
+        return self.active_request
 
     async def clear_active_request(self) -> None:
         self.active_request = None

@@ -27,8 +27,9 @@ class ServerResponse:
     content_type: str | None  # The value of the Content-Type header (if any)
     xsd_errors: list[str] | None  # Any XSD errors that were detected
 
-    requested_at: datetime
-    received_at: datetime
+    request: ServerRequest  # The request that generated this response
+
+    created_at: datetime = field(default_factory=utc_now, init=False)
 
     def is_success(self) -> bool:
         return self.status >= 200 and self.status < 300
@@ -37,9 +38,7 @@ class ServerResponse:
         return self.status >= 400 and self.status < 500
 
     @staticmethod
-    async def from_response(
-        response: ClientResponse, requested_at: datetime, received_at: datetime
-    ) -> "ServerResponse":
+    async def from_response(response: ClientResponse, request: ServerRequest) -> "ServerResponse":
         body_bytes = await response.read()
         location = response.headers.get("Location", None)
         content_type = response.headers.get("Content-Type", None)
@@ -56,7 +55,6 @@ class ServerResponse:
             body=body_xml,
             location=location,
             content_type=content_type,
-            received_at=received_at,
-            requested_at=requested_at,
             xsd_errors=xsd_errors,
+            request=request,
         )
