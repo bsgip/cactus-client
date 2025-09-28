@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 
 def value_to_sep2(value: float, pow10: int) -> int:
-    decimal_power = int(pow(10, -pow10))
+    decimal_power = pow(10, -pow10)
     return int(value * decimal_power)
 
 
