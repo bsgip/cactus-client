@@ -19,8 +19,8 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
     for idx, response in enumerate(context.responses.responses):
         request = response.request
         sanitised_url = sanitise_url_to_filename(request.url)
-        request_file = base_dir / f"{idx}-{sanitised_url}.request"
-        response_file = base_dir / f"{idx}-{sanitised_url}.response"
+        request_file = base_dir / f"{idx:03}-{sanitised_url}.request"
+        response_file = base_dir / f"{idx:03}-{sanitised_url}.response"
 
         # We don't have EVERYTHING logged - so we try and reconstitute as much as possible
         host = urlparse(context.server_config.device_capability_uri).netloc
