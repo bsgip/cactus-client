@@ -15,6 +15,7 @@ from cactus_client.model.context import ExecutionContext
 from cactus_client.model.output import RunOutputFile, RunOutputManager
 from cactus_client.results.common import ResultsEvaluation
 from cactus_client.results.console import render_console
+from cactus_client.results.requests import persist_all_request_data
 
 logger = logging.getLogger(__name__)
 
@@ -97,5 +98,8 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         render_console(console, context, results, output_manager)
         console.save_html(str(output_manager.file_path(RunOutputFile.Report).absolute()))
         console.print(f"Results stored at {output_manager.run_output_dir.absolute()}")
+
+        # Generate other "results" outputs in the output directory
+        persist_all_request_data(context, output_manager)
 
         return results.has_passed()

@@ -29,6 +29,11 @@ class RunOutputFile(StrEnum):
     ConsoleLogs = "cactus.log"  # Logs from the python logging API
     Report = "report.html"  # Dump of the console "results" in a portable format (eg HTML)
 
+    #
+    # Output subdirectories
+    #
+    RequestsDirectory = "requests/"  # The base directory for all logging of request data
+
 
 # Depending on the OS - implement a lock/unlock function that can force exclusive use of a file
 if os.name == "nt":

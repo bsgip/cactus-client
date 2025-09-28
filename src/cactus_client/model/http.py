@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from aiohttp import ClientResponse
+from multidict import CIMultiDict
 
 from cactus_client.schema.validator import validate_xml
 from cactus_client.time import utc_now
@@ -26,6 +27,7 @@ class ServerResponse:
     location: str | None  # The value of the Location header (if any)
     content_type: str | None  # The value of the Content-Type header (if any)
     xsd_errors: list[str] | None  # Any XSD errors that were detected
+    headers: CIMultiDict  # headers received
 
     request: ServerRequest  # The request that generated this response
 
@@ -54,6 +56,7 @@ class ServerResponse:
             status=response.status,
             body=body_xml,
             location=location,
+            headers=response.headers.copy(),
             content_type=content_type,
             xsd_errors=xsd_errors,
             request=request,

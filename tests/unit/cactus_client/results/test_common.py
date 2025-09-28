@@ -8,6 +8,7 @@ from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
     TestProcedureId,
 )
+from multidict import CIMultiDict
 
 from cactus_client.model.config import ServerConfig
 from cactus_client.model.context import ExecutionContext
@@ -38,6 +39,7 @@ def generate_server_response(seed: int, xsd_errors: list[str] | None) -> ServerR
         request=ServerRequest(
             generate_value(str, seed + 5), generate_value(str, seed + 6), generate_value(str, seed + 7), {}
         ),
+        headers=CIMultiDict(),
         status=200,
         xsd_errors=xsd_errors,
     )
