@@ -1,9 +1,12 @@
 import asyncio
+import curses
 import logging
 from datetime import timedelta
+from enum import StrEnum, auto
 from typing import Any, Callable, TypeVar
 
 import yaml
+from pynput import keyboard
 from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, Group, RenderableType
@@ -15,14 +18,26 @@ from rich.spinner import Spinner
 from rich.syntax import Syntax
 from rich.table import Column, Table
 
+from cactus_client.execution import keypress
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.http import ServerResponse
 from cactus_client.results.common import context_relative_time
-from cactus_client.time import utc_now
+from cactus_client.time import relative_time, utc_now
 
 logger = logging.getLogger(__name__)
 
 AnyType = TypeVar("AnyType")
+
+
+class PanelFocus(StrEnum):
+    Logs = auto()
+    Warnings = auto()
+    Requests = auto()
+
+
+CURRENT_FOCUS: PanelFocus | None = None
+
+HEADER_HEIGHT = 3
 
 
 def generate_scrolling_table(
@@ -59,8 +74,8 @@ def generate_scrolling_table(
 
 def generate_header(context: ExecutionContext, run_id: int) -> RenderableType:
     """Generates the highlighted header at the top of the UI"""
-    if context.progress.current_step_execution:
-        raw_instructions = ". ".join(context.progress.current_step_execution.source.instructions or [])
+    if context.progress.current_step_execution and context.progress.current_step_execution.source.instructions:
+        raw_instructions = ". ".join(context.progress.current_step_execution.source.instructions)
         instructions = f"[blink on red]***[/][on red] {raw_instructions} [/][blink on red]***[/]"
     else:
         instructions = ""
@@ -167,17 +182,20 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
         return Panel(Align("[i]No step is active...[/]", vertical="middle", align="center"))
 
     if se.client_alias == se.client_resources_alias:
-        description = f"Using [b]{context.clients_by_alias[se.client_alias].client_config.id}[b]"
+        description = f"Using [b]{context.clients_by_alias[se.client_alias].client_config.id}[/]"
     else:
         description = (
-            f"Using [b]{context.clients_by_alias[se.client_alias].client_config.id}[b] connection and"
-            + f" [b]{context.clients_by_alias[se.client_resources_alias].client_config.id}[/b] resources."
+            f"Using [b]{context.clients_by_alias[se.client_alias].client_config.id}[/] connection and"
+            + f" [b]{context.clients_by_alias[se.client_resources_alias].client_config.id}[/] resources."
         )
 
     if se.attempts:
         description += f", Attempt [b]#{se.attempts + 1}[/]"
     if se.repeat_number:
         description += f", Repeat [b]#{se.repeat_number}[/]"
+
+    if se.not_before is not None and se.not_before > utc_now():
+        description += f" Waiting for [b]{relative_time(se.not_before - utc_now())}[/]"
 
     action_raw: dict[str, Any] = {
         "type": se.source.action.type,
@@ -228,14 +246,21 @@ def generate_active_step_logs(context: ExecutionContext, height: int) -> Rendera
     )
 
 
-def render_tui(context: ExecutionContext, run_id: int) -> RenderableType:
+def render_unfocused_tui(context: ExecutionContext, run_id: int, console_height: int) -> RenderableType:
+    """Renders the TUI with ALL panels (the default display)"""
     layout = Layout(name="root")
+
+    # Shenanigans around trying to do dynamic vertical sizing
     footer_height = 7
     warnings_height = 7
     logs_height = 7
+    if console_height > 30:
+        footer_height += (console_height - 30) // 3
+        warnings_height += (console_height - 30) // 3
+        logs_height += (console_height - 30) // 3
 
     layout.split(
-        Layout(generate_header(context, run_id), name="header", size=3),
+        Layout(generate_header(context, run_id), name="header", size=HEADER_HEIGHT),
         Layout(name="main", ratio=1),
         Layout(generate_requests(context, footer_height), name="requests", size=footer_height),
     )
@@ -256,19 +281,54 @@ def render_tui(context: ExecutionContext, run_id: int) -> RenderableType:
     return layout
 
 
+def render_focused_panel(context: ExecutionContext, run_id: int, panel: RenderableType) -> RenderableType:
+    """Renders a particular panel in "full screen" mode"""
+    layout = Layout(name="root")
+    layout.split(
+        Layout(generate_header(context, run_id), name="header", size=HEADER_HEIGHT),
+        Layout(panel, name="focus-body", ratio=1),
+    )
+    return layout
+
+
+def render_tui(context: ExecutionContext, run_id: int, console_height: int) -> RenderableType:
+    if CURRENT_FOCUS == PanelFocus.Requests:
+        return render_focused_panel(context, run_id, generate_requests(context, console_height - HEADER_HEIGHT))
+    elif CURRENT_FOCUS == PanelFocus.Logs:
+        return render_focused_panel(context, run_id, generate_active_step_logs(context, console_height - HEADER_HEIGHT))
+    elif CURRENT_FOCUS == PanelFocus.Warnings:
+        return render_focused_panel(context, run_id, generate_warnings(context, console_height - HEADER_HEIGHT))
+    return render_unfocused_tui(context, run_id, console_height)
+
+
 async def run_tui(console: Console, context: ExecutionContext, run_id: int, refresh_rate_ms: int = 500) -> None:
     """Runs the terminal user interface - expected to run in an infinite loop"""
+    global CURRENT_FOCUS
 
     refresh_rate = timedelta(milliseconds=refresh_rate_ms).total_seconds()
-    with Live(console=console, screen=True, transient=True, auto_refresh=False) as live:
+    with Live(console=console, screen=True, transient=True, auto_refresh=False) as live, keypress.activate_keypress():
 
         while True:
+
             try:
+                key = keypress.key_pressed()
+                if key == "q":
+                    CURRENT_FOCUS = None
+                elif key == "w":
+                    CURRENT_FOCUS = PanelFocus.Warnings
+                elif key == "l":
+                    CURRENT_FOCUS = PanelFocus.Logs
+                elif key == "r":
+                    CURRENT_FOCUS = PanelFocus.Requests
+
                 # Ideally this would be a wait on the progress tracker that only returns when the progress has updated
                 # In a future update - we might just do that for more efficient/responsive drawing
-                live.update(render_tui(context, run_id), refresh=True)
+                live.update(render_tui(context, run_id, console.size.height), refresh=True)
 
                 await asyncio.sleep(refresh_rate)
+            except KeyboardInterrupt:
+                logger.info("Shutting down TUI - Keyboard Interrupt")
+                break
             except asyncio.CancelledError:
                 logger.info("Shutting down TUI")
                 break

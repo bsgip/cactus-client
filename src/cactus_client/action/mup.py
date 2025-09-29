@@ -48,6 +48,7 @@ from cactus_client.check.mup import (
 from cactus_client.error import CactusClientException, RequestException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
+from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,11 @@ async def action_insert_readings(
     if step.repeat_number >= (all_value_lengths[0] - 1):
         return ActionResult.done()
     else:
-        return ActionResult(True, calculate_reading_time(context, post_rate_seconds, step.repeat_number + 1))
+        # If we get delayed (eg slow server or being blocked by a precondition) we don't want to send
+        # all of our readings in a quick burst - we always want to have a minimum wait period
+        next_reading_time = calculate_reading_time(context, post_rate_seconds, step.repeat_number + 1)
+        minimum_wait = utc_now() + timedelta(seconds=60)
+        return ActionResult(True, max(next_reading_time, minimum_wait))
 
 
 async def action_upsert_mup(
