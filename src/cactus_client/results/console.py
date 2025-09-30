@@ -110,22 +110,24 @@ def render_console(
         steps_table.add_section()
     panel_items.append(steps_table)
 
-    requests_table = Table(title="Requests", title_justify="left", show_header=False, expand=True)
-    for response in context.responses.responses:
+    if context.responses.responses:
+        requests_table = Table(title="Requests", title_justify="left", show_header=False, expand=True)
+        for response in context.responses.responses:
 
-        if response.body:
-            xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
-        else:
-            xsd = ""
-        requests_table.add_row(
-            context_relative_time(context, response.request.created_at),
-            response.method,
-            response.url,
-            str(response.status),
-            xsd,
-            style="red" if response.xsd_errors else "green",
-        )
-    panel_items.append(requests_table)
+            if response.body:
+                xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
+            else:
+                xsd = ""
+            requests_table.add_row(
+                context_relative_time(context, response.request.created_at),
+                response.method,
+                response.url,
+                str(response.status),
+                xsd,
+                style="red" if response.xsd_errors else "green",
+            )
+
+        panel_items.append(requests_table)
 
     if exception_steps:
         exc_table = Table(title="Exceptions", title_justify="left", show_header=False, expand=True, style="red")
