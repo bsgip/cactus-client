@@ -1,5 +1,4 @@
 import unittest.mock as mock
-from datetime import datetime, timezone
 from typing import Any, Callable
 
 import pytest

@@ -8,15 +8,6 @@ from cactus_test_definitions.csipaus import (
     CSIPAusReadingType,
     CSIPAusResource,
 )
-from envoy_schema.server.schema.csip_aus.connection_point import (
-    ConnectionPointRequest,
-    ConnectionPointResponse,
-)
-from envoy_schema.server.schema.sep2.end_device import (
-    EndDeviceRequest,
-    EndDeviceResponse,
-)
-from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.metering import Reading, ReadingType
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorMeterReading,
@@ -26,9 +17,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
 )
 from envoy_schema.server.schema.sep2.types import (
     DateTimeIntervalType,
-    DeviceCategory,
     FlowDirectionType,
-    ReasonCodeType,
     ServiceKind,
 )
 
@@ -38,7 +27,6 @@ from cactus_client.action.server import (
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
-from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
 from cactus_client.check.mup import (
     generate_mmr_mrid,
     generate_mup_mrids,

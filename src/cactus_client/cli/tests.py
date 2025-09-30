@@ -2,17 +2,11 @@ import argparse
 import sys
 
 from cactus_test_definitions.server.test_procedures import (
-    ClientType,
     TestProcedure,
     TestProcedureConfig,
-    TestProcedureId,
 )
 from rich.console import Console
 from rich.table import Table
-
-from cactus_client.cli.server import ServerConfigKey
-from cactus_client.error import ConfigException
-from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, load_config
 
 COMMAND_NAME = "tests"
 

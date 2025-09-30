@@ -1,17 +1,14 @@
 import asyncio
 import logging
 import logging.config
-import sys
 
 from rich.console import Console
-from rich.live import Live
 
 from cactus_client.error import CactusClientException, ConfigException
 from cactus_client.execution.build import build_execution_context
 from cactus_client.execution.execute import execute_for_context
 from cactus_client.execution.tui import run_tui
 from cactus_client.model.config import GlobalConfig, RunConfig
-from cactus_client.model.context import ExecutionContext
 from cactus_client.model.output import RunOutputFile, RunOutputManager
 from cactus_client.results.common import ResultsEvaluation
 from cactus_client.results.console import render_console

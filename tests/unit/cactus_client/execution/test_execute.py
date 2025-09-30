@@ -27,8 +27,6 @@ from cactus_client.model.execution import (
 from cactus_client.model.progress import (
     ProgressTracker,
     ResponseTracker,
-    StepExecutionCompletion,
-    StepProgress,
     WarningTracker,
 )
 from cactus_client.model.resource import (

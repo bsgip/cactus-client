@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import datetime
 from http import HTTPMethod
@@ -12,7 +11,6 @@ from cactus_client.error import RequestException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
-from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 

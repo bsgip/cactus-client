@@ -40,11 +40,11 @@ if os.name == "nt":
     import msvcrt
 
     def lock_file(file: typing.IO) -> None:
-        msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, os.path.getsize(FILE_PATH) or 1)
+        msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, os.path.getsize(file) or 1)
 
     def unlock_file(file: typing.IO) -> None:
         try:
-            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, os.path.getsize(FILE_PATH) or 1)
+            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, os.path.getsize(file) or 1)
         except OSError:
             pass  # file might be closed already
 

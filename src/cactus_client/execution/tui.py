@@ -1,12 +1,10 @@
 import asyncio
-import curses
 import logging
 from datetime import timedelta
 from enum import StrEnum, auto
 from typing import Any, Callable, TypeVar
 
 import yaml
-from pynput import keyboard
 from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, Group, RenderableType

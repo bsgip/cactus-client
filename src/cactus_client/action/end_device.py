@@ -11,17 +11,15 @@ from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceRequest,
     EndDeviceResponse,
 )
-from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.types import DeviceCategory, ReasonCodeType
 
 from cactus_client.action.server import (
     client_error_request_for_step,
-    request_for_step,
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
-from cactus_client.error import CactusClientException, RequestException
+from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 

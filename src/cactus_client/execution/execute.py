@@ -4,7 +4,6 @@ from dataclasses import replace
 
 from cactus_client.action import execute_action
 from cactus_client.check import execute_checks
-from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
 from cactus_client.time import utc_now

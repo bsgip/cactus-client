@@ -3,29 +3,21 @@ from assertical.asserts.time import assert_nowish
 from assertical.asserts.type import assert_dict_type, assert_list_type
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
-from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
 from envoy_schema.server.schema.sep2.der import (
     DER,
     DefaultDERControl,
-    DERCapability,
-    DERControlListResponse,
-    DERListResponse,
     DERProgramListResponse,
     DERProgramResponse,
-    DERSettings,
-    DERStatus,
 )
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
     EndDeviceResponse,
-    RegistrationResponse,
 )
 from envoy_schema.server.schema.sep2.function_set_assignments import (
-    FunctionSetAssignmentsListResponse,
     FunctionSetAssignmentsResponse,
 )
-from envoy_schema.server.schema.sep2.identification import Link, Resource
+from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePointListResponse,
 )
@@ -208,7 +200,7 @@ def test_ResourceStore_upsert_resource():
 
     p1 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r1)
     p2 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r2)
-    p3 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r3)
+    s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r3)
 
     cr1_dupe = s.append_resource(CSIPAusResource.EndDevice, p1, r1_dupe)
     cr1 = s.append_resource(CSIPAusResource.EndDevice, p2, r1)

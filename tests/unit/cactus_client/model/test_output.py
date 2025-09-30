@@ -2,8 +2,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from assertical.fake.generator import generate_class_instance
-from cactus_test_definitions.csipaus import CSIPAusVersion
-from cactus_test_definitions.server.test_procedures import TestProcedureId
 
 from cactus_client.model.config import RunConfig
 from cactus_client.model.output import (

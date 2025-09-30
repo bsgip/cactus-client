@@ -9,7 +9,6 @@ from cactus_client.model.config import (
     CONFIG_HOME,
     GlobalConfig,
     load_config,
-    resolve_config_path,
 )
 
 COMMAND_NAME = "setup"

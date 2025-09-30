@@ -1,9 +1,8 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Callable, overload
+from typing import Any, Callable
 
-from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import Step
 
 from cactus_client.model.execution import ActionResult, CheckResult, StepExecution

@@ -1,6 +1,4 @@
-import os
 from dataclasses import replace
-from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -9,10 +7,6 @@ from assertical.asserts.type import assert_dict_type
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
 
 from cactus_client.error import ConfigException
 from cactus_client.execution.build import build_execution_context
@@ -23,7 +17,6 @@ from cactus_client.model.config import (
     ServerConfig,
 )
 from cactus_client.model.context import ClientContext, ExecutionContext
-from cactus_client.time import utc_now
 
 
 def generate_valid_config(

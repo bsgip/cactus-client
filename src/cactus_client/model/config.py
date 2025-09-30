@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
 from dataclass_wizard import YAMLWizard
 

@@ -44,6 +44,7 @@ class RouteBehaviour:
 
 @dataclass
 class TestingAppRoute:
+    __test__ = False
     method: HTTPMethod
     path: str
     behaviour: list[RouteBehaviour]

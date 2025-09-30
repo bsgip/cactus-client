@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.time import TimeResponse
