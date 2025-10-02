@@ -169,7 +169,7 @@ def prompt_new_client(console: Console, new_client_id: str) -> ClientConfig:
 
     client_type = Prompt.ask(
         "What sort of client will this act as?",
-        choices=[c.name for c in ClientType],
+        choices=[c.value for c in ClientType],
         case_sensitive=True,
         console=console,
     )
