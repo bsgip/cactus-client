@@ -37,16 +37,20 @@ class RunOutputFile(StrEnum):
 
 # Depending on the OS - implement a lock/unlock function that can force exclusive use of a file
 if os.name == "nt":
-    import msvcrt
+    # import msvcrt
 
     def lock_file(file: typing.IO) -> None:
-        msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, os.path.getsize(file) or 1)
+        # Disabled - requires additional windows testing
+        # msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, os.path.getsize(file) or 1)
+        pass
 
     def unlock_file(file: typing.IO) -> None:
-        try:
-            msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, os.path.getsize(file) or 1)
-        except OSError:
-            pass  # file might be closed already
+        # Disabled - requires additional windows testing
+        # try:
+        #     msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, os.path.getsize(file) or 1)
+        # except OSError:
+        #     pass  # file might be closed already
+        pass
 
 else:
     import fcntl

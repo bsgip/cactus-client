@@ -8,8 +8,8 @@ if os.name == "nt":
 
     def key_pressed() -> str | None:
         """Return key if pressed (non-blocking), else None. Windows implementation."""
-        if msvcrt.kbhit():
-            return msvcrt.getwch()
+        if msvcrt.kbhit():  # type: ignore # This definitely exists under windows
+            return msvcrt.getwch()  # type: ignore # This definitely exists under windows
         return None
 
     def setup() -> None:

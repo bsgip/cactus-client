@@ -196,7 +196,7 @@ def prompt_new_client(console: Console, new_client_id: str) -> ClientConfig:
         sfdi = IntPrompt.ask("Client SFDI", console=console)
 
     client = update_client_value(console, client, ClientConfigKey.LFDI, lfdi)
-    client = update_client_value(console, client, ClientConfigKey.SFDI, sfdi)
+    client = update_client_value(console, client, ClientConfigKey.SFDI, str(sfdi))
 
     pen = IntPrompt.ask("Client Private Enterprise Number (PEN) (used for mrid generation)", console=console)
     client = update_client_value(console, client, ClientConfigKey.PEN, str(pen))

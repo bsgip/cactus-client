@@ -32,7 +32,7 @@ def get_latest_derc(dercs: list[StoredResource]) -> StoredResource | None:
     return latest
 
 
-def check_der_control(
+def check_der_control(  # noqa: C901 # This complexity is from the long line of filtering - can't do much about it
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> CheckResult:
     """Checks whether the specified DERControl's in the resource store match the check criteria"""

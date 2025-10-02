@@ -41,7 +41,7 @@ HEADER_HEIGHT = 3
 def generate_scrolling_table(
     title: str,
     columns: list[Column],
-    style: str | None,
+    style: str,
     items: list[AnyType] | None,
     add_row: Callable[[Table, AnyType], None],
     height: int,
@@ -109,7 +109,7 @@ def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
     table_responses = generate_scrolling_table(
         "Requests",
         [Column(overflow="ellipsis", no_wrap=True)],
-        None,
+        "none",
         context.responses.responses,
         add_row,
         height=height - 1,
