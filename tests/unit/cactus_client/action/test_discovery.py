@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import unittest.mock as mock
 from typing import Callable
 
@@ -7,7 +8,7 @@ from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
 
-from cactus_client.action.discovery import discover_resource
+from cactus_client.action.discovery import discover_resource, calculate_wait_next_polling_window, action_discovery
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
@@ -127,3 +128,103 @@ async def test_discover_resource_singular(
         assert len(context.warnings.warnings) > 0
     else:
         assert len(context.warnings.warnings) == 0
+
+
+@pytest.mark.parametrize(
+    "poll_rate,current_seconds,expected_wait",
+    [
+        # 60-second poll rate (default)
+        (60, 0, 60),  # Start of minute
+        (60, 30, 30),  # Middle
+        (60, 59, 1),  # End
+        # 2-minute poll rate
+        (120, 0, 120),  # Start
+        (120, 60, 60),  # Middle
+        # 30-second poll rate
+        (30, 15, 15),  # Middle
+        # pollRate is None (defult=60)
+        (None, 0, 60),  # Start
+        (None, 45, 15),  # Middle
+    ],
+)
+def test_calculate_wait_next_polling_window_with_dcap(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    poll_rate: int | None,
+    current_seconds: int,
+    expected_wait: int,
+):
+
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+
+    dcap = generate_class_instance(DeviceCapabilityResponse, pollRate=poll_rate, href="/dcap")
+    resource_store.append_resource(CSIPAusResource.DeviceCapability, None, dcap)
+
+    now = datetime.fromtimestamp(current_seconds, tz=timezone.utc)
+
+    # Act
+    wait = calculate_wait_next_polling_window(now, resource_store)
+
+    assert wait == expected_wait
+
+
+def test_calculate_wait_next_polling_window_no_dcap(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """Test no DeviceCapability defaults to 60 seconds"""
+
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    now = datetime.fromtimestamp(45, tz=timezone.utc)
+
+    wait = calculate_wait_next_polling_window(now, resource_store)
+
+    assert wait == 15  # 60 - 45
+
+
+@mock.patch("cactus_client.action.discovery.discover_resource")
+@pytest.mark.asyncio
+async def test_action_discovery_multiple_resources(
+    mock_discover: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """Test that discovery follows the resource tree plan without polling window (next_polling_window default=False)."""
+
+    context, step = testing_contexts_factory(mock.Mock())
+
+    # Include FunctionSetAssignments that has dependencies
+    resources = [CSIPAusResource.EndDevice, CSIPAusResource.FunctionSetAssignments]
+    resolved_params = {"resources": resources}
+
+    # Act
+    result = await action_discovery(resolved_params, step, context)
+
+    assert result.done()
+    # resource tree plan should include parent resources too
+    assert mock_discover.call_count > len(resources)
+
+
+@mock.patch("cactus_client.action.discovery.discover_resource")
+@mock.patch("cactus_client.action.discovery.calculate_wait_next_polling_window")
+@mock.patch("asyncio.sleep")
+@pytest.mark.asyncio
+async def test_action_discovery_with_polling_window(
+    mock_sleep: mock.MagicMock,
+    mock_calc_wait: mock.MagicMock,
+    mock_discover: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """Test discovery action with next_polling_window enabled"""
+
+    context, step = testing_contexts_factory(mock.Mock())
+    resources = [CSIPAusResource.DeviceCapability]
+    resolved_params = {"resources": resources, "next_polling_window": True}
+    mock_calc_wait.return_value = 42
+
+    # Act
+    result = await action_discovery(resolved_params, step, context)
+
+    assert result.done()
+    mock_calc_wait.assert_called_once()
+    mock_sleep.assert_called_once_with(42)  # mock to avoid actually waiting
+    assert mock_discover.call_count >= 1
