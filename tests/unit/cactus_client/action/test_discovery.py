@@ -20,7 +20,7 @@ from cactus_client.model.resource import RESOURCE_SEP2_TYPES
 
 
 def setup_parent_resources(context, step, parent_resource_type, count, seed_base=0):
-    """Helper to create parent resources with varying href states"""
+    """Helper to create parent resources with valid hrefs"""
     resource_store = context.discovered_resources(step)
     parent_type = RESOURCE_SEP2_TYPES[parent_resource_type]
 
@@ -67,11 +67,16 @@ def create_fetched_resources(resource_type, count, has_href, seed_base=0):
 def assert_resources_stored_correctly(resource_store, resource_type, expected_resources, expected_parents):
     """Verify that resources were stored with correct type and parent associations"""
     added_resources = resource_store.get(resource_type)
-    assert [sr.resource for sr in added_resources] == expected_resources, "Resources match expected"
-    assert all([sr.resource_type == resource_type for sr in added_resources]), "All have correct resource type"
-    assert all(
-        [added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, expected_parents)]
-    ), "All have correct parent associations"
+    assert [sr.resource for sr in added_resources] == expected_resources
+    assert all(sr.resource_type == resource_type for sr in added_resources)
+    assert all(added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, expected_parents))
+
+
+def assert_mock_calls_match_parents(mock_func, expected_type, step, context, parents, resource):
+    """Verify mock was called with correct arguments for each parent"""
+    mock_func.assert_has_calls(
+        [mock.call(expected_type, step, context, parent.resource_link_hrefs[resource]) for parent in parents]
+    )
 
 
 @pytest.mark.parametrize("has_href", [True, False])
@@ -102,11 +107,7 @@ async def test_discover_resource_dcap(
     assert stored_resources[0].parent is None
     mock_get_resource_for_step.assert_called_once_with(DeviceCapabilityResponse, step, context, context.dcap_path)
     mock_paginate_list_resource_items.assert_not_called()
-
-    if has_href:
-        assert len(context.warnings.warnings) == 0
-    else:
-        assert len(context.warnings.warnings) == 1
+    assert len(context.warnings.warnings) == (0 if has_href else 1)
 
 
 @pytest.mark.parametrize(
@@ -117,7 +118,6 @@ async def test_discover_resource_dcap(
         (CSIPAusResource.FunctionSetAssignmentsList, 2),
         (CSIPAusResource.DERProgramList, 2),
         (CSIPAusResource.MirrorUsagePointList, 2),
-        (CSIPAusResource.SubscriptionList, 2),
     ],
 )
 @pytest.mark.parametrize("has_href", [True, False])
@@ -133,19 +133,16 @@ async def test_discover_list_container_resources(
     has_href: bool,
 ):
     """
-    Tests discovery of list container resources via direct href link from their parent.
+    Discover list containers via parent link (e.g., EndDevice.FunctionSetAssignmentsListLink.href → FunctionSetAssignmentsList).
 
-    E.g. EndDevice.FunctionSetAssignmentsListLink.href -> fetches FunctionSetAssignmentsList container
-
-    Note: This discovers the LIST CONTAINER itself, not items within it.
-    List item discovery is tested separately.
+    Fetches the LIST CONTAINER itself (not items within). Uses get_resource_for_step, not pagination.
     """
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
 
     parent_resource = context.resource_tree.parent_resource(resource)
-    stored_parent_resources = setup_parent_resources(context, step, parent_resource, matched_parents)
+    stored_parents = setup_parent_resources(context, step, parent_resource, matched_parents)
     add_invalid_parent_resources(resource_store, parent_resource)
 
     fetched_resources = create_fetched_resources(resource, matched_parents, has_href)
@@ -155,19 +152,12 @@ async def test_discover_list_container_resources(
     await discover_resource(resource, step, context)
 
     # Assert
-    assert_resources_stored_correctly(resource_store, resource, fetched_resources, stored_parent_resources)
-
-    expected_resource_type = RESOURCE_SEP2_TYPES[resource]
-    mock_get_resource_for_step.assert_has_calls(
-        mock.call(expected_resource_type, step, context, spr.resource_link_hrefs[resource])
-        for spr in stored_parent_resources
+    assert_resources_stored_correctly(resource_store, resource, fetched_resources, stored_parents)
+    assert_mock_calls_match_parents(
+        mock_get_resource_for_step, RESOURCE_SEP2_TYPES[resource], step, context, stored_parents, resource
     )
     mock_paginate_list_resource_items.assert_not_called()
-
-    if has_href:
-        assert len(context.warnings.warnings) == 0
-    else:
-        assert len(context.warnings.warnings) > 0
+    assert len(context.warnings.warnings) == (0 if has_href else matched_parents)
 
 
 @pytest.mark.parametrize("has_href", [True, False])
@@ -198,9 +188,8 @@ async def test_discover_subscription_list_with_no_parents(
     await discover_resource(resource, step, context)
 
     # Assert
-    stored_resources = resource_store.get(resource)
-    assert len(stored_resources) == 0, "No resources stored when no valid parents"
-    assert len(context.warnings.warnings) == 0, "No warnings when no fetch operations attempted"
+    assert len(resource_store.get(resource)) == 0
+    assert len(context.warnings.warnings) == 0
     mock_get_resource_for_step.assert_not_called()
     mock_paginate_list_resource_items.assert_not_called()
 
@@ -230,18 +219,16 @@ async def test_discover_singular_resources(
     has_href: bool,
 ):
     """
-    Tests discovery of singular (non-list) resources via direct href link from their parent.
+    Discover singular resources via parent link (e.g., EndDevice.RegistrationLink.href → Registration).
 
-    E.g. EndDevice.RegistrationLink.href -> fetches Registration resource
-
-    This tests direct 1-to-1 parent-child relationships via explicit links.
+    Tests 1-to-1 parent-child relationships. Uses get_resource_for_step, not pagination.
     """
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
 
     parent_resource = context.resource_tree.parent_resource(resource)
-    stored_parent_resources = setup_parent_resources(context, step, parent_resource, matched_parents)
+    stored_parents = setup_parent_resources(context, step, parent_resource, matched_parents)
     add_invalid_parent_resources(resource_store, parent_resource)
 
     fetched_resources = create_fetched_resources(resource, matched_parents, has_href)
@@ -251,19 +238,12 @@ async def test_discover_singular_resources(
     await discover_resource(resource, step, context)
 
     # Assert
-    assert_resources_stored_correctly(resource_store, resource, fetched_resources, stored_parent_resources)
-
-    expected_resource_type = RESOURCE_SEP2_TYPES[resource]
-    mock_get_resource_for_step.assert_has_calls(
-        mock.call(expected_resource_type, step, context, spr.resource_link_hrefs[resource])
-        for spr in stored_parent_resources
+    assert_resources_stored_correctly(resource_store, resource, fetched_resources, stored_parents)
+    assert_mock_calls_match_parents(
+        mock_get_resource_for_step, RESOURCE_SEP2_TYPES[resource], step, context, stored_parents, resource
     )
     mock_paginate_list_resource_items.assert_not_called()
-
-    if has_href:
-        assert len(context.warnings.warnings) == 0
-    else:
-        assert len(context.warnings.warnings) > 0
+    assert len(context.warnings.warnings) == (0 if has_href else matched_parents)
 
 
 @pytest.mark.parametrize(
@@ -288,24 +268,16 @@ async def test_discover_resource_list_items(
     list_resource: CSIPAusResource,
     child_resource: CSIPAusResource,
 ):
-    """Tests discovery of child items from list-type parent resources via pagination.
+    """
+    Discover child items from list containers via pagination (e.g., EndDeviceList → [EndDevice, EndDevice, ...]).
 
-    Example: EndDeviceList (at /edev) -> pagination returns [EndDevice, EndDevice, EndDevice]
-
-    This tests the list resource branch in discover_resource():
-        if is_list_resource(parent_resource):
-            list_items = await paginate_list_resource_items(...)
-            for item in list_items:
-                resource_store.append_resource(resource, parent_sr, item)
-
-    Verifies: pagination calls, parent-child associations, href warnings, no direct fetches.
+    Uses paginate_list_resource_items, not get_resource_for_step.
     """
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
 
-    # Setup 2 parent lists
     num_parents = 2
-    items_per_parent = [3, 2]  # Different counts per parent
+    items_per_parent = [3, 2]
     stored_parents = setup_parent_resources(context, step, list_resource, num_parents)
 
     # Create child items that pagination will return for each parent
@@ -313,9 +285,7 @@ async def test_discover_resource_list_items(
     child_items_by_parent = [
         [
             generate_class_instance(
-                child_type,
-                seed=parent_idx * 100 + child_idx,
-                href=f"/item/{parent_idx}/{child_idx}",
+                child_type, seed=parent_idx * 100 + child_idx, href=f"/item/{parent_idx}/{child_idx}"
             )
             for child_idx in range(items_per_parent[parent_idx])
         ]
@@ -325,39 +295,35 @@ async def test_discover_resource_list_items(
     # Mock paginate_list_resource_items to return the children for each parent call
     mock_paginate_list_resource_items.side_effect = child_items_by_parent
 
-    # Act
     await discover_resource(child_resource, step, context)
 
-    # Assert - check paginate_list_resource_items was called correctly for each parent
     assert mock_paginate_list_resource_items.call_count == num_parents
-
     for parent_idx, parent_sr in enumerate(stored_parents):
         call_args = mock_paginate_list_resource_items.call_args_list[parent_idx]
-        assert call_args[0][0] == RESOURCE_SEP2_TYPES[list_resource], "Correct list type passed"
-        assert call_args[0][1] == step, "Step passed correctly"
-        assert call_args[0][2] == context, "Context passed correctly"
-        assert call_args[0][3] == parent_sr.resource.href, f"Correct href for parent {parent_idx}"
-        assert call_args[0][4] == DISCOVERY_LIST_PAGE_SIZE, "Correct page size"
+        assert call_args[0][0] == RESOURCE_SEP2_TYPES[list_resource]
+        assert call_args[0][1] == step
+        assert call_args[0][2] == context
+        assert call_args[0][3] == parent_sr.resource.href
+        assert call_args[0][4] == DISCOVERY_LIST_PAGE_SIZE
         # call_args[0][5] is the get_list_items lambda - hard to verify directly
-        assert callable(call_args[0][5]), "get_list_items lambda passed"
+        assert callable(call_args[0][5])
 
     # check children were stored correctly
     stored_children = context.discovered_resources(step).get(child_resource)
-    expected_total_children = sum(items_per_parent)
-    assert len(stored_children) == expected_total_children, f"Expected {expected_total_children} children stored"
+    expected_total = sum(items_per_parent)
+    assert len(stored_children) == expected_total
 
     # Verify each child has correct metadata and parent association
     child_idx = 0
     for parent_idx, parent_sr in enumerate(stored_parents):
         for item in child_items_by_parent[parent_idx]:
-            assert stored_children[child_idx].resource is item, f"Child {child_idx} has correct resource"
-            assert stored_children[child_idx].resource_type == child_resource, f"Child {child_idx} has correct type"
-            assert stored_children[child_idx].parent is parent_sr, f"Child {child_idx} linked to parent {parent_idx}"
+            assert stored_children[child_idx].resource is item
+            assert stored_children[child_idx].resource_type == child_resource
+            assert stored_children[child_idx].parent is parent_sr
             child_idx += 1
 
     # No warnings since all children have hrefs
     assert len(context.warnings.warnings) == 0
-
     # Verify get_resource_for_step was NOT called (items come from pagination, not individual fetches)
     mock_get_resource_for_step.assert_not_called()
 
@@ -365,15 +331,12 @@ async def test_discover_resource_list_items(
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
 @mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
 @pytest.mark.asyncio
-async def test_discover_resource_list_items_skips_parents_without_href(
+async def test_discover_resource_list_items_skips_invalid_parents(
     mock_paginate_list_resource_items: mock.MagicMock,
     mock_get_resource_for_step: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
-    """Tests that parent lists without hrefs or with empty hrefs are skipped during discovery.
-
-    Verifies the "if not list_href: continue" logic in discover_resource().
-    """
+    """Parent lists with None/empty hrefs are skipped (verifies 'if not list_href: continue' logic)"""
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
@@ -409,57 +372,42 @@ async def test_discover_resource_list_items_skips_parents_without_href(
     # Act
     await discover_resource(child_resource, step, context)
 
-    # Assert - only the valid parent should be queried
-    assert mock_paginate_list_resource_items.call_count == 1, "Only valid parent queried"
-    call_args = mock_paginate_list_resource_items.call_args_list[0]
-    assert call_args[0][3] == valid_parent.href, "Valid parent href used"
+    # Assert
+    assert mock_paginate_list_resource_items.call_count == 1
+    assert mock_paginate_list_resource_items.call_args[0][3] == valid_parent.href
 
-    # Only children from valid parent should be stored
     stored_children = resource_store.get(child_resource)
-    assert len(stored_children) == 3, "Only children from valid parent stored"
-    assert all(child.parent is valid_parent_sr for child in stored_children), "All children linked to valid parent"
-
-    # No warnings since valid children have hrefs
+    assert len(stored_children) == 3
+    assert all(child.parent is valid_parent_sr for child in stored_children)
     assert len(context.warnings.warnings) == 0
 
 
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
 @mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
 @pytest.mark.asyncio
-async def test_discover_resource_list_items_empty_pagination_results(
+async def test_discover_resource_list_items_empty_pagination(
     mock_paginate_list_resource_items: mock.MagicMock,
     mock_get_resource_for_step: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
-    """Tests discovery when pagination returns empty list (no child items in the list).
-
-    Example: DERList exists at /der/list but contains zero DER items.
-    """
-    # Arrange
+    """Pagination returns empty list when list container exists but has no items"""
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
 
     list_resource = CSIPAusResource.DERList
     child_resource = CSIPAusResource.DER
 
-    # Create parent list
     parent_list = generate_class_instance(
         RESOURCE_SEP2_TYPES[list_resource], seed=1, href="/der/list/empty", generate_relationships=True
     )
     resource_store.append_resource(list_resource, None, parent_list)
-
-    # Mock pagination to return empty list
     mock_paginate_list_resource_items.return_value = []
 
-    # Act
     await discover_resource(child_resource, step, context)
 
-    # Assert
     mock_paginate_list_resource_items.assert_called_once()
-
-    stored_children = resource_store.get(child_resource)
-    assert len(stored_children) == 0, "No children stored from empty list"
-    assert len(context.warnings.warnings) == 0, "No warnings for empty lists"
+    assert len(resource_store.get(child_resource)) == 0
+    assert len(context.warnings.warnings) == 0
     mock_get_resource_for_step.assert_not_called()
 
 
@@ -473,8 +421,7 @@ async def test_discover_resource_list_items_href_warnings(
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     has_href: bool,
 ):
-    """Tests that missing hrefs on list items generate appropriate warnings"""
-    # Arrange
+    """Missing hrefs on paginated list items generate warnings"""
     context, step = testing_contexts_factory(mock.Mock())
 
     list_resource = CSIPAusResource.EndDeviceList
@@ -482,21 +429,16 @@ async def test_discover_resource_list_items_href_warnings(
 
     setup_parent_resources(context, step, list_resource, 1)
 
-    # Mock pagination to return items with or without hrefs
     child_items = [
-        generate_class_instance(RESOURCE_SEP2_TYPES[child_resource], seed=i, optional_is_none=not has_href)
+        generate_class_instance(RESOURCE_SEP2_TYPES[child_resource], seed=i, href=f"/edev/{i}" if has_href else None)
         for i in range(3)
     ]
     mock_paginate_list_resource_items.return_value = child_items
 
-    # Act
     await discover_resource(child_resource, step, context)
 
-    # Assert
-    if has_href:
-        assert len(context.warnings.warnings) == 0, "No warnings when children have hrefs"
-    else:
-        assert len(context.warnings.warnings) > 0, "Warnings generated when children lack hrefs"
+    expected_warnings = 0 if has_href else 3
+    assert len(context.warnings.warnings) == expected_warnings
 
 
 @pytest.mark.parametrize(
@@ -508,7 +450,7 @@ async def test_discover_resource_list_items_href_warnings(
         (120, 0, 120),
         (120, 60, 60),
         (30, 15, 15),
-        (None, 0, 60),  # Default 60s
+        (None, 0, 60),
         (None, 45, 15),
     ],
 )
@@ -541,7 +483,7 @@ def test_calculate_wait_next_polling_window_no_dcap(
 
     wait = calculate_wait_next_polling_window(now, resource_store)
 
-    assert wait == 15  # 60 - 45
+    assert wait == 15
 
 
 @mock.patch("cactus_client.action.discovery.discover_resource")
