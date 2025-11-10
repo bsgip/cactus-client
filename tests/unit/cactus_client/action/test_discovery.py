@@ -202,7 +202,9 @@ async def test_discover_resource_singular_resources(
     )
 
     fetched_resources = [
-        generate_class_instance(expected_type, seed=idx * 101, optional_is_none=not has_href)
+        generate_class_instance(
+            expected_type, seed=idx * 101, href=None if not has_href else f"/{resource.value}/{idx}"
+        )
         for idx in range(matched_parents)
     ]
     mock_get_resource_for_step.side_effect = fetched_resources
