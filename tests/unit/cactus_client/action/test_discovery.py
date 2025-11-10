@@ -304,7 +304,7 @@ async def test_discover_resource_paginated_items(
         assert call_args[0][2] == context
         assert call_args[0][3] == parent_sr.resource.href
         assert call_args[0][4] == DISCOVERY_LIST_PAGE_SIZE
-        assert callable(call_args[0][5])
+        assert callable(call_args[0][5])  # harder to assert on the lambda
 
     stored_children = resource_store.get(child_resource)
     assert len(stored_children) == sum(items_per_parent)
