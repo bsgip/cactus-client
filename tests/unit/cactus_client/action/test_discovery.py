@@ -35,6 +35,45 @@ def setup_parent_resources(context, step, parent_resource_type, count, seed_base
     return parents
 
 
+def add_invalid_parent_resources(resource_store, parent_resource_type):
+    """Add parent resources with missing/empty hrefs that should be skipped during discovery"""
+    resource_store.append_resource(
+        parent_resource_type,
+        None,
+        generate_class_instance(
+            RESOURCE_SEP2_TYPES[parent_resource_type], seed=1001, generate_relationships=True, optional_is_none=True
+        ),
+    )
+    resource_store.append_resource(
+        parent_resource_type,
+        None,
+        generate_class_instance(RESOURCE_SEP2_TYPES[parent_resource_type], seed=1001, href=""),
+    )
+
+
+def create_fetched_resources(resource_type, count, has_href, seed_base=0):
+    """Create a list of resource instances to be returned by mock fetches"""
+    expected_resource_type = RESOURCE_SEP2_TYPES[resource_type]
+    return [
+        generate_class_instance(
+            expected_resource_type,
+            seed=seed_base + idx * 101,
+            href=f"/{resource_type.value}/{idx}" if has_href else None,
+        )
+        for idx in range(count)
+    ]
+
+
+def assert_resources_stored_correctly(resource_store, resource_type, expected_resources, expected_parents):
+    """Verify that resources were stored with correct type and parent associations"""
+    added_resources = resource_store.get(resource_type)
+    assert [sr.resource for sr in added_resources] == expected_resources, "Resources match expected"
+    assert all([sr.resource_type == resource_type for sr in added_resources]), "All have correct resource type"
+    assert all(
+        [added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, expected_parents)]
+    ), "All have correct parent associations"
+
+
 @pytest.mark.parametrize("has_href", [True, False])
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
 @mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
@@ -70,7 +109,6 @@ async def test_discover_resource_dcap(
         assert len(context.warnings.warnings) == 1
 
 
-# List container resources (discovered via direct link to the list itself)
 @pytest.mark.parametrize(
     "resource, matched_parents",
     [
@@ -79,6 +117,7 @@ async def test_discover_resource_dcap(
         (CSIPAusResource.FunctionSetAssignmentsList, 2),
         (CSIPAusResource.DERProgramList, 2),
         (CSIPAusResource.MirrorUsagePointList, 2),
+        (CSIPAusResource.SubscriptionList, 2),
     ],
 )
 @pytest.mark.parametrize("has_href", [True, False])
@@ -107,42 +146,18 @@ async def test_discover_list_container_resources(
 
     parent_resource = context.resource_tree.parent_resource(resource)
     stored_parent_resources = setup_parent_resources(context, step, parent_resource, matched_parents)
+    add_invalid_parent_resources(resource_store, parent_resource)
 
-    # Add parents with missing/empty hrefs that should be skipped
-    resource_store.append_resource(
-        parent_resource,
-        None,
-        generate_class_instance(
-            RESOURCE_SEP2_TYPES[parent_resource], seed=1001, generate_relationships=True, optional_is_none=True
-        ),
-    )
-    resource_store.append_resource(
-        parent_resource,
-        None,
-        generate_class_instance(RESOURCE_SEP2_TYPES[parent_resource], seed=1001, href=""),
-    )
-
-    # Prep the returned resources
-    expected_resource_type = RESOURCE_SEP2_TYPES[resource]
-    fetched_resources = [
-        generate_class_instance(
-            expected_resource_type,
-            seed=idx * 101,
-            href=f"/{resource.value}/{idx}" if has_href else None,
-        )
-        for idx in range(matched_parents)
-    ]
+    fetched_resources = create_fetched_resources(resource, matched_parents, has_href)
     mock_get_resource_for_step.side_effect = fetched_resources
 
     # Act
     await discover_resource(resource, step, context)
 
     # Assert
-    added_resources = resource_store.get(resource)
-    assert [sr.resource for sr in added_resources] == fetched_resources
-    assert all([sr.resource_type == resource for sr in added_resources])
-    assert all([added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, stored_parent_resources)])
+    assert_resources_stored_correctly(resource_store, resource, fetched_resources, stored_parent_resources)
 
+    expected_resource_type = RESOURCE_SEP2_TYPES[resource]
     mock_get_resource_for_step.assert_has_calls(
         mock.call(expected_resource_type, step, context, spr.resource_link_hrefs[resource])
         for spr in stored_parent_resources
@@ -155,18 +170,51 @@ async def test_discover_list_container_resources(
         assert len(context.warnings.warnings) > 0
 
 
-# Singular non-list resources (special case for SubscriptionList)
+@pytest.mark.parametrize("has_href", [True, False])
+@mock.patch("cactus_client.action.discovery.get_resource_for_step")
+@mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
+@pytest.mark.asyncio
+async def test_discover_subscription_list_with_no_parents(
+    mock_paginate_list_resource_items: mock.MagicMock,
+    mock_get_resource_for_step: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    has_href: bool,
+):
+    """
+    Tests SubscriptionList discovery with zero parent resources.
+
+    Special case: When there are no parent resources to fetch from, no warnings should be generated regardless of href 
+    presence, since no fetch operations are attempted.
+    """
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    resource = CSIPAusResource.SubscriptionList
+
+    parent_resource = context.resource_tree.parent_resource(resource)
+    add_invalid_parent_resources(resource_store, parent_resource)
+
+    # Act
+    await discover_resource(resource, step, context)
+
+    # Assert
+    stored_resources = resource_store.get(resource)
+    assert len(stored_resources) == 0, "No resources stored when no valid parents"
+    assert len(context.warnings.warnings) == 0, "No warnings when no fetch operations attempted"
+    mock_get_resource_for_step.assert_not_called()
+    mock_paginate_list_resource_items.assert_not_called()
+
+
 @pytest.mark.parametrize(
-    "resource, matched_parents, warns_on_missing_href",
+    "resource, matched_parents",
     [
-        (CSIPAusResource.SubscriptionList, 0, False),  # Special case: no warnings when no items
-        (CSIPAusResource.Time, 1, True),
-        (CSIPAusResource.ConnectionPoint, 1, True),
-        (CSIPAusResource.Registration, 2, True),
-        (CSIPAusResource.DERCapability, 1, True),
-        (CSIPAusResource.DERSettings, 2, True),
-        (CSIPAusResource.DERStatus, 1, True),
-        (CSIPAusResource.DefaultDERControl, 1, True),
+        (CSIPAusResource.Time, 1),
+        (CSIPAusResource.ConnectionPoint, 1),
+        (CSIPAusResource.Registration, 2),
+        (CSIPAusResource.DERCapability, 1),
+        (CSIPAusResource.DERSettings, 2),
+        (CSIPAusResource.DERStatus, 1),
+        (CSIPAusResource.DefaultDERControl, 1),
     ],
 )
 @pytest.mark.parametrize("has_href", [True, False])
@@ -180,7 +228,6 @@ async def test_discover_singular_resources(
     resource: CSIPAusResource,
     matched_parents: int,
     has_href: bool,
-    warns_on_missing_href: bool,
 ):
     """
     Tests discovery of singular (non-list) resources via direct href link from their parent.
@@ -195,53 +242,28 @@ async def test_discover_singular_resources(
 
     parent_resource = context.resource_tree.parent_resource(resource)
     stored_parent_resources = setup_parent_resources(context, step, parent_resource, matched_parents)
+    add_invalid_parent_resources(resource_store, parent_resource)
 
-    # Add parents with missing/empty hrefs that should be skipped
-    resource_store.append_resource(
-        parent_resource,
-        None,
-        generate_class_instance(
-            RESOURCE_SEP2_TYPES[parent_resource], seed=1001, generate_relationships=True, optional_is_none=True
-        ),
-    )
-    resource_store.append_resource(
-        parent_resource,
-        None,
-        generate_class_instance(RESOURCE_SEP2_TYPES[parent_resource], seed=1001, href=""),
-    )
-
-    # Prep the returned resources
-    expected_resource_type = RESOURCE_SEP2_TYPES[resource]
-    fetched_resources = [
-        generate_class_instance(
-            expected_resource_type,
-            seed=idx * 101,
-            href=f"/{resource.value}/{idx}" if has_href else None,
-        )
-        for idx in range(matched_parents)
-    ]
+    fetched_resources = create_fetched_resources(resource, matched_parents, has_href)
     mock_get_resource_for_step.side_effect = fetched_resources
 
     # Act
     await discover_resource(resource, step, context)
 
     # Assert
-    added_resources = resource_store.get(resource)
-    assert [sr.resource for sr in added_resources] == fetched_resources
-    assert all([sr.resource_type == resource for sr in added_resources])
-    assert all([added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, stored_parent_resources)])
+    assert_resources_stored_correctly(resource_store, resource, fetched_resources, stored_parent_resources)
 
+    expected_resource_type = RESOURCE_SEP2_TYPES[resource]
     mock_get_resource_for_step.assert_has_calls(
         mock.call(expected_resource_type, step, context, spr.resource_link_hrefs[resource])
         for spr in stored_parent_resources
     )
     mock_paginate_list_resource_items.assert_not_called()
 
-    expect_warnings = not has_href and warns_on_missing_href
-    if expect_warnings:
-        assert len(context.warnings.warnings) > 0
-    else:
+    if has_href:
         assert len(context.warnings.warnings) == 0
+    else:
+        assert len(context.warnings.warnings) > 0
 
 
 @pytest.mark.parametrize(
@@ -357,14 +379,12 @@ async def test_discover_resource_list_items_skips_parents_without_href(
     resource_store = context.discovered_resources(step)
 
     list_resource = CSIPAusResource.EndDeviceList
+    list_resource_type = 
     child_resource = CSIPAusResource.EndDevice
 
-    # Create parent lists: one valid, one with None href, one with empty href
+    # Create parent lists: one valid, one with None href, one with empty
     valid_parent = generate_class_instance(
-        RESOURCE_SEP2_TYPES[list_resource],
-        seed=1,
-        href="/valid/list",
-        generate_relationships=True,
+        RESOURCE_SEP2_TYPES[list_resource], seed=1, href="/valid/list", generate_relationships=True
     )
     no_href_parent = generate_class_instance(
         RESOURCE_SEP2_TYPES[list_resource],
@@ -376,7 +396,7 @@ async def test_discover_resource_list_items_skips_parents_without_href(
         RESOURCE_SEP2_TYPES[list_resource],
         seed=3,
         href="",
-        generate_relationships=True,
+        generate_relationships=True
     )
 
     # Store all parents in resource store
@@ -431,7 +451,7 @@ async def test_discover_resource_list_items_empty_pagination_results(
         RESOURCE_SEP2_TYPES[list_resource],
         seed=1,
         href="/der/list/empty",
-        generate_relationships=True,
+        generate_relationships=True
     )
     resource_store.append_resource(list_resource, None, parent_list)
 
