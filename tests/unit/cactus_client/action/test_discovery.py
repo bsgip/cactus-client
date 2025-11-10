@@ -183,7 +183,7 @@ async def test_discover_subscription_list_with_no_parents(
     """
     Tests SubscriptionList discovery with zero parent resources.
 
-    Special case: When there are no parent resources to fetch from, no warnings should be generated regardless of href 
+    Special case: When there are no parent resources to fetch from, no warnings should be generated regardless of href
     presence, since no fetch operations are attempted.
     """
     # Arrange
@@ -379,7 +379,6 @@ async def test_discover_resource_list_items_skips_parents_without_href(
     resource_store = context.discovered_resources(step)
 
     list_resource = CSIPAusResource.EndDeviceList
-    list_resource_type = 
     child_resource = CSIPAusResource.EndDevice
 
     # Create parent lists: one valid, one with None href, one with empty
@@ -393,10 +392,7 @@ async def test_discover_resource_list_items_skips_parents_without_href(
         optional_is_none=True,  # This will set href=None
     )
     empty_href_parent = generate_class_instance(
-        RESOURCE_SEP2_TYPES[list_resource],
-        seed=3,
-        href="",
-        generate_relationships=True
+        RESOURCE_SEP2_TYPES[list_resource], seed=3, href="", generate_relationships=True
     )
 
     # Store all parents in resource store
@@ -448,10 +444,7 @@ async def test_discover_resource_list_items_empty_pagination_results(
 
     # Create parent list
     parent_list = generate_class_instance(
-        RESOURCE_SEP2_TYPES[list_resource],
-        seed=1,
-        href="/der/list/empty",
-        generate_relationships=True
+        RESOURCE_SEP2_TYPES[list_resource], seed=1, href="/der/list/empty", generate_relationships=True
     )
     resource_store.append_resource(list_resource, None, parent_list)
 
