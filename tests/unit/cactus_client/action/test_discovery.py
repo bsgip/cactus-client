@@ -74,6 +74,20 @@ async def test_discover_resource_singular(
     has_href: bool,
     expect_warnings: bool,
 ):
+    """
+    Tests discovery of resources via direct href link from their parent (1-to-1 relationship).
+
+    E.g. EndDevice.ConnectionPointLink.href = "/edev/1/cp" -> fetches ConnectionPoint
+
+    This tests the "else" branch in discover_resource() where parent has an explicit link:
+        href = parent_sr.resource_link_hrefs.get(resource, None)
+        await get_resource_for_step(..., href)
+
+    Note: Despite testing DERList/EndDeviceList resources, this discovers the LIST ITSELF via direct link (e.g.,
+    EndDevice -> FunctionSetAssignmentsList container), NOT the items within those lists.
+
+    List item discovery via pagination is tested in test_discover_resource_list_items().
+    """
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
