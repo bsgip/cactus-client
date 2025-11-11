@@ -2,6 +2,8 @@
 
 This is a set of tools for evaluating CSIP-Aus server test procedures defined at [CACTUS Test Definitions](https://github.com/bsgip/cactus-test-definitions).
 
+<img width="1841" height="1003" alt="image" src="https://github.com/user-attachments/assets/0ee5b02e-cb21-476a-a6f2-975f23ecc5ae" />
+
 
 ## Development
 
@@ -31,7 +33,8 @@ CACTUS requires two things:
 If you're trying to keep CACTUS to a single working directory (and want all of your CACTUS operations to run out of that working directory):
 
 1. Create a new empty directory (eg `mkdir cactus-wd`)
-1. `cactus setup -l cactus-wd`
+1. `cd cactus-wd`
+1. `cactus setup -l .`
 
 Please note - all CACTUS commands will now require you to operate out of the `./cactus-wd/` directory
 1. `cd cactus-wd`
