@@ -11,6 +11,7 @@ from cactus_client.check.sep2 import is_invalid_mrid
         ("00004567", 4567, True),
         ("0ABCDEF0123456789000004567", 4567, True),
         ("FFFFFFFFFFFFFFFFFFFFFFFF00004567", 4567, True),
+        ("FFFFFFFFFFFFFFFFFFFFFFFFABCD4567", 4567, False),
         ("FFFFFFFFFFFFFFFFFFFFF12399999999", 99999999, True),
         ("FFFFFFFFFFFFFFFFFFFFF12399999999", 999, False),  # wrong PEN
         ("BBAA402E1AD2D673BAE72163FE00000002", 2, False),  # Too long
