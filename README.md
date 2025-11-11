@@ -51,7 +51,7 @@ If you'd like your CACTUS commands to work from any directory (but still have th
 Setup the server connections details (dcap refers to your DeviceCapability URI)
 
 1. `cactus server dcap https://your.server/dcap`
-1. `cactus server verify true`
+2. `cactus server verify true`
 
 
 Setup your first client - You will be prompted to populate each field (like below)
@@ -103,6 +103,4 @@ The command `cactus tests` will print out all available test cases...
 ### Running your first test
 
 The following command will run the `S-ALL-01` test with the client you created earlier `cactus run S-ALL-01 myclient1`
-
-
 

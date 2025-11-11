@@ -3,33 +3,19 @@ from datetime import datetime
 from typing import Any, Callable, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
-from envoy_schema.server.schema.sep2.der import (
-    DERControlListResponse,
-    DERListResponse,
-    DERProgramListResponse,
-)
+from envoy_schema.server.schema.sep2.der import DERControlListResponse, DERListResponse, DERProgramListResponse
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
-from envoy_schema.server.schema.sep2.end_device import (
-    EndDeviceListResponse,
-)
-from envoy_schema.server.schema.sep2.function_set_assignments import (
-    FunctionSetAssignmentsListResponse,
-)
+from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse
+from envoy_schema.server.schema.sep2.function_set_assignments import FunctionSetAssignmentsListResponse
 from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
-from cactus_client.action.server import (
-    get_resource_for_step,
-    paginate_list_resource_items,
-)
+from cactus_client.action.server import get_resource_for_step, paginate_list_resource_items
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_client.model.resource import (
-    RESOURCE_SEP2_TYPES,
-    ResourceStore,
-)
+from cactus_client.model.resource import RESOURCE_SEP2_TYPES, ResourceStore
 from cactus_client.time import utc_now
 
 DISCOVERY_LIST_PAGE_SIZE = 3  # We want something suitably small (to ensure pagination is tested)

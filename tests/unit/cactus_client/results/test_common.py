@@ -25,7 +25,7 @@ from cactus_client.model.progress import (
     ResponseTracker,
     WarningTracker,
 )
-from cactus_client.model.resource import CSIPAusResourceTree
+from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CSIPAusResourceTree
 from cactus_client.results.common import ResultsEvaluation
 
 
@@ -215,3 +215,10 @@ async def test_ResultsEvaluation_failing_failing_step(assertical_extensions):
     assert actual.total_steps_passed == 1
     assert actual.total_warnings == 0
     assert actual.total_xsd_errors == 0
+
+
+def test_RESOURCE_SEP2_TYPES_typos():
+    """Just check we havent made a typo in the resource defs"""
+    for resource_enum, response_type in RESOURCE_SEP2_TYPES.items():
+        expected = response_type.__name__.replace("Response", "")
+        assert resource_enum.value == expected
