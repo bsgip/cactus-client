@@ -78,12 +78,12 @@ def print_test(console: Console, tp_id: str) -> None:
     steps_table.add_column("Repeat till Pass")
 
     for step in tp.steps:
-        client = step.client if step.client else tp.preconditions.required_clients[0].id
-        client_context = step.use_client_context if step.use_client_context else client
+        client_id = step.client if step.client else tp.preconditions.required_clients[0].id
+        client_context = step.use_client_context if step.use_client_context else client_id
         checks: list[str] = [c.type for c in step.checks] if step.checks else []
         steps_table.add_row(
             step.id,
-            client,
+            client_id,
             client_context,
             step.action.type,
             ", ".join(checks) if checks else "[b]None[b]",

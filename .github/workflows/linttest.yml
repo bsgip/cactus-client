@@ -61,9 +61,6 @@ jobs:
         run: |
           pip install .[dev]
 
-      - name: Add mypy annotator
-        uses: pr-annotators/mypy-pr-annotator@v1.0.0
-
       - name: Run mypy
         run: mypy .
 
