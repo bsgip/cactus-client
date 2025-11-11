@@ -63,10 +63,9 @@ def test_value_to_sep2(v: float, pow10: int, expected: int):
 )
 def test_calculate_reading_time(post_rate_seconds, repeat_number, expected_offset_seconds, testing_contexts_factory):
 
-    # Arrange
     context, _ = testing_contexts_factory(mock.Mock())
 
-    base_time = datetime(2024, 1, 15, 10, 30, 45, 123456)
+    base_time = datetime(2025, 1, 1, 10, 30, 45, 123456)
     context.created_at = base_time
 
     # ACT
@@ -74,7 +73,6 @@ def test_calculate_reading_time(post_rate_seconds, repeat_number, expected_offse
 
     # Assert: should be base time with seconds/microseconds zeroed, plus offset
     expected_time = base_time.replace(second=0, microsecond=0) + timedelta(seconds=expected_offset_seconds)
-
     assert result == expected_time
 
 
