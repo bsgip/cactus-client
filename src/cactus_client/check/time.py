@@ -33,7 +33,7 @@ def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckRe
             )
 
         # Check 2: Verify localTime (if present) in device's local timezone - needs conversion to UTC
-        if time_response.localTime:
+        if time_response.localTime is not None:
             local_time = time_response.localTime
 
             # tzOffset: timezone offset from UTC.
