@@ -13,7 +13,6 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from envoy_schema.server.schema.sep2.der import DER, DERCapability, DERType, ActivePower, DERSettings
-from envoy_schema.server.schema.sep2.types import TimeType
 
 from cactus_client.time import utc_now
 
@@ -50,7 +49,7 @@ async def action_upsert_der_capability(
 
     # Get the DERCapabilityLink. If not present we will create one.
     dcap_link = der_sr.DERCapabilityLink
-    href = dcap_link.href if dcap_link and dcap_link.href else parent_edev.resource.href + "/der/1/dercap"
+    href = dcap_link.href if dcap_link and dcap_link.href else f"{parent_edev.resource.href}/der/1/dercap"
 
     # Create the DERCapability request with the provided parameters
     dcap_request = DERCapability(
@@ -67,7 +66,7 @@ async def action_upsert_der_capability(
         DERCapability, step, context, HTTPMethod.PUT, href, dcap_xml
     )
 
-    resource_store.upsert_resource(CSIPAusResource.DERCapability, der_sr, inserted_dcap)
+    resource_store.upsert_resource(CSIPAusResource.DERCapability, stored_der[0], inserted_dcap)
 
     return ActionResult.done()
 
@@ -102,11 +101,13 @@ async def action_upsert_der_settings(
 
     # Get the DERSettingsLink. If not present we will create one.
     der_sett_link = der_sr.DERSettingsLink
-    href = der_sett_link.href if der_sett_link and der_sett_link.href else parent_edev.resource.href + "/der/1/dercap"
+    href = (
+        der_sett_link.href if der_sett_link and der_sett_link.href else f"{parent_edev.resource.href}/der/1/derg"
+    )  # TODO: what should it actually be?
 
     # Create the DERCapability request with the provided parameters
     dcap_request = DERSettings(
-        updatedTime=utc_now().timestamp()),
+        updatedTime=int(utc_now().timestamp()),
         setMaxW=ActivePower(value=setMaxW, multiplier=0),
         setGradW=setGradW,
         modesEnabled=f"{modesEnabled:032x}",  # 32 bit hex
@@ -120,6 +121,6 @@ async def action_upsert_der_settings(
         DERCapability, step, context, HTTPMethod.PUT, href, dcap_xml
     )
 
-    resource_store.upsert_resource(CSIPAusResource.DERCapability, der_sr, inserted_dcap)
+    resource_store.upsert_resource(CSIPAusResource.DERCapability, stored_der[0], inserted_dcap)
 
     return ActionResult.done()
