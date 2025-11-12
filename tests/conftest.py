@@ -68,7 +68,7 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
         client_alias = dummy_test_procedure.preconditions.required_clients[0].id
         client_context = ClientContext(
             test_procedure_alias=client_alias,
-            client_config=generate_class_instance(ClientConfig, optional_is_none=True),
+            client_config=generate_class_instance(ClientConfig, optional_is_none=True, lfdi="0DEADBEEF0"),
             discovered_resources=ResourceStore(tree),
             session=client_session,
         )
