@@ -20,24 +20,23 @@ def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckRe
 
     for sr in time_resources:
         time_response = cast(TimeResponse, sr.resource)
-        current_time = time_response.currentTime  # Seconds since Unix Epoch (UTC)
-        local_time = time_response.localTime  # OPTIONAL (includes timezone)
+        time_received_utc = int(sr.created_at.timestamp())  # When we received the response (UTC timestamp)
 
-        time_received_seconds = int(sr.created_at.timestamp())
+        # Check 1: Verify currentTime (already in UTC)
+        current_time_utc = time_response.currentTime
 
-        # Check 1: Current time
-        drift_seconds = current_time - time_received_seconds
-
+        drift_seconds = current_time_utc - time_received_utc
         if abs(drift_seconds) > MAX_TIME_DRIFT_SECONDS:
             return CheckResult(
                 False,
-                f"Time drift on current time calculated to be {drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
+                f"Time drift on currentTime is {drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
             )
 
-        # Check 2: Local time (if present)
-        if local_time:
+        # Check 2: Verify localTime (if present) in device's local timezone - needs conversion to UTC
+        if time_response.localTime:
+            local_time = time_response.localTime
 
-            # Local time zone offset from currentTime. Does not include any daylight savings time offsets.
+            # tzOffset: timezone offset from UTC.
             # For American time zones, a negative tzOffset SHALL be used (eg, EST = GMT-5 which is -18000).
             tz_offset_seconds = time_response.tzOffset
 
@@ -45,14 +44,14 @@ def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckRe
             # when daylight savings time is in effect, which would result in a positive dstOffset.
             dst_offset_seconds = time_response.dstOffset
 
-            utc_equivalent_seconds = local_time - tz_offset_seconds - dst_offset_seconds
+            # Convert local time to UTC
+            local_time_as_utc = local_time - tz_offset_seconds - dst_offset_seconds
 
-            local_drift_seconds = utc_equivalent_seconds - time_received_seconds
-
+            local_drift_seconds = local_time_as_utc - time_received_utc
             if abs(local_drift_seconds) > MAX_TIME_DRIFT_SECONDS:
                 return CheckResult(
                     False,
-                    f"Time drift on localtime calculated to be {local_drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
+                    f"Time drift on localTime is {local_drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
                 )
 
     return CheckResult(True, None)
