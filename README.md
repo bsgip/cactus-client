@@ -18,6 +18,9 @@ CACTUS requires Python 3.12+
 Install the latest version from pypi with:
 `pip install cactus-client`
 
+If you're looking to update to the latest version:
+`pip install --upgrade cactus-client`
+
 To ensure it's installed properly
 `cactus --help`
 
