@@ -20,23 +20,39 @@ def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckRe
 
     for sr in time_resources:
         time_response = cast(TimeResponse, sr.resource)
-        local_time_seconds = time_response.currentTime  # Seconds since Unix Epoch
+        current_time = time_response.currentTime  # Seconds since Unix Epoch (UTC)
+        local_time = time_response.localTime  # OPTIONAL (includes timezone)
 
-        # Local time zone offset from currentTime. Does not include any daylight savings time offsets.
-        # For American time zones, a negative tzOffset SHALL be used (eg, EST = GMT-5 which is -18000).
-        tz_offset_seconds = time_response.tzOffset
-
-        # Daylight savings time offset from local standard time. A typical practice is advancing clocks one hour
-        # when daylight savings time is in effect, which would result in a positive dstOffset.
-        dst_offset_seconds = time_response.dstOffset
-
-        utc_equivalent_seconds = local_time_seconds - tz_offset_seconds - dst_offset_seconds
         time_received_seconds = int(sr.created_at.timestamp())
 
-        drift_seconds = utc_equivalent_seconds - time_received_seconds
+        # Check 1: Current time
+        drift_seconds = current_time - time_received_seconds
+
         if abs(drift_seconds) > MAX_TIME_DRIFT_SECONDS:
             return CheckResult(
-                False, f"Time drift calculated to be {drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s"
+                False,
+                f"Time drift on current time calculated to be {drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
             )
+
+        # Check 2: Local time (if present)
+        if local_time:
+
+            # Local time zone offset from currentTime. Does not include any daylight savings time offsets.
+            # For American time zones, a negative tzOffset SHALL be used (eg, EST = GMT-5 which is -18000).
+            tz_offset_seconds = time_response.tzOffset
+
+            # Daylight savings time offset from local standard time. A typical practice is advancing clocks one hour
+            # when daylight savings time is in effect, which would result in a positive dstOffset.
+            dst_offset_seconds = time_response.dstOffset
+
+            utc_equivalent_seconds = local_time - tz_offset_seconds - dst_offset_seconds
+
+            local_drift_seconds = utc_equivalent_seconds - time_received_seconds
+
+            if abs(local_drift_seconds) > MAX_TIME_DRIFT_SECONDS:
+                return CheckResult(
+                    False,
+                    f"Time drift on localtime calculated to be {local_drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
+                )
 
     return CheckResult(True, None)
