@@ -2,7 +2,6 @@ import argparse
 import sys
 from dataclasses import replace
 from enum import StrEnum, auto
-from pathlib import Path
 from typing import Any
 
 from cactus_test_definitions.server.test_procedures import ClientType
