@@ -55,6 +55,7 @@ Setup the server connections details (dcap refers to your DeviceCapability URI)
 
 1. `cactus server dcap https://your.server/dcap`
 2. `cactus server verify true`
+3. `cactus server serca path/to/serca.pem`
 
 
 Setup your first client - You will be prompted to populate each field (like below)
@@ -78,8 +79,8 @@ The DERSetting.setMaxW and DERCapability.rtgMaxW value to use (in Watts): 5000
 ┃ key              ┃ value                                         ┃
 ┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ type             │ device                                        │
-│ certificate_file │ ./testdevice.crt                              │
-│ key_file         │ ./testdevice.key.decrypt                      │
+│ certificate_file │ ./testdevice.crt ✓                            │
+│ key_file         │ ./testdevice.key.decrypt ✓                    │
 │ lfdi             │ 0F3078CFDDAEE28DC20B95635DC116CC2A6D877F      │
 │ sfdi             │ 40773583337                                   │
 │ max_watts        │ 5000                                          │

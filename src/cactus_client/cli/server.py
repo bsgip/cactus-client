@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from rich.console import Console
 from rich.table import Table
 
+from cactus_client.cli.common import is_certificate_file_invalid, rich_cert_file_value
 from cactus_client.error import ConfigException
 from cactus_client.model.config import (
     CONFIG_CWD,
@@ -22,6 +23,7 @@ COMMAND_NAME = "server"
 class ServerConfigKey(StrEnum):
     DCAP = auto()
     VERIFY = auto()
+    SERCA = auto()
 
 
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
@@ -46,7 +48,7 @@ def update_server_key(
 
     server = config.server
     if server is None:
-        server = ServerConfig(device_capability_uri="", verify_ssl=True)
+        server = ServerConfig(device_capability_uri="", verify_ssl=True, serca_pem_file=None)
 
     try:
         match config_key:
@@ -61,6 +63,12 @@ def update_server_key(
                 elif new_value.lower() in {"false", "f", "0", "n", "no"}:
                     return replace(server, verify_ssl=False)
                 raise ValueError(f"{new_value} can't be mapped to a boolean.")
+            case ServerConfigKey.SERCA:
+                cert_error = is_certificate_file_invalid(new_value)
+                if cert_error:
+                    raise ValueError(cert_error)
+
+                return replace(server, serca_pem_file=new_value)
             case _:
                 console.print(f"[b]{config_key}[/b] can't be updated", style="red")
                 sys.exit(1)
@@ -77,8 +85,11 @@ def print_server(console: Console, config: GlobalConfig) -> None:
 
     dcap = config.server.device_capability_uri if config.server else None
     verify = config.server.verify_ssl if config.server else None
+    serca_pem_file = config.server.serca_pem_file if config.server else None
+
     table.add_row("dcap", dcap if dcap else "[b red]null[/b red]")
     table.add_row("verify", str(verify) if verify is not None else "[b red]null[/b red]")
+    table.add_row("serca", rich_cert_file_value(serca_pem_file))
     console.print(table)
 
 

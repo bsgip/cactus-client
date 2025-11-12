@@ -2,7 +2,6 @@ import argparse
 import sys
 from dataclasses import replace
 from enum import StrEnum, auto
-from pathlib import Path
 from typing import Any
 
 from cactus_test_definitions.server.test_procedures import ClientType
@@ -10,6 +9,12 @@ from rich.console import Console
 from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 
+from cactus_client.cli.common import (
+    is_certificate_file_invalid,
+    is_key_file_invalid,
+    rich_cert_file_value,
+    rich_key_file_value,
+)
 from cactus_client.error import ConfigException
 from cactus_client.model.config import (
     CONFIG_CWD,
@@ -70,9 +75,9 @@ def print_client_value(console: Console, client: ClientConfig | None, config_key
     value: Any = None
     match config_key:
         case ClientConfigKey.CERTIFICATE:
-            value = client.certificate_file
+            value = rich_cert_file_value(client.certificate_file)
         case ClientConfigKey.KEY:
-            value = client.key_file
+            value = rich_key_file_value(client.key_file)
         case ClientConfigKey.LFDI:
             value = client.lfdi
         case ClientConfigKey.SFDI:
@@ -103,13 +108,15 @@ def update_client_value(
     try:
         match config_key:
             case ClientConfigKey.CERTIFICATE:
-                if not Path(new_value).exists():
-                    console.print(f"File '{new_value}' doesn't exist!", style="red")
+                cert_error = is_certificate_file_invalid(new_value)
+                if cert_error:
+                    console.print(cert_error, style="red")
                     sys.exit(1)
                 return replace(client, certificate_file=new_value)
             case ClientConfigKey.KEY:
-                if not Path(new_value).exists():
-                    console.print(f"File '{new_value}' doesn't exist!", style="red")
+                key_error = is_key_file_invalid(new_value)
+                if key_error:
+                    console.print(key_error, style="red")
                     sys.exit(1)
                 return replace(client, key_file=new_value)
             case ClientConfigKey.LFDI:
@@ -138,8 +145,8 @@ def print_client(console: Console, client: ClientConfig) -> None:
     table.add_column("value")
 
     table.add_row("type", client.type)
-    table.add_row("certificate_file", client.certificate_file)
-    table.add_row("key_file", client.key_file)
+    table.add_row("certificate_file", rich_cert_file_value(client.certificate_file))
+    table.add_row("key_file", rich_key_file_value(client.key_file))
     table.add_row("lfdi", client.lfdi)
     table.add_row("sfdi", str(client.sfdi))
     table.add_row("max_watts", str(client.max_watts))
@@ -220,7 +227,12 @@ def print_clients(console: Console, config: GlobalConfig) -> None:
         table.add_column("certificate file")
         table.add_column("key file")
         for client in config.clients:
-            table.add_row(client.id, client.type, client.certificate_file, client.key_file)
+            table.add_row(
+                client.id,
+                client.type,
+                rich_cert_file_value(client.certificate_file, include_error=False),
+                rich_key_file_value(client.key_file, include_error=False),
+            )
 
         console.print(table)
 

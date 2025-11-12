@@ -28,6 +28,7 @@ class ServerConfig:
 
     device_capability_uri: str
     verify_ssl: bool  # All connections will use the system default SSL validation for the server cert.
+    serca_pem_file: str | None = None  # The file path to the SERCA PEM that the server will be using as a trust anchor
 
 
 @dataclass(frozen=True)

@@ -32,6 +32,7 @@ def build_clients_by_alias(
     base_uri: str,
     configured_clients: list[ClientConfig] | None,
     verify_ssl: bool,
+    serca_pem_path: str | None,
     run_client_ids: list[str],
     tp: TestProcedure,
 ) -> dict[str, ClientContext]:
@@ -62,6 +63,13 @@ def build_clients_by_alias(
         ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
         ssl_context.check_hostname = verify_ssl
         ssl_context.verify_mode = ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE
+        if verify_ssl and serca_pem_path:
+            try:
+                ssl_context.load_verify_locations(cafile=serca_pem_path)
+            except Exception:
+                raise ConfigException(
+                    f"Failure loading SERCA certificate for {client_config_id} from SERCA PEM file '{serca_pem_path}'"
+                )
 
         try:
             ssl_context.load_cert_chain(client_config.certificate_file, client_config.key_file)
@@ -164,7 +172,13 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
     # Parse the supplied clients and map them to the real underlying config
     resource_tree = CSIPAusResourceTree()
     clients_by_alias = build_clients_by_alias(
-        resource_tree, base_uri, user_config.clients, user_config.server.verify_ssl, run_config.client_ids, tp
+        resource_tree,
+        base_uri,
+        user_config.clients,
+        user_config.server.verify_ssl,
+        user_config.server.serca_pem_file,
+        run_config.client_ids,
+        tp,
     )
 
     return ExecutionContext(
