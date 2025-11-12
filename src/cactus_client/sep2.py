@@ -1,4 +1,5 @@
 import hashlib
+from typing import Optional
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
@@ -62,3 +63,4 @@ def hex_binary_equal(a: int | str | None, b: int | str | None) -> bool:
     if isinstance(b, str):
         b = int(b, 16)
     return a == b
+
