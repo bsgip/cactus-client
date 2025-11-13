@@ -2,6 +2,7 @@ import unittest.mock as mock
 from http import HTTPMethod
 from typing import Callable
 
+from freezegun import freeze_time
 import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
@@ -27,22 +28,19 @@ from cactus_client.action.der import (
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.schema.validator import to_hex_binary
+from cactus_client.time import utc_now
 
 
-@mock.patch("cactus_client.action.der.utc_now")
 @mock.patch("cactus_client.action.der.submit_and_refetch_resource_for_step")
 @pytest.mark.asyncio
 async def test_action_upsert_der_capability(
     mock_submit_and_refetch: mock.MagicMock,
-    mock_utc_now: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
 
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
-    expected_timestamp = 1234567890
-    mock_utc_now.return_value.timestamp.return_value = expected_timestamp
 
     # Create multiple DERs
     num_devices = 3
@@ -94,12 +92,11 @@ async def test_action_upsert_der_capability(
     assert first_dcap.doeModesSupported == expected_doeModesSupported
 
 
-@mock.patch("cactus_client.action.der.utc_now")
+@freeze_time("2025-11-13 12:00:00")
 @mock.patch("cactus_client.action.der.submit_and_refetch_resource_for_step")
 @pytest.mark.asyncio
 async def test_action_upsert_der_settings(
     mock_submit_and_refetch: mock.MagicMock,
-    mock_utc_now: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
     """Test upserting DERSettings for multiple devices, verify one device's contents"""
@@ -107,8 +104,7 @@ async def test_action_upsert_der_settings(
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
-    expected_timestamp = 1234567890
-    mock_utc_now.return_value.timestamp.return_value = expected_timestamp
+    expected_timestamp = int(utc_now().timestamp())  # Get the frozen time
 
     # Create multiple DERs with DERSettingsLinks
     num_devices = 3
@@ -162,12 +158,11 @@ async def test_action_upsert_der_settings(
     assert first_settings.doeModesEnabled == expected_doeModesEnabled
 
 
-@mock.patch("cactus_client.action.der.utc_now")
+@freeze_time("2025-11-13 12:00:00")
 @mock.patch("cactus_client.action.der.submit_and_refetch_resource_for_step")
 @pytest.mark.asyncio
 async def test_action_upsert_der_status(
     mock_submit_and_refetch: mock.MagicMock,
-    mock_utc_now: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
     """Test upserting DERStatus for multiple devices, verify one device's contents"""
@@ -175,8 +170,7 @@ async def test_action_upsert_der_status(
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
-    expected_timestamp = 1234567890
-    mock_utc_now.return_value.timestamp.return_value = expected_timestamp
+    expected_timestamp = int(utc_now().timestamp())  # Get the frozen time
 
     # Create multiple DERs with DERStatusLinks
     num_devices = 3
@@ -236,10 +230,8 @@ async def test_action_upsert_der_status(
 
 
 @mock.patch("cactus_client.action.der.client_error_request_for_step")
-@mock.patch("cactus_client.action.der.utc_now")
 @pytest.mark.asyncio
 async def test_action_send_malformed_der_settings(
-    mock_utc_now: mock.MagicMock,
     mock_client_error_request: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
@@ -248,7 +240,6 @@ async def test_action_send_malformed_der_settings(
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
-    mock_utc_now.return_value.timestamp.return_value = 1234567890
 
     # Create multiple DERs with DERSettingsLinks
     num_devices = 2
