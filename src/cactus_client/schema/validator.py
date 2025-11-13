@@ -58,3 +58,8 @@ def validate_xml(xml: str) -> list[str]:
         return []
     else:
         return [f"{e.line}: {e.message}" for e in schema.error_log]  # type: ignore
+
+
+def to_hex_binary(v: int, bits: int) -> str:
+    hex_digits = bits // 4
+    return f"{v:0{hex_digits}x}"
