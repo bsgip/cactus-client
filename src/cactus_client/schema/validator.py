@@ -58,3 +58,13 @@ def validate_xml(xml: str) -> list[str]:
         return []
     else:
         return [f"{e.line}: {e.message}" for e in schema.error_log]  # type: ignore
+
+
+def to_hex32(v: int) -> str:
+    """Convert to 32-bit hex"""
+    return f"{v:08x}"
+
+
+def to_hex8(v: int) -> str:
+    """Convert to 8-bit hex"""
+    return f"{v:02x}"
