@@ -13,6 +13,7 @@ from cactus_client.action.server import (
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
+from envoy_schema.server.schema.sep2.response import Response
 from envoy_schema.server.schema.sep2.der import (
     DER,
     DERCapability,
@@ -20,11 +21,14 @@ from envoy_schema.server.schema.sep2.der import (
     ActivePower,
     DERSettings,
     DERStatus,
+    DERControlResponse,
     DERControlType,
     DOESupportedMode,
     ConnectStatusTypeValue,
     OperationalModeStatusTypeValue,
     OperationalModeStatusType,
+    DERControlListResponse,
+    DERControlBase,
 )
 
 from cactus_client.schema.validator import to_hex32, to_hex8
@@ -261,3 +265,66 @@ async def action_send_malformed_der_settings(
         await client_error_request_for_step(step, context, str(der_sett_link), HTTPMethod.PUT, der_settings_xml)
 
     return ActionResult.done()
+
+
+async def action_respond_der_controls(step: StepExecution, context: ExecutionContext) -> ActionResult:
+    """Enumerates all known DERControls and sends a Response for any that require it."""
+
+    resource_store = context.discovered_resources(step)
+    stored_der_controls = [sr for sr in resource_store.get(CSIPAusResource.DERControl)]
+
+    # Check all DERControls, look at the context alias to see which ones have already been responded to, see if any need to be responded to
+    # Check The eventststus to see what code to set
+    # Send the Response type
+
+    for der_ctl in stored_der_controls:
+        der_control = cast(DERControlResponse, der_ctl.resource)
+
+        reply = der_control.replyTo
+        res = der_control.responseRequired # # both must be set (check/give error?) or NULL, but not one raise error or warning? (add warning to context_)
+
+
+        # Send the response
+        der_control_xml = resource_to_sep2_xml(der_control)
+
+        inserted_der_control = await submit_and_refetch_resource_for_step(
+            Response, step, context, HTTPMethod.PUT # Check if post?
+            , reply, der_control_xml, no_location_header=True
+        )
+
+        resource_store.upsert_resource(CSIPAusResource.DERControl, der_ctl, inserted_der_control)
+
+    return ActionResult.done()
+
+
+# async def action_send_malformed_response(
+#     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+# ) -> ActionResult:
+#     """
+#     Sends a malformed DER Control List Response - expects a failure response.
+
+#     Parameters:
+#         mrid_unknown: include an mRID for a DERControl that does not exist
+#         endDeviceLFDI_unknown: include an LFDI for an EndDevice that does not exist.
+#         response_invalid: post back control response = 15 (reserved).
+#     """
+
+#     # Extract resolved params
+#     mrid_unknown: bool = resolved_parameters["mrid_unknown"]
+#     endDeviceLFDI_unknown: bool = resolved_parameters["endDeviceLFDI_unknown"]
+#     response_invalid: bool = resolved_parameters["response_invalid"]
+
+#     # Find ALL devices with which to make these settings
+#     resource_store = context.discovered_resources(step)
+#     stored_der_controls = [sr for sr in resource_store.get(CSIPAusResource.DERControl)]
+
+
+#     # Apply the malformed params where applicable
+#     mrid = to_hex32(6432) if mrid_unknown else
+#     lfdi =
+
+#     # Create the DERControlList to send
+#     der_control_response = DERControlResponse()
+#     der_control_list = DERControlListResponse(all_=1, results=1, DERControl=[der_control_response])
+
+#     return ActionResult.done()
