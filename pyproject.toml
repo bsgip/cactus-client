@@ -42,7 +42,7 @@ dependencies = [
     "pydantic_xml[lxml]>=2.11.7,<3",
     "reportlab>=4.4.1,<5",
     "cryptography",
-
+    "tzdata; platform_system == 'Windows'", # tzdata isn't included under Windows
 ]
 
 [project.optional-dependencies]
