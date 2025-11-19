@@ -7,6 +7,7 @@ from cactus_client.action.end_device import (
 )
 from cactus_client.action.mup import action_insert_readings, action_upsert_mup
 from cactus_client.action.noop import action_noop
+from cactus_client.action.subscription import action_create_subscription
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -44,6 +45,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_upsert_mup(resolved_params, step, context)
         case "insert-readings":
             return await action_insert_readings(resolved_params, step, context)
+        case "create_subscription":
+            return await action_create_subscription(resolved_params, step, context)
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
             raise CactusClientException(
