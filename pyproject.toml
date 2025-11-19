@@ -33,6 +33,7 @@ dynamic = ["version", "readme"]
 description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
 dependencies = [
     "cactus-test-definitions>=1.0.0",
+    "cactus-client-notifications @ git+https://github.com/bsgip/cactus-client-notifications.git@v0.0.3",
     "envoy-schema>=0.27.0",
     "rich>=14.1.0,<15",
     "treelib>=1.8.0,<2",
@@ -42,7 +43,7 @@ dependencies = [
     "pydantic_xml[lxml]>=2.11.7,<3",
     "reportlab>=4.4.1,<5",
     "cryptography",
-    "tzdata; platform_system == 'Windows'", # tzdata isn't included under Windows
+    "tzdata; platform_system == 'Windows'",
 ]
 
 [project.optional-dependencies]

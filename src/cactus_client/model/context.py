@@ -4,11 +4,13 @@ from pathlib import Path
 from typing import Any
 
 from aiohttp import ClientSession
+from cactus_client_notifications.schema import CreateEndpointResponse
 from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
     TestProcedureId,
 )
 
+from cactus_client.error import NotificationException
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.progress import (
@@ -20,6 +22,18 @@ from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 from cactus_client.time import utc_now
 
 
+@dataclass(frozen=True)
+class NotificationsContext:
+
+    # Used for making HTTP requests to the cactus-client-notifications instance
+    # will have base_url, timeouts, ssl_context set
+    session: ClientSession
+
+    endpoint_by_sub_alias: dict[
+        str, CreateEndpointResponse
+    ]  # notification server endpoint, keyed by the subscription alias that it corresponds to
+
+
 @dataclass
 class ClientContext:
     """This represents the snapshot of the client's 'memory' that has been built up over interactions with the
@@ -29,6 +43,9 @@ class ClientContext:
     client_config: ClientConfig
     discovered_resources: ResourceStore
     session: ClientSession  # Used for making HTTP requests - will have base_url, timeouts, ssl_context set
+    notifications: (
+        NotificationsContext | None
+    )  # For handling requests to the cactus-client-notifications instance or None if not configured
 
 
 @dataclass
@@ -66,10 +83,14 @@ class ExecutionContext:
         """Convenience function for accessing the ResourceStore for a specific step (based on client alias)"""
         return self.clients_by_alias[step.client_resources_alias].discovered_resources
 
-    async def __aenter__(self) -> "ExecutionContext":
-        return self
+    def notifications_context(self, step: StepExecution) -> NotificationsContext:
+        """Convenience function for accessing the NotificationsContext for a specific step (based on client alias)
 
-    async def __aexit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
-        if self.clients_by_alias:
-            for c in self.clients_by_alias.values():
-                await c.session.close()
+        Can raise NotificationException if a notification uri isn't configured."""
+        client = self.clients_by_alias[step.client_resources_alias]
+        if client.notifications is None:
+            raise NotificationException(
+                f"No NotificationContext for client {step.client_resources_alias}."
+                + " Has a notification_uri been configured?"
+            )
+        return client.notifications

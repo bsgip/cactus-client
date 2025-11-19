@@ -1,8 +1,11 @@
+import logging
 import ssl
 import urllib
 import urllib.parse
+from contextlib import asynccontextmanager
 from pathlib import Path
 from ssl import SSLContext
+from typing import AsyncGenerator, AsyncIterator
 
 from aiohttp import ClientSession, TCPConnector
 from cactus_test_definitions.server.test_procedures import (
@@ -10,6 +13,7 @@ from cactus_test_definitions.server.test_procedures import (
     TestProcedureConfig,
 )
 
+from cactus_client.action.notifications import safely_delete_all_notification_webhooks
 from cactus_client.error import ConfigException
 from cactus_client.model.config import (
     ClientConfig,
@@ -17,7 +21,11 @@ from cactus_client.model.config import (
     RunConfig,
     ServerConfig,
 )
-from cactus_client.model.context import ClientContext, ExecutionContext
+from cactus_client.model.context import (
+    ClientContext,
+    ExecutionContext,
+    NotificationsContext,
+)
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.progress import (
     ProgressTracker,
@@ -26,6 +34,8 @@ from cactus_client.model.progress import (
 )
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 
+logger = logging.getLogger(__name__)
+
 
 def build_clients_by_alias(
     resource_tree: CSIPAusResourceTree,
@@ -33,6 +43,7 @@ def build_clients_by_alias(
     configured_clients: list[ClientConfig] | None,
     verify_ssl: bool,
     serca_pem_path: str | None,
+    notification_uri: str | None,
     run_client_ids: list[str],
     tp: TestProcedure,
 ) -> dict[str, ClientContext]:
@@ -59,6 +70,14 @@ def build_clients_by_alias(
                 + f" Test expects a {tp_client_precondition.client_type} client but got a {client_config.type} client."
             )
 
+        # Build a notifications session (if one is required) that will be used to communicate with the
+        # cactus-client-notifications service. This is independent from the ClientSession that will communicate
+        # with the utility server - it will NOT be using the TLS setup for that session. It's a traditional
+        # web service that may or may not use HTTPS.
+        notifications: NotificationsContext | None = None
+        if notification_uri:
+            notifications = NotificationsContext(session=ClientSession(notification_uri), endpoint_id_by_sub_alias={})
+
         # Load the client certs into a SSLContext
         ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
         ssl_context.check_hostname = verify_ssl
@@ -84,6 +103,7 @@ def build_clients_by_alias(
             client_config=client_config,
             discovered_resources=ResourceStore(resource_tree),
             session=ClientSession(base_url=base_uri, connector=TCPConnector(ssl=ssl_context)),
+            notifications=notifications,
         )
 
     return clients_by_alias
@@ -138,11 +158,14 @@ def build_initial_step_execution_list(tp: TestProcedure) -> StepExecutionList:
     return result
 
 
-async def build_execution_context(user_config: GlobalConfig, run_config: RunConfig) -> ExecutionContext:
+@asynccontextmanager
+async def build_execution_context(user_config: GlobalConfig, run_config: RunConfig) -> AsyncIterator[ExecutionContext]:
     """Takes all the information from the user's configuration AND the supplied config for this run and generates
     an ExecutionContext that's ready to start a run.
 
-    Raises a ConfigException if there are any problems."""
+    Raises a ConfigException if there are any problems.
+
+    Returns the value as part of an async ContextManager that will cleanup all created resources when exited."""
 
     tp_id = run_config.test_procedure_id
 
@@ -169,6 +192,12 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         raise ConfigException("Missing server configuration element.")
     base_uri, dcap_path = build_dcap_parts(user_config.server)
 
+    # Log the basics - we don't want to go logging file paths
+    logger.info(f"Building Configuration for client_ids: {run_config.client_ids}")
+    logger.info(f"Device Capability: '{user_config.server.device_capability_uri}'")
+    logger.info(f"Verify SSL: '{user_config.server.verify_ssl}'")
+    logger.info(f"Notifications: '{user_config.server.notification_uri}'")
+
     # Parse the supplied clients and map them to the real underlying config
     resource_tree = CSIPAusResourceTree()
     clients_by_alias = build_clients_by_alias(
@@ -177,11 +206,15 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         user_config.clients,
         user_config.server.verify_ssl,
         user_config.server.serca_pem_file,
+        user_config.server.notification_uri,
         run_config.client_ids,
         tp,
     )
 
-    return ExecutionContext(
+    #
+    # Start using the ExecutionContext
+    #
+    yield ExecutionContext(
         test_procedure_id=tp_id,
         test_procedure=tp,
         test_procedures_version=tp_version,
@@ -195,3 +228,14 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         responses=ResponseTracker(),
         warnings=WarningTracker(),
     )
+
+    #
+    # Cleanup resources
+    #
+
+    for c in clients_by_alias.values():
+        await c.session.close()
+
+        if c.notifications:
+            await safely_delete_all_notification_webhooks(c.notifications)
+            await c.notifications.session.close()
