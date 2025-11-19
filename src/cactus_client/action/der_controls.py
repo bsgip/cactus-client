@@ -16,10 +16,8 @@ from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from envoy_schema.server.schema.sep2.response import Response, ResponseType
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
-from envoy_schema.server.schema.sep2.der import (
-    DERControlResponse,
-)
-
+from envoy_schema.server.schema.sep2.der import DERControlResponse
+from envoy_schema.server.schema.sep2.event import EventStatusType
 from cactus_client.model.resource import StoredResource
 from cactus_client.schema.validator import to_hex32
 from cactus_client.time import utc_now
@@ -52,47 +50,36 @@ def get_edev_lfdi_for_der_control(
 
 
 def determine_response_status(
-    event_status: int, sent_responses: list[str], der_control: DERControlResponse, current_time: datetime
-) -> int | None:
+    event_status: EventStatusType,
+    sent_responses: list[ResponseType],
+    der_control: DERControlResponse,
+    current_time: datetime,
+) -> ResponseType | None:
     """
     Determines what response status to send based on server EventStatus and what we've already sent.
-
-    EventStatus mapping (server side):
-    - 0 = Scheduled
-    - 1 = Active
-    - 2 = Cancelled
-    - 4 = Superseded (check actual enum values)
-    Note: 3 (CancelledWithRandomization) is not tested
-
-    Response status mapping (client side):
-    - 1 = received
-    - 2 = started
-    - 3 = completed
-    - 6 = cancelled
-    - 7 = superseded
-
     Returns None if no response should be sent for the current state.
     """
-    # If we have previously sent a cancelled or superseeded response, no further response is necessary
-    if "cancelled" in sent_responses or "superseded" in sent_responses:
+
+    # If we have previously sent a cancelled or superseded response, no further response is necessary
+    if ResponseType.EVENT_CANCELLED in sent_responses or ResponseType.EVENT_SUPERSEDED in sent_responses:
         return None
 
-    # If Cancelled, send cancelled
-    if event_status == 2:
-        return 6
+    # Cancelled
+    if event_status == EventStatusType.Cancelled:
+        return ResponseType.EVENT_CANCELLED
 
-    # If Superseded, send superseded
-    if event_status == 4:
-        return 7
+    # Superseded
+    if event_status == EventStatusType.Superseded:
+        return ResponseType.EVENT_SUPERSEDED
 
     # For Scheduled - send received
-    if event_status == 0 and "received" not in sent_responses:
-        return 1
+    if event_status == EventStatusType.Scheduled and ResponseType.EVENT_RECEIVED not in sent_responses:
+        return ResponseType.EVENT_RECEIVED
 
     # For active - figure out where we are up to
-    if event_status == 1:
-        if "received" not in sent_responses:
-            return 1
+    if event_status == EventStatusType.Active:
+        if ResponseType.EVENT_RECEIVED not in sent_responses:
+            return ResponseType.EVENT_RECEIVED
 
         # See if the control is currently in progress
         event_start: int = der_control.interval.start
@@ -101,24 +88,30 @@ def determine_response_status(
         current_timestamp = int(current_time.timestamp())
 
         if current_timestamp >= event_start:
-            if "started" not in sent_responses:
-                return 2  # started
+            if ResponseType.EVENT_STARTED not in sent_responses:
+                return ResponseType.EVENT_STARTED
 
         # Check if control should have completed
         # NOTE: Currently the discovery process will remove old controls, so this branch will not ever be accessed
         # A fix is in progress
         if current_timestamp >= event_end:
-            if "completed" not in sent_responses:
-                return 3  # completed
+            if ResponseType.EVENT_COMPLETED not in sent_responses:
+                return ResponseType.EVENT_COMPLETED
 
         return None  # Not yet started, or still ongoing
 
     return None
 
 
-def get_response_tag(response_status: int) -> str:
+def get_response_tag(response_status: ResponseType) -> str:
     """Maps response status code to tag name for tracking."""
-    mapping = {1: "received", 2: "started", 3: "completed", 6: "cancelled", 7: "superseded"}
+    mapping = {
+        ResponseType.EVENT_RECEIVED: "received",
+        ResponseType.EVENT_STARTED: "started",
+        ResponseType.EVENT_COMPLETED: "completed",
+        ResponseType.EVENT_CANCELLED: "cancelled",
+        ResponseType.EVENT_SUPERSEDED: "superseded",
+    }
     return mapping.get(response_status, f"status_{response_status}")
 
 
@@ -140,7 +133,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         if reply_to is None and response_req is None:
             continue
 
-        if (reply_to is None and response_req is not None) or (reply_to is not None and response_req is None):
+        if reply_to is None or response_req is None:
             context.warnings.log_step_warning(
                 step,
                 message=f"""Both reply to and response required should be set or both empty.
@@ -149,8 +142,8 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
             continue
 
         # Figure out what response to send using event status, and check if we have already sent a response
-        status: int = der_control.EventStatus_.currentStatus
-        sent_responses: list[str] = der_ctl.annotations.tags
+        status = EventStatusType(der_control.EventStatus_.currentStatus)
+        sent_responses: list[ResponseType] = [ResponseType(int(tag)) for tag in der_ctl.annotations.tags]
         current_time = utc_now()
         response_status = determine_response_status(status, sent_responses, der_control, current_time)
 
@@ -173,7 +166,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         response_xml = resource_to_sep2_xml(response)
 
         await submit_and_refetch_resource_for_step(
-            Response, step, context, HTTPMethod.POST, cast(str, reply_to), response_xml, no_location_header=True
+            Response, step, context, HTTPMethod.POST, reply_to, response_xml, no_location_header=True
         )
 
         # Update tags to track this response was sent
