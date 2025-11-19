@@ -13,7 +13,8 @@ from cactus_client.action.server import (
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from envoy_schema.server.schema.sep2.response import Response
+from envoy_schema.server.schema.sep2.response import Response, ResponseType
+from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.der import (
     DER,
     DERCapability,
@@ -27,8 +28,6 @@ from envoy_schema.server.schema.sep2.der import (
     ConnectStatusTypeValue,
     OperationalModeStatusTypeValue,
     OperationalModeStatusType,
-    DERControlListResponse,
-    DERControlBase,
 )
 
 from cactus_client.schema.validator import to_hex32, to_hex8
@@ -273,28 +272,139 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
     resource_store = context.discovered_resources(step)
     stored_der_controls = [sr for sr in resource_store.get(CSIPAusResource.DERControl)]
 
-    # Check all DERControls, look at the context alias to see which ones have already been responded to, see if any need to be responded to
-    # Check The eventststus to see what code to set
-    # Send the Response type
-
+    # Go through all DER controls to see if a response is required
     for der_ctl in stored_der_controls:
         der_control = cast(DERControlResponse, der_ctl.resource)
 
-        reply = der_control.replyTo
-        res = der_control.responseRequired # # both must be set (check/give error?) or NULL, but not one raise error or warning? (add warning to context_)
+        # Filter for DERControls that require a response
+        # Both reply to and response required must be set. If neither, pass silently, if only one, add warning)
+        reply_to = der_control.replyTo
+        response_req = der_control.responseRequired
 
+        if reply_to is None and response_req is None:
+            continue
+
+        if (reply_to is None and response_req is not None) or (reply_to is not None and response_req is None):
+            context.warnings.log_step_warning(
+                step,
+                message=f"""Both reply to and response required should be set or both empty.
+                Found reply to: {reply_to}, response required: {response_req}""",
+            )
+            continue
+
+        # Figure out what response to send using event status, and check if we have already sent a response
+        status: int = der_control.EventStatus_.currentStatus
+        sent_responses: list[str] = der_ctl.annotations.tags
+        response_status = determine_response_status(status, sent_responses, der_control)
+
+        # If None, we've already sent all applicable responses
+        if response_status is None:
+            continue
+
+        # Find the matching device lfdi
+        edev = resource_store.get_ancestor_of(CSIPAusResource.EndDevice, der_ctl)
+        if edev is None:
+            context.warnings.log_step_warning(
+                step,
+                message=f"Could not find EndDevice parent for DERControl {der_control.href}",
+            )
+            continue
+
+        edev_lfdi = cast(EndDeviceResponse, edev.resource).lFDI
+        if edev_lfdi is None:
+            context.warnings.log_step_warning(
+                step,
+                message=f"Could not find EndDevice lfdi parent for DERControl {der_control.href}",
+            )
+            continue
 
         # Send the response
-        der_control_xml = resource_to_sep2_xml(der_control)
+        response = Response(
+            endDeviceLFDI=edev_lfdi,
+            status=ResponseType(response_status),
+            createdDateTime=int(utc_now().timestamp()),
+            subject=der_control.mRID,
+        )
+        response_xml = resource_to_sep2_xml(response)
 
-        inserted_der_control = await submit_and_refetch_resource_for_step(
-            Response, step, context, HTTPMethod.PUT # Check if post?
-            , reply, der_control_xml, no_location_header=True
+        await submit_and_refetch_resource_for_step(
+            Response, step, context, HTTPMethod.POST, cast(str, reply_to), response_xml, no_location_header=True
         )
 
-        resource_store.upsert_resource(CSIPAusResource.DERControl, der_ctl, inserted_der_control)
+        # Update tags to track this response was sent
+        response_tag = get_response_tag(response_status)
+        if response_tag not in sent_responses:
+            der_ctl.annotations.tags.append(response_tag)
 
     return ActionResult.done()
+
+
+def determine_response_status(
+    event_status: int, sent_responses: list[str], der_control: DERControlResponse
+) -> int | None:
+    """
+    Determines what response status to send based on server EventStatus and what we've already sent.
+
+    EventStatus mapping (server side):
+    - 0 = Scheduled
+    - 1 = Active
+    - 2 = Cancelled
+    - 4 = Superseded (check actual enum values)
+    Note: 3 (CancelledWithRandomization) is not tested
+
+    Response status mapping (client side):
+    - 1 = received
+    - 2 = started
+    - 3 = completed
+    - 6 = cancelled
+    - 7 = superseded
+
+    Returns None if no response should be sent for the current state.
+    """
+    # If we have previously sent a cancelled or superseeded response, no further response is necessary
+    if "cancelled" in sent_responses or "superseded" in sent_responses:
+        return None
+
+    # If Cancelled, send cancelled
+    if event_status == 2:
+        return 6
+
+    # If Superseded, send superseded
+    if event_status == 4:
+        return 7
+
+    # For Scheduled - send received
+    if event_status == 0:
+        if "received" not in sent_responses:
+            return 1
+        return None
+
+    # For active - figure out if they have been completed yet
+    if event_status == 1 and "completed" not in sent_responses:
+
+        # If they haven't yet started, send started
+        if "started" not in sent_responses:
+            return 2  # started
+
+        # If they have started, check if they should be finished
+        event_start: int = der_control.interval.start
+        event_duration = der_control.interval.duration
+        event_end = event_start + event_duration
+
+        current_time = int(utc_now().timestamp())
+
+        if current_time >= event_end:
+            return 3  # completed
+
+        return None  # Still ongoing, no response needed
+
+    return None
+
+
+def get_response_tag(response_status: int) -> str:
+    """Maps response status code to tag name for tracking."""
+    mapping = {1: "received", 2: "started", 3: "completed", 6: "cancelled", 7: "superseded"}
+    return mapping.get(response_status, f"status_{response_status}")
 
 
 # async def action_send_malformed_response(
