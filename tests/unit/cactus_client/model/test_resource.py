@@ -309,3 +309,36 @@ def test_generate_resource_link_hrefs_other_types(resource: CSIPAusResource):
     result = generate_resource_link_hrefs(resource, generate_class_instance(Resource))
     assert isinstance(result, dict)
     assert result == {}
+
+
+def test_ResourceStore_get_ancestor_of():
+    """Tests walking up the parent chain to find ancestors of a specific type"""
+
+    # Arrange
+    s = ResourceStore(CSIPAusResourceTree())
+
+    # Build a simple chain: edevlist -> edev -> derpl -> derp -> dderc
+    edevl = generate_class_instance(EndDeviceListResponse, seed=101, generate_relationships=True)
+    edev_1 = generate_class_instance(EndDeviceResponse, seed=202, generate_relationships=True)
+    derpl_1 = generate_class_instance(DERProgramListResponse, seed=404, generate_relationships=True)
+    derp_1 = generate_class_instance(DERProgramResponse, seed=606, generate_relationships=True)
+    dderc_1 = generate_class_instance(DefaultDERControl, seed=909, generate_relationships=True)
+
+    sr_edevl = s.append_resource(CSIPAusResource.EndDeviceList, None, edevl)
+    sr_edev_1 = s.append_resource(CSIPAusResource.EndDevice, sr_edevl, edev_1)
+    sr_derpl_1 = s.append_resource(CSIPAusResource.DERProgramList, sr_edev_1, derpl_1)
+    sr_derp_1 = s.append_resource(CSIPAusResource.DERProgram, sr_derpl_1, derp_1)
+    sr_dderc_1 = s.append_resource(CSIPAusResource.DefaultDERControl, sr_derp_1, dderc_1)
+
+    # Act/Assert
+    assert s.get_ancestor_of(CSIPAusResource.DERProgram, sr_dderc_1) == sr_derp_1
+    assert s.get_ancestor_of(CSIPAusResource.DERProgramList, sr_dderc_1) == sr_derpl_1
+    assert s.get_ancestor_of(CSIPAusResource.EndDevice, sr_dderc_1) == sr_edev_1
+    assert s.get_ancestor_of(CSIPAusResource.EndDeviceList, sr_dderc_1) == sr_edevl
+
+    assert s.get_ancestor_of(CSIPAusResource.EndDevice, sr_derp_1) == sr_edev_1
+    assert s.get_ancestor_of(CSIPAusResource.EndDeviceList, sr_derp_1) == sr_edevl
+
+    assert s.get_ancestor_of(CSIPAusResource.DefaultDERControl, sr_dderc_1) is None
+    assert s.get_ancestor_of(CSIPAusResource.DERProgram, sr_edevl) is None
+    assert s.get_ancestor_of(CSIPAusResource.EndDeviceList, sr_edevl) is None
