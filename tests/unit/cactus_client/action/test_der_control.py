@@ -11,6 +11,7 @@ from envoy_schema.server.schema.sep2.types import DateTimeIntervalType
 from envoy_schema.server.schema.sep2.der import DERControlResponse
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.event import EventStatus
+from envoy_schema.server.schema.sep2.response import ResponseType
 
 from cactus_client.action.der_controls import action_respond_der_controls, action_send_malformed_response
 from cactus_client.model.context import ExecutionContext
@@ -22,26 +23,42 @@ from cactus_client.time import utc_now
 @pytest.mark.parametrize(
     "event_status,time_offset,duration,previous_tags,expected_status,expected_new_tag,expect_response",
     [
-        # Scheduled - send 'received'
-        (0, 3600, 7200, [], "1", "received", True),
+        # Scheduled - send 'EVENT_RECEIVED'
+        (0, 3600, 7200, [], "1", ResponseType.EVENT_RECEIVED.name, True),
         # Cancelled
-        (2, -300, 3600, [], "6", "cancelled", True),
+        (2, -300, 3600, [], "6", ResponseType.EVENT_CANCELLED.name, True),
         # Superseded
-        (4, -300, 3600, [], "7", "superseded", True),
-        # Active - no previous tags (send 'received')
-        (1, -300, 3600, [], "1", "received", True),
-        # Active - started, already sent 'received' (send 'started')
-        (1, -300, 3600, ["received"], "2", "started", True),
-        # Active - completed, sent "received",'started' (send 'completed')
-        (1, -3600, 1800, ["received", "started"], "3", "completed", True),
-        # Active - completed, sent "received",'started' and 'completed' (no new response)
-        (1, -3600, 1800, ["received", "started", "completed"], None, None, False),
-        # Active - in progress, already sent "received",'started' (no new response)
-        (1, -1800, 3600, ["received", "started"], None, None, False),
+        (4, -300, 3600, [], "7", ResponseType.EVENT_SUPERSEDED.name, True),
+        # Active - no previous tags (send 'EVENT_RECEIVED')
+        (1, -300, 3600, [], "1", ResponseType.EVENT_RECEIVED.name, True),
+        # Active - started, already sent 'EVENT_RECEIVED' (send 'EVENT_STARTED')
+        (1, -300, 3600, [ResponseType.EVENT_RECEIVED.name], "2", ResponseType.EVENT_STARTED.name, True),
+        # Active - completed, sent "EVENT_RECEIVED",'EVENT_STARTED' (send 'EVENT_COMPLETED')
+        (
+            1,
+            -3600,
+            1800,
+            [ResponseType.EVENT_RECEIVED.name, ResponseType.EVENT_STARTED.name],
+            "3",
+            ResponseType.EVENT_COMPLETED.name,
+            True,
+        ),
+        # Active - completed, sent "EVENT_RECEIVED",'EVENT_STARTED' and 'EVENT_COMPLETED' (no new response)
+        (
+            1,
+            -3600,
+            1800,
+            [ResponseType.EVENT_RECEIVED.name, ResponseType.EVENT_STARTED.name, ResponseType.EVENT_COMPLETED.name],
+            None,
+            None,
+            False,
+        ),
+        # Active - in progress, already sent "EVENT_RECEIVED",'EVENT_STARTED' (no new response)
+        (1, -1800, 3600, [ResponseType.EVENT_RECEIVED.name, ResponseType.EVENT_STARTED.name], None, None, False),
         # ---------------- ACTIONS WHICH HAVE ALREADY BEEN RESPONDED TO (DONT SEND) ----------------------
-        (4, -300, 3600, ["superseded"], None, None, False),
-        (2, -300, 3600, ["cancelled"], None, None, False),
-        (0, 3600, 7200, ["received"], None, None, False),
+        (4, -300, 3600, [ResponseType.EVENT_SUPERSEDED.name], None, None, False),
+        (2, -300, 3600, [ResponseType.EVENT_CANCELLED.name], None, None, False),
+        (0, 3600, 7200, [ResponseType.EVENT_RECEIVED.name], None, None, False),
     ],
 )
 @freeze_time("2025-11-19 12:00:00")
@@ -62,7 +79,7 @@ async def test_action_respond_der_controls_with_previous_responses(
 
     This test checks:
     - Responses are only sent when appropriate (not sent already)
-    - Previous responses are tracked
+    - Previous responses are tracked using ResponseType enum names
     - In-progress notifications are sent when control has started (active EventStatus has two possible response codes).
     """
 

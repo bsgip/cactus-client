@@ -51,17 +51,18 @@ def get_edev_lfdi_for_der_control(
 
 def determine_response_status(
     event_status: EventStatusType,
-    sent_responses: list[ResponseType],
+    sent_responses: list[str],
     der_control: DERControlResponse,
     current_time: datetime,
 ) -> ResponseType | None:
     """
     Determines what response status to send based on server EventStatus and what we've already sent.
+
     Returns None if no response should be sent for the current state.
     """
 
     # If we have previously sent a cancelled or superseded response, no further response is necessary
-    if ResponseType.EVENT_CANCELLED in sent_responses or ResponseType.EVENT_SUPERSEDED in sent_responses:
+    if ResponseType.EVENT_CANCELLED.name in sent_responses or ResponseType.EVENT_SUPERSEDED.name in sent_responses:
         return None
 
     # Cancelled
@@ -73,12 +74,12 @@ def determine_response_status(
         return ResponseType.EVENT_SUPERSEDED
 
     # For Scheduled - send received
-    if event_status == EventStatusType.Scheduled and ResponseType.EVENT_RECEIVED not in sent_responses:
+    if event_status == EventStatusType.Scheduled and ResponseType.EVENT_RECEIVED.name not in sent_responses:
         return ResponseType.EVENT_RECEIVED
 
     # For active - figure out where we are up to
     if event_status == EventStatusType.Active:
-        if ResponseType.EVENT_RECEIVED not in sent_responses:
+        if ResponseType.EVENT_RECEIVED.name not in sent_responses:
             return ResponseType.EVENT_RECEIVED
 
         # See if the control is currently in progress
@@ -88,31 +89,19 @@ def determine_response_status(
         current_timestamp = int(current_time.timestamp())
 
         if current_timestamp >= event_start:
-            if ResponseType.EVENT_STARTED not in sent_responses:
+            if ResponseType.EVENT_STARTED.name not in sent_responses:
                 return ResponseType.EVENT_STARTED
 
         # Check if control should have completed
         # NOTE: Currently the discovery process will remove old controls, so this branch will not ever be accessed
         # A fix is in progress
         if current_timestamp >= event_end:
-            if ResponseType.EVENT_COMPLETED not in sent_responses:
+            if ResponseType.EVENT_COMPLETED.name not in sent_responses:
                 return ResponseType.EVENT_COMPLETED
 
         return None  # Not yet started, or still ongoing
 
     return None
-
-
-def get_response_tag(response_status: ResponseType) -> str:
-    """Maps response status code to tag name for tracking."""
-    mapping = {
-        ResponseType.EVENT_RECEIVED: "received",
-        ResponseType.EVENT_STARTED: "started",
-        ResponseType.EVENT_COMPLETED: "completed",
-        ResponseType.EVENT_CANCELLED: "cancelled",
-        ResponseType.EVENT_SUPERSEDED: "superseded",
-    }
-    return mapping.get(response_status, f"status_{response_status}")
 
 
 async def action_respond_der_controls(step: StepExecution, context: ExecutionContext) -> ActionResult:
@@ -143,7 +132,8 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
         # Figure out what response to send using event status, and check if we have already sent a response
         status = EventStatusType(der_control.EventStatus_.currentStatus)
-        sent_responses: list[ResponseType] = [ResponseType(int(tag)) for tag in der_ctl.annotations.tags]
+        # Tags contain enum names as strings ("EVENT_RECEIVED")
+        sent_responses: list[str] = der_ctl.annotations.tags
         current_time = utc_now()
         response_status = determine_response_status(status, sent_responses, der_control, current_time)
 
@@ -159,7 +149,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         # Send the response
         response = Response(
             endDeviceLFDI=edev_lfdi,
-            status=ResponseType(response_status),
+            status=response_status,
             createdDateTime=int(current_time.timestamp()),
             subject=der_control.mRID,
         )
@@ -170,7 +160,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         )
 
         # Update tags to track this response was sent
-        response_tag = get_response_tag(response_status)
+        response_tag = response_status.name
         if response_tag not in sent_responses:
             der_ctl.annotations.tags.append(response_tag)
 
@@ -232,7 +222,7 @@ async def action_send_malformed_response(
     current_time = utc_now()
     response = Response(
         endDeviceLFDI=edev_lfdi,
-        status=ResponseType(1),  # We need to edit the xml after construction
+        status=ResponseType.EVENT_RECEIVED,  # Will edit XML if needed
         createdDateTime=int(current_time.timestamp()),
         subject=subject_mrid,
     )
