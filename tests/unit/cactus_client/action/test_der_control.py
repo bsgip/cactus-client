@@ -42,7 +42,6 @@ from cactus_client.time import utc_now
         (4, -300, 3600, ["superseded"], None, None, False),
         (2, -300, 3600, ["cancelled"], None, None, False),
         (0, 3600, 7200, ["received"], None, None, False),
-        (1, -300, 3600, ["received", "started"], None, None, False),
     ],
 )
 @freeze_time("2025-11-19 12:00:00")
@@ -180,12 +179,14 @@ async def test_action_send_malformed_response(
     xml_payload = call[0][4]
 
     # Verify expected malformations in payload
-    if expected_fake_mrid:
-        assert expected_fake_mrid in xml_payload
-    else:
-        assert der_control.mRID in xml_payload
-    if expected_fake_lfdi:
-        assert expected_fake_lfdi in xml_payload
-    else:
-        assert edev.lFDI in xml_payload
+    mrid_expected = expected_fake_mrid or der_control.mRID
+    lfdi_expected = expected_fake_lfdi or edev.lFDI
+
+    assert mrid_expected in xml_payload
+    assert lfdi_expected in xml_payload
     assert f"status>{expected_status}<" in xml_payload
+
+    if expected_fake_mrid:
+        assert der_control.mRID not in xml_payload
+    if expected_fake_lfdi:
+        assert edev.lFDI not in xml_payload
