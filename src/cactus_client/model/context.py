@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 from aiohttp import ClientSession
 from cactus_client_notifications.schema import CreateEndpointResponse

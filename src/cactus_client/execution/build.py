@@ -5,7 +5,7 @@ import urllib.parse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from ssl import SSLContext
-from typing import AsyncGenerator, AsyncIterator
+from typing import AsyncIterator
 
 from aiohttp import ClientSession, TCPConnector
 from cactus_test_definitions.server.test_procedures import (
@@ -76,7 +76,7 @@ def build_clients_by_alias(
         # web service that may or may not use HTTPS.
         notifications: NotificationsContext | None = None
         if notification_uri:
-            notifications = NotificationsContext(session=ClientSession(notification_uri), endpoint_id_by_sub_alias={})
+            notifications = NotificationsContext(session=ClientSession(notification_uri), endpoint_by_sub_alias={})
 
         # Load the client certs into a SSLContext
         ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5

@@ -21,7 +21,12 @@ from cactus_client.model.config import (
     ClientConfig,
     ServerConfig,
 )
-from cactus_client.model.context import ClientContext, ExecutionContext, ResourceStore
+from cactus_client.model.context import (
+    ClientContext,
+    ExecutionContext,
+    NotificationsContext,
+    ResourceStore,
+)
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.progress import (
     ProgressTracker,
@@ -60,10 +65,10 @@ def dummy_test_procedure(dummy_client_alias_1, assertical_extensions) -> TestPro
 
 @pytest.fixture
 def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], tuple[ExecutionContext, StepExecution]]:
-    """Returns a callable(session: ClientSession) that when executed will yield a tuple
-    containing a fully populated ExecutionContext and StepExcecution"""
+    """Returns a callable(session: ClientSession, notifications_session: ClientSession = None) that when executed
+    will yield a tuple containing a fully populated ExecutionContext and StepExecution"""
 
-    def create_testing_contexts(client_session) -> tuple[ExecutionContext, StepExecution]:
+    def create_testing_contexts(client_session, notifications_session=None) -> tuple[ExecutionContext, StepExecution]:
         tree = CSIPAusResourceTree()
         client_alias = dummy_test_procedure.preconditions.required_clients[0].id
         client_context = ClientContext(
@@ -71,6 +76,7 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
             client_config=generate_class_instance(ClientConfig, optional_is_none=True, lfdi="0DEADBEEF0"),
             discovered_resources=ResourceStore(tree),
             session=client_session,
+            notifications=None if notifications_session is None else NotificationsContext(notifications_session, {}),
         )
 
         execution_context = ExecutionContext(
