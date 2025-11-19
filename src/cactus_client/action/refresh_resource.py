@@ -67,10 +67,10 @@ async def _handle_expected_rejection_or_empty(
                 f"but got {response.status} for non-list resource"
             )
 
-        fetched_resource = await get_resource_for_step(type(resource_instance), step, context, href)
+        fetched_resource = await get_resource_for_step(type(resource_instance.resource), step, context, href)
 
         # Check if list is empty
-        if not (hasattr(fetched_resource, "all") and fetched_resource.all == 0):
+        if not (hasattr(fetched_resource, "all_") and fetched_resource.all_ == 0):
             raise CactusClientException(
                 f"Expected rejection or empty list for {resource_type} at {href}, but got non-empty list."
             )

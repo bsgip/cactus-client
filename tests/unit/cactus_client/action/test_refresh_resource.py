@@ -91,7 +91,7 @@ async def test_action_refresh_resource_expect_rejection_or_empty_with_rejection(
     resource_store = context.discovered_resources(step)
 
     # Create an existing EndDeviceList
-    edev_list = generate_class_instance(EndDeviceListResponse, href="/edev", all=0)
+    edev_list = generate_class_instance(EndDeviceListResponse, href="/edev")
     resource_store.upsert_resource(CSIPAusResource.EndDeviceList, None, edev_list)
 
     with mock.patch("cactus_client.action.refresh_resource.request_for_step") as mock_request, mock.patch(
@@ -128,7 +128,7 @@ async def test_action_refresh_resource_expect_rejection_or_empty_with_empty_list
     resource_store = context.discovered_resources(step)
 
     # Create an existing EndDeviceList
-    edev_list = generate_class_instance(EndDeviceListResponse, href="/edev", all=5)
+    edev_list = generate_class_instance(EndDeviceListResponse, href="/edev")
     resource_store.upsert_resource(CSIPAusResource.EndDeviceList, None, edev_list)
 
     with mock.patch("cactus_client.action.refresh_resource.request_for_step") as mock_request, mock.patch(
@@ -142,7 +142,7 @@ async def test_action_refresh_resource_expect_rejection_or_empty_with_empty_list
         mock_request.return_value = mock_response
 
         # Mock the fetched resource as an empty list
-        empty_list = generate_class_instance(EndDeviceListResponse, href="/edev", all=0)
+        empty_list = generate_class_instance(EndDeviceListResponse, EndDevice=[], href="/edev", all_=0)
         mock_get.return_value = empty_list
 
         resolved_params = {"resource": CSIPAusResource.EndDeviceList.value, "expect_rejection_or_empty": True}
