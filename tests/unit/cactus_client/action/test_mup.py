@@ -174,7 +174,9 @@ async def test_action_upsert_mup(testing_contexts_factory):
         assert set(sent_reading_type_tuples) == set(expected_reading_type_tuples)
 
         # Verify the MUP was stored in the resource store with the correct alias
-        stored_mups = [sr for sr in resource_store.get(CSIPAusResource.MirrorUsagePoint) if sr.alias == "test-mup-1"]
+        stored_mups = [
+            sr for sr in resource_store.get(CSIPAusResource.MirrorUsagePoint) if sr.annotations.alias == "test-mup-1"
+        ]
         assert len(stored_mups) == 1
         assert stored_mups[0].resource.mRID == inserted_mup.mRID
         assert stored_mups[0].resource.href == inserted_mup.href

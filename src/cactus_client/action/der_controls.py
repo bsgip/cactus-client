@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 from http import HTTPMethod
+import re
 from typing import Any, Optional, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
@@ -48,6 +49,77 @@ def get_edev_lfdi_for_der_control(
         return None
 
     return edev_lfdi
+
+
+def determine_response_status(
+    event_status: int, sent_responses: list[str], der_control: DERControlResponse, current_time: datetime
+) -> int | None:
+    """
+    Determines what response status to send based on server EventStatus and what we've already sent.
+
+    EventStatus mapping (server side):
+    - 0 = Scheduled
+    - 1 = Active
+    - 2 = Cancelled
+    - 4 = Superseded (check actual enum values)
+    Note: 3 (CancelledWithRandomization) is not tested
+
+    Response status mapping (client side):
+    - 1 = received
+    - 2 = started
+    - 3 = completed
+    - 6 = cancelled
+    - 7 = superseded
+
+    Returns None if no response should be sent for the current state.
+    """
+    # If we have previously sent a cancelled or superseeded response, no further response is necessary
+    if "cancelled" in sent_responses or "superseded" in sent_responses:
+        return None
+
+    # If Cancelled, send cancelled
+    if event_status == 2:
+        return 6
+
+    # If Superseded, send superseded
+    if event_status == 4:
+        return 7
+
+    # For Scheduled - send received
+    if event_status == 0 and "received" not in sent_responses:
+        return 1
+
+    # For active - figure out where we are up to
+    if event_status == 1:
+        if "received" not in sent_responses:
+            return 1
+
+        # See if the control is currently in progress
+        event_start: int = der_control.interval.start
+        event_duration = der_control.interval.duration
+        event_end = event_start + event_duration
+        current_timestamp = int(current_time.timestamp())
+
+        if current_timestamp >= event_start:
+            if "started" not in sent_responses:
+                return 2  # started
+
+        # Check if control should have completed
+        # NOTE: Currently the discovery process will remove old controls, so this branch will not ever be accessed
+        # A fix is in progress
+        if current_timestamp >= event_end:
+            if "completed" not in sent_responses:
+                return 3  # completed
+
+        return None  # Not yet started, or still ongoing
+
+    return None
+
+
+def get_response_tag(response_status: int) -> str:
+    """Maps response status code to tag name for tracking."""
+    mapping = {1: "received", 2: "started", 3: "completed", 6: "cancelled", 7: "superseded"}
+    return mapping.get(response_status, f"status_{response_status}")
 
 
 async def action_respond_der_controls(step: StepExecution, context: ExecutionContext) -> ActionResult:
@@ -112,72 +184,6 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
     return ActionResult.done()
 
 
-def determine_response_status(
-    event_status: int, sent_responses: list[str], der_control: DERControlResponse, current_time: datetime
-) -> int | None:
-    """
-    Determines what response status to send based on server EventStatus and what we've already sent.
-
-    EventStatus mapping (server side):
-    - 0 = Scheduled
-    - 1 = Active
-    - 2 = Cancelled
-    - 4 = Superseded (check actual enum values)
-    Note: 3 (CancelledWithRandomization) is not tested
-
-    Response status mapping (client side):
-    - 1 = received
-    - 2 = started
-    - 3 = completed
-    - 6 = cancelled
-    - 7 = superseded
-
-    Returns None if no response should be sent for the current state.
-    """
-    # If we have previously sent a cancelled or superseeded response, no further response is necessary
-    if "cancelled" in sent_responses or "superseded" in sent_responses:
-        return None
-
-    # If Cancelled, send cancelled
-    if event_status == 2:
-        return 6
-
-    # If Superseded, send superseded
-    if event_status == 4:
-        return 7
-
-    # For Scheduled - send received
-    if event_status == 0:
-        if "received" not in sent_responses:
-            return 1
-        return None
-
-    # For active - figure out if they have been completed yet
-    if event_status == 1 and "completed" not in sent_responses:
-
-        # If they haven't yet started, send started
-        if "started" not in sent_responses:
-            return 2  # started
-
-        # If they have started, check if they should be finished
-        event_start: int = der_control.interval.start
-        event_duration = der_control.interval.duration
-        event_end = event_start + event_duration
-
-        if int(current_time.timestamp()) >= event_end:
-            return 3  # completed
-
-        return None  # Still ongoing, no response needed
-
-    return None
-
-
-def get_response_tag(response_status: int) -> str:
-    """Maps response status code to tag name for tracking."""
-    mapping = {1: "received", 2: "started", 3: "completed", 6: "cancelled", 7: "superseded"}
-    return mapping.get(response_status, f"status_{response_status}")
-
-
 async def action_send_malformed_response(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
@@ -229,18 +235,19 @@ async def action_send_malformed_response(
     # Determine the mRID (generate fake if mrd_unknown true)
     subject_mrid = to_hex32(888888) if mrid_unknown else der_control.mRID
 
-    # Determine the response status (15 = Reserved value, invalid)
-    response_status = 15 if response_invalid else 1
-
     # Create the malformed response
     current_time = utc_now()
     response = Response(
         endDeviceLFDI=edev_lfdi,
-        status=ResponseType(response_status),
+        status=ResponseType(1),  # We need to edit the xml after construction
         createdDateTime=int(current_time.timestamp()),
         subject=subject_mrid,
     )
     response_xml = resource_to_sep2_xml(response)
+
+    # Malform the XML if needed to set status to 15
+    if response_invalid:
+        response_xml = re.sub(r"<status>.*?</status>", r"<status>15</status>", response_xml)
 
     # Send the malformed response and expect a client error
     await client_error_request_for_step(step, context, cast(str, reply_to), HTTPMethod.POST, response_xml)
