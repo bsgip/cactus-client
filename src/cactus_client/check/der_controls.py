@@ -1,8 +1,6 @@
 from typing import Any, cast
 
-from cactus_test_definitions.csipaus import (
-    CSIPAusResource,
-)
+from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERControlResponse, DERProgramResponse
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower
 

@@ -1,10 +1,6 @@
 import argparse
 import sys
-
-from cactus_test_definitions.server.test_procedures import (
-    TestProcedure,
-    TestProcedureConfig,
-)
+from cactus_test_definitions.server.test_procedures import TestProcedure, get_all_test_procedures
 from rich.console import Console
 from rich.table import Table
 
@@ -20,7 +16,7 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
 
 def print_tests(console: Console) -> None:
 
-    test_procedures = TestProcedureConfig.from_resource()
+    test_procedures = get_all_test_procedures()
 
     table = Table(title="Available Test Procedures")
     table.add_column("Id", style="red")
@@ -45,7 +41,7 @@ def print_tests(console: Console) -> None:
 
 def print_test(console: Console, tp_id: str) -> None:
 
-    test_procedures = TestProcedureConfig.from_resource()
+    test_procedures = test_procedures = get_all_test_procedures()
     tp = test_procedures.test_procedures.get(tp_id, None)
 
     if tp is None:
