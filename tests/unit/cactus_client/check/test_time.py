@@ -9,7 +9,7 @@ from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from freezegun import freeze_time
 
-from cactus_client.check.time import MAX_TIME_DRIFT_SECONDS, check_time_synced
+from cactus_client.check.time import MAX_TIME_DRIFT_SECONDS, check_poll_rate, check_time_synced
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 
@@ -95,3 +95,29 @@ def test_check_time_synced(
     result = check_time_synced(step, context)
 
     assert_check_result(result, expected)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "resource_type,poll_rate,expected_poll_rate,should_pass",
+    [
+        (CSIPAusResource.DeviceCapability, 60, 60, True),
+        (CSIPAusResource.EndDeviceList, 30, 30, True),
+        (CSIPAusResource.DeviceCapability, 60, 20, False),
+        (CSIPAusResource.EndDeviceList, 30, 20, False),
+    ],
+)
+async def test_check_poll_rate(resource_type, poll_rate, expected_poll_rate, should_pass, testing_contexts_factory):
+    resource = mock.MagicMock()
+    resource.pollRate = expected_poll_rate
+
+    async with ClientSession() as session:
+        context, step = testing_contexts_factory(session)
+        store = context.discovered_resources(step)
+        store.append_resource(resource_type, None, resource)
+
+        result = check_poll_rate(
+            resolved_parameters={"resource": resource_type, "poll_rate_seconds": poll_rate}, step=step, context=context
+        )
+
+        assert result.passed == should_pass
