@@ -10,12 +10,7 @@ from cactus_test_definitions.server.test_procedures import ClientType, TestProce
 
 from cactus_client.error import ConfigException
 from cactus_client.execution.build import build_execution_context
-from cactus_client.model.config import (
-    ClientConfig,
-    GlobalConfig,
-    RunConfig,
-    ServerConfig,
-)
+from cactus_client.model.config import ClientConfig, GlobalConfig, RunConfig, ServerConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 
 

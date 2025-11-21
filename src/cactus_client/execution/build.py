@@ -8,19 +8,10 @@ from aiohttp import ClientSession, TCPConnector
 from cactus_test_definitions.server.test_procedures import TestProcedure
 import cactus_test_definitions
 from cactus_client.error import ConfigException
-from cactus_client.model.config import (
-    ClientConfig,
-    GlobalConfig,
-    RunConfig,
-    ServerConfig,
-)
+from cactus_client.model.config import ClientConfig, GlobalConfig, RunConfig, ServerConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.model.execution import StepExecution, StepExecutionList
-from cactus_client.model.progress import (
-    ProgressTracker,
-    ResponseTracker,
-    WarningTracker,
-)
+from cactus_client.model.progress import ProgressTracker, ResponseTracker, WarningTracker
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 
 
