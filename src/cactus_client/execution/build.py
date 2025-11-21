@@ -3,13 +3,10 @@ import urllib
 import urllib.parse
 from pathlib import Path
 from ssl import SSLContext
-
+from cactus_test_definitions.server.test_procedures import get_all_test_procedures
 from aiohttp import ClientSession, TCPConnector
-from cactus_test_definitions.server.test_procedures import (
-    TestProcedure,
-    TestProcedureConfig,
-)
-
+from cactus_test_definitions.server.test_procedures import TestProcedure
+import cactus_test_definitions
 from cactus_client.error import ConfigException
 from cactus_client.model.config import (
     ClientConfig,
@@ -146,9 +143,9 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
 
     tp_id = run_config.test_procedure_id
 
-    all_test_procedures = TestProcedureConfig.from_resource()
-    tp_version = all_test_procedures.version
-    tp = all_test_procedures.test_procedures.get(tp_id, None)
+    all_test_procedures = get_all_test_procedures()
+    tp_version = cactus_test_definitions.__version__
+    tp = all_test_procedures.get(tp_id, None)
     if tp is None:
         raise ConfigException(f"Test Procedure ID '{tp_id}' isn't recognised for version {tp_version}.")
 
