@@ -81,6 +81,11 @@ def check_der_program(
     resource_store = context.discovered_resources(step)
     all_der_programs = resource_store.get(CSIPAusResource.DERProgram)
 
+    # Get all FSAs to determine the index, sort FSAs by href for consistent ordering
+    if fsa_index is not None:
+        all_fsas = resource_store.get(CSIPAusResource.FunctionSetAssignments)
+        sorted_fsas = sorted(all_fsas, key=lambda sr: sr.resource.href if sr.resource.href else "")
+
     # Perform filtering
     matching_der_programs: list[StoredResource] = []
     for derp_sr in all_der_programs:
@@ -102,19 +107,14 @@ def check_der_program(
             if fsa is None or fsa.resource_type != CSIPAusResource.FunctionSetAssignments:
                 continue
 
-            # Get all FSAs (siblings of this FSA) to determine the index
-            all_fsas = resource_store.get(CSIPAusResource.FunctionSetAssignments)
-
-            # Sort FSAs by href for consistent ordering
-            sorted_fsas = sorted(all_fsas, key=lambda sr: sr.resource.href if sr.resource.href else "")
-
             # Find the index of this FSA
             try:
                 actual_index = sorted_fsas.index(fsa)
                 if actual_index != fsa_index:
                     continue
+
+            # FSA not found in list, shouldn't happen
             except ValueError:
-                # FSA not found in list, shouldn't happen
                 continue
 
         matching_der_programs.append(derp_sr)
@@ -131,5 +131,9 @@ def check_der_program(
         return CheckResult(
             False, f"Matched {total_matches} DERPrograms against criteria. Expected at most {maximum_count}"
         )
+
+    # If min count is not set assume at least one must match
+    if total_matches < 1:
+        return CheckResult(False, f"Matched {total_matches} DERPrograms against criteria. Expected at least one")
 
     return CheckResult(True, None)
