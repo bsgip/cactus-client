@@ -5,6 +5,7 @@ from envoy_schema.server.schema.sep2.time import TimeResponse
 
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
+from typing import Any
 
 # We will accept a "desync" in time up to this value
 # This will need to compensate for transmission / processing time delays so we are being pretty generous
@@ -54,4 +55,33 @@ def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckRe
                     f"Time drift on localTime is {local_drift_seconds}s. Expected a max of {MAX_TIME_DRIFT_SECONDS}s",
                 )
 
+    return CheckResult(True, None)
+
+
+def check_poll_rate(resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext) -> CheckResult:
+    """Checks whether the nominated resource has the specified poll rate"""
+
+    resource_type: CSIPAusResource = resolved_parameters["resource"]
+    poll_rate_seconds: int = resolved_parameters["poll_rate_seconds"]
+
+    resource_store = context.discovered_resources(step)
+    resources = resource_store.get(resource_type)
+
+    # Check poll rate for each resource (should only be one though)
+    for sr in resources:
+        if not hasattr(sr.resource, "pollRate"):
+            return CheckResult(
+                False,
+                f"{resource_type.value} resource at {sr.resource.href} does not have a pollRate attribute",
+            )
+
+        actual_poll_rate = sr.resource.pollRate
+
+        if actual_poll_rate != poll_rate_seconds:
+            return CheckResult(
+                False,
+                f"{resource_type.value} pollRate mismatch: expected {poll_rate_seconds}s, got {actual_poll_rate}s",
+            )
+
+    # All checks passed
     return CheckResult(True, None)
