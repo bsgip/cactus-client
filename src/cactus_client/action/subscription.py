@@ -24,6 +24,7 @@ from cactus_client.action.notifications import (
     fetch_notification_webhook_for_subscription,
 )
 from cactus_client.action.server import (
+    delete_and_check_resource_for_step,
     get_resource_for_step,
     paginate_list_resource_items,
     resource_to_sep2_xml,
@@ -47,7 +48,7 @@ async def action_create_subscription(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
     sub_id: str = resolved_parameters["sub_id"]  # Mandatory param
-    resource = CSIPAusResource(resolved_parameters["resource"])
+    resource = CSIPAusResource(resolved_parameters["resource"])  # Mandatory param
 
     store = context.discovered_resources(step)
 
@@ -97,5 +98,28 @@ async def action_create_subscription(
         Subscription, step, context, HTTPMethod.POST, subscription_list_href, resource_to_sep2_xml(subscription)
     )
     store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0], returned_subscription, alias=sub_id)
+
+    return ActionResult.done()
+
+
+async def action_delete_subscription(
+    resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+) -> ActionResult:
+    sub_id: str = resolved_parameters["sub_id"]  # Mandatory param
+
+    store = context.discovered_resources(step)
+
+    # Figure out what webhook URI we can use for our subscription alias
+    matching_subs = [r for r in store.get(CSIPAusResource.Subscription) if r.alias == sub_id]
+    if len(matching_subs) != 1:
+        raise CactusClientException(
+            f"Found {len(matching_subs)} Subscription resource(s) with alias {sub_id} but expected 1. Cannot delete."
+        )
+    target = matching_subs[0]
+    if target.resource.href is None:
+        raise CactusClientException("Found Subscription with no href attribute encoded. Cannot delete this.")
+
+    await delete_and_check_resource_for_step(step, context, target.resource.href)
+    store.delete_resource(target)
 
     return ActionResult.done()

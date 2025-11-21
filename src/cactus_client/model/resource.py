@@ -241,6 +241,20 @@ class ResourceStore:
         existing.append(new_resource)
         return new_resource
 
+    def delete_resource(self, resource: StoredResource) -> bool:
+        """Removes a specific resource from this store. Returns True if deleted, False otherwise.
+
+        This will NOT unlink any descendents that reference resource via the parent attribute."""
+        resource_list = self.store.get(resource.resource_type, None)
+        if resource_list is not None:
+            try:
+                resource_list.remove(resource)
+                return True
+            except ValueError:
+                return False
+
+        return False
+
     def get(self, type: CSIPAusResource) -> list[StoredResource]:
         """Finds all StoredResources of the specified resource type. Returns empty list if none are found"""
         return self.store.get(type, [])

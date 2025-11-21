@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from http import HTTPMethod
+from http import HTTPMethod, HTTPStatus
 from typing import Callable, TypeVar
 
 from envoy_schema.server.schema.sep2.error import ErrorResponse
@@ -90,6 +90,21 @@ async def get_resource_for_step(
         logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
         logger.error(response.body)
         raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+
+
+async def delete_and_check_resource_for_step(step: StepExecution, context: ExecutionContext, href: str) -> None:
+    """Makes a DELETE request for a particular href and then performs a followup GET expecting a 404/401/403 error.
+
+    Raises a RequestException if the connection fails, returns an error or succeeds on the refetch."""
+    # Make the delete request
+    delete_response = await request_for_step(step, context, href, HTTPMethod.DELETE)
+    if not delete_response.is_success():
+        raise RequestException(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
+
+    # Try and refetch it - it should now be "deleted" so we'll accept a few different error statuses as a pass
+    refetch_response = await request_for_step(step, context, href, HTTPMethod.GET)
+    if refetch_response.status not in {HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}:
+        raise RequestException(f"Refetching {href} yielded {delete_response.status}. Expected it to be deleted.")
 
 
 async def submit_and_refetch_resource_for_step(

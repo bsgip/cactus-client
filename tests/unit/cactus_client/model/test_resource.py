@@ -226,6 +226,57 @@ def test_ResourceStore_upsert_resource():
     assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2, p2, p2]
 
 
+def test_ResourceStore_delete_resource():
+    s = ResourceStore(CSIPAusResourceTree())
+
+    parent_r1 = generate_class_instance(EndDeviceListResponse, seed=101)
+    parent_r2 = generate_class_instance(EndDeviceListResponse, seed=202)
+
+    r1 = generate_class_instance(EndDeviceResponse, seed=303)
+    r2 = generate_class_instance(EndDeviceResponse, seed=404)
+    r3 = generate_class_instance(EndDeviceResponse, seed=505)
+    r4 = generate_class_instance(EndDeviceResponse, seed=606)
+
+    p1 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r1)
+    p2 = s.append_resource(CSIPAusResource.EndDeviceList, None, parent_r2)
+    cr1 = s.append_resource(CSIPAusResource.EndDevice, p1, r1)
+    cr2 = s.append_resource(CSIPAusResource.EndDevice, p2, r2)
+    cr3 = s.append_resource(CSIPAusResource.EndDevice, p2, r3)
+    cr4 = s.append_resource(CSIPAusResource.EndDevice, p2, r4)
+
+    # Our initial state
+    assert s.get(CSIPAusResource.EndDevice) == [cr1, cr2, cr3, cr4]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2, p2]
+
+    # Delete an item
+    assert s.delete_resource(cr3) is True
+
+    assert s.get(CSIPAusResource.EndDevice) == [cr1, cr2, cr4]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2]
+
+    # Re-deleting has no effect
+    assert s.delete_resource(cr3) is False
+    assert s.delete_resource(cr3) is False
+    assert s.get(CSIPAusResource.EndDevice) == [cr1, cr2, cr4]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p1, p2, p2]
+
+    # Delete more items
+    assert s.delete_resource(cr1) is True
+    assert s.get(CSIPAusResource.EndDevice) == [cr2, cr4]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p2, p2]
+
+    assert s.delete_resource(cr4) is True
+    assert s.get(CSIPAusResource.EndDevice) == [cr2]
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == [p2]
+
+    assert s.delete_resource(cr2) is True
+    assert s.get(CSIPAusResource.EndDevice) == []
+    assert [sr.parent for sr in s.get(CSIPAusResource.EndDevice)] == []
+
+    # Parents are unaffected
+    assert s.get(CSIPAusResource.EndDeviceList) == [p1, p2]
+
+
 def test_ResourceStore_get_descendents_of():
     """Tests the various "normal" ways of looking descendents of"""
     s = ResourceStore(CSIPAusResourceTree())
