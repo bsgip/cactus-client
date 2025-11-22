@@ -21,6 +21,7 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePointListResponse,
 )
+from treelib.exceptions import NodeIDAbsentError
 
 from cactus_client.model.resource import (
     RESOURCE_SEP2_TYPES,
@@ -45,7 +46,10 @@ def test_RESOURCE_SEP2_TYPES():
 def test_get_resource_tree_all_resources_encoded():
     tree = CSIPAusResourceTree()
     for resource in CSIPAusResource:
-        assert resource in tree.tree
+        if resource == CSIPAusResource.Notification:
+            assert resource not in tree.tree, "Notification's aren't part of the tree hierarchy"
+        else:
+            assert resource in tree.tree
 
 
 @pytest.mark.parametrize(
@@ -106,6 +110,17 @@ def test_discover_resource_plan(targets, expected):
     actual = tree.discover_resource_plan(targets)
     assert actual == expected
     assert_list_type(CSIPAusResource, actual, len(expected))
+
+
+def test_Notifications_raise_error():
+    """Notifications aren't part of the normal resource tree - attempting to plan for them should raise an error."""
+    tree = CSIPAusResourceTree()
+
+    with pytest.raises(NodeIDAbsentError):
+        tree.discover_resource_plan(CSIPAusResource.Notification)
+
+    with pytest.raises(NodeIDAbsentError):
+        tree.parent_resource(CSIPAusResource.Notification)
 
 
 @pytest.mark.parametrize(

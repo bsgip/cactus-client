@@ -6,7 +6,7 @@ from typing import Any, Callable
 from cactus_test_definitions.server.test_procedures import Step
 
 from cactus_client.model.execution import ActionResult, CheckResult, StepExecution
-from cactus_client.model.http import ServerRequest, ServerResponse
+from cactus_client.model.http import NotificationRequest, ServerRequest, ServerResponse
 from cactus_client.time import relative_time, utc_now
 
 logger = logging.getLogger(__name__)
@@ -191,7 +191,7 @@ class ProgressTracker:
 class ResponseTracker:
     """A utility for tracking raw responses received from the utility server and their validity"""
 
-    responses: list[ServerResponse]
+    responses: list[ServerResponse | NotificationRequest]
     active_request: ServerRequest | None
 
     def __init__(self) -> None:
@@ -210,3 +210,7 @@ class ResponseTracker:
     async def log_response_body(self, r: ServerResponse) -> None:
         self.responses.append(r)
         logger.info(f"{r.method} {r.url} Yielded {r.status}: Received body of length {len(r.body)}.")
+
+    async def log_notification_body(self, r: NotificationRequest) -> None:
+        self.responses.append(r)
+        logger.info(f"{r.method} Notification from '{r.remote}': Received body of length {len(r.body)}.")

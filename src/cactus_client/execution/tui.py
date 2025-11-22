@@ -18,7 +18,7 @@ from rich.table import Column, Table
 
 from cactus_client.execution import keypress
 from cactus_client.model.context import ExecutionContext
-from cactus_client.model.http import ServerResponse
+from cactus_client.model.http import NotificationRequest, ServerResponse
 from cactus_client.results.common import context_relative_time
 from cactus_client.time import relative_time, utc_now
 
@@ -91,17 +91,28 @@ def generate_header(context: ExecutionContext, run_id: int) -> RenderableType:
 def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
     """Generates the requests panel showing recent / current requests"""
 
-    def add_row(table: Table, response: ServerResponse) -> None:
+    def add_row(table: Table, response: ServerResponse | NotificationRequest) -> None:
         if response.body:
             xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
         else:
             xsd = ""
-        success = response.is_success() and not response.xsd_errors
+
+        if isinstance(response, ServerResponse):
+            request_time = response.request.created_at
+            url = response.url
+            status = str(response.status)
+            success = response.is_success() and not response.xsd_errors
+        else:
+            request_time = response.received_at
+            url = f"Notification from '{response.remote}'"
+            status = ""
+            success = bool(response.xsd_errors)
+
         table.add_row(
-            context_relative_time(context, response.request.created_at),
+            context_relative_time(context, request_time),
             response.method,
-            response.url,
-            str(response.status),
+            url,
+            status,
             xsd,
             style="green" if success else "red",
         )

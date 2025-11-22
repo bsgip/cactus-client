@@ -32,6 +32,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePointListResponse,
 )
 from envoy_schema.server.schema.sep2.pub_sub import (
+    Notification,
     Subscription,
     SubscriptionListResponse,
 )
@@ -66,6 +67,7 @@ RESOURCE_SEP2_TYPES: dict[CSIPAusResource, type[Resource]] = {
     CSIPAusResource.DERCapability: DERCapability,
     CSIPAusResource.DERSettings: DERSettings,
     CSIPAusResource.DERStatus: DERStatus,
+    CSIPAusResource.Notification: Notification,  # Not in the resource tree
 }
 
 

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from aiohttp import ClientResponse
+from cactus_client_notifications.schema import CollectedNotification
 from multidict import CIMultiDict
 
 from cactus_client.schema.validator import validate_xml
@@ -10,6 +11,8 @@ from cactus_client.time import utc_now
 
 @dataclass
 class ServerRequest:
+    """Represents a request to the utility server"""
+
     url: str  # The HTTP url that was resolved
     method: str  # Was this a GET/PUT/POST etc?
     body: str | None  # The raw request body sent (if any)
@@ -20,6 +23,8 @@ class ServerRequest:
 
 @dataclass
 class ServerResponse:
+    """Represents a response from the utility server in response to a particular request"""
+
     url: str  # The HTTP url that was resolved
     method: str  # Was this a GET/PUT/POST etc?
     status: int  # What was returned from the server?
@@ -60,4 +65,40 @@ class ServerResponse:
             content_type=content_type,
             xsd_errors=xsd_errors,
             request=request,
+        )
+
+
+@dataclass
+class NotificationRequest:
+    """Represents a request from the utility server to a webhook"""
+
+    method: str  # Was this a GET/PUT/POST etc?
+    body: str  # The raw body response (assumed to be a string based)
+    content_type: str | None  # The value of the Content-Type header (if any)
+    xsd_errors: list[str] | None  # Any XSD errors that were detected
+    headers: CIMultiDict  # headers received
+    received_at: datetime  # When did this arrive at the notification webhook
+    remote: str | None  # What IP address (or network address) sent this request?
+    sub_id: str  # What subscription ID was this Notification sent to?
+    created_at: datetime = field(default_factory=utc_now, init=False)
+
+    @staticmethod
+    def from_collected_notification(notification: CollectedNotification, sub_id: str) -> "NotificationRequest":
+        body_xml = notification.body
+        headers = CIMultiDict(((h.name, h.value) for h in notification.headers))
+        content_type = headers.getone("Content-Type", None)
+
+        xsd_errors = None
+        if body_xml:
+            xsd_errors = validate_xml(body_xml)
+
+        return NotificationRequest(
+            method=notification.method,
+            body=body_xml,
+            headers=headers,
+            content_type=content_type,
+            xsd_errors=xsd_errors,
+            received_at=notification.received_at,
+            remote=notification.remote,
+            sub_id=sub_id,
         )

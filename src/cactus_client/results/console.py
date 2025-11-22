@@ -9,6 +9,7 @@ from cactus_client.constants import (
     CACTUS_TEST_DEFINITIONS_VERSION,
 )
 from cactus_client.model.context import ExecutionContext
+from cactus_client.model.http import ServerResponse
 from cactus_client.model.output import RunOutputManager
 from cactus_client.results.common import (
     ResultsEvaluation,
@@ -118,11 +119,21 @@ def render_console(
                 xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
             else:
                 xsd = ""
+
+        if isinstance(response, ServerResponse):
+            request_time = response.request.created_at
+            url = response.url
+            status = str(response.status)
+        else:
+            request_time = response.received_at
+            url = f"Notification from '{response.remote}'"
+            status = ""
+
             requests_table.add_row(
-                context_relative_time(context, response.request.created_at),
+                context_relative_time(context, request_time),
                 response.method,
-                response.url,
-                str(response.status),
+                url,
+                status,
                 xsd,
                 style="red" if response.xsd_errors else "green",
             )

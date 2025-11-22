@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -19,7 +19,7 @@ from cactus_client.model.execution import (
     StepExecution,
     StepExecutionList,
 )
-from cactus_client.model.http import ServerRequest, ServerResponse
+from cactus_client.model.http import NotificationRequest, ServerRequest, ServerResponse
 from cactus_client.model.progress import (
     ProgressTracker,
     ResponseTracker,
@@ -41,6 +41,18 @@ def generate_server_response(seed: int, xsd_errors: list[str] | None) -> ServerR
         ),
         headers=CIMultiDict(),
         status=200,
+        xsd_errors=xsd_errors,
+    )
+
+
+def generate_notification(seed: int, xsd_errors: list[str] | None) -> NotificationRequest:
+    return NotificationRequest(
+        method=generate_value(str, seed + 1),
+        body=generate_value(str, seed + 2),
+        content_type=generate_value(str, seed + 3),
+        headers=CIMultiDict(),
+        received_at=generate_value(datetime, seed + 4),
+        remote=generate_value(str, seed + 5),
         xsd_errors=xsd_errors,
     )
 
@@ -86,6 +98,8 @@ async def test_ResultsEvaluation_passed(assertical_extensions):
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
+    context.responses.responses.append(generate_notification(3, xsd_errors=None))
+    context.responses.responses.append(generate_notification(4, xsd_errors=[]))
 
     actual = ResultsEvaluation(context, ExecutionResult(True))
     assert actual.has_passed()
@@ -114,6 +128,8 @@ async def test_ResultsEvaluation_failing_missing_result(assertical_extensions):
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
+    context.responses.responses.append(generate_notification(3, xsd_errors=None))
+    context.responses.responses.append(generate_notification(4, xsd_errors=[]))
 
     actual = ResultsEvaluation(context, ExecutionResult(True))
     assert not actual.has_passed()
@@ -144,6 +160,40 @@ async def test_ResultsEvaluation_failing_xsd_errors(assertical_extensions):
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=["has error"]))
+    context.responses.responses.append(generate_notification(3, xsd_errors=None))
+    context.responses.responses.append(generate_notification(4, xsd_errors=[]))
+
+    actual = ResultsEvaluation(context, ExecutionResult(True))
+    assert not actual.has_passed()
+    assert not actual.no_xsd_errors
+    assert actual.total_steps == 2
+    assert actual.total_steps_passed == 2
+    assert actual.total_warnings == 0
+    assert actual.total_xsd_errors == 1
+
+
+@pytest.mark.asyncio
+async def test_ResultsEvaluation_failing_xsd_errors_notifications(assertical_extensions):
+    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
+    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+
+    context = generate_empty_context([step_1, step_2])
+
+    step_execution_1 = generate_class_instance(StepExecution, seed=101, source=step_1)
+    step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
+
+    await context.progress.add_step_execution_completion(
+        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+    )
+    await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_2, CheckResult(True, None))
+
+    context.responses.responses.append(generate_server_response(1, xsd_errors=None))
+    context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
+    context.responses.responses.append(generate_notification(3, xsd_errors=None))
+    context.responses.responses.append(generate_notification(4, xsd_errors=["has error"]))
 
     actual = ResultsEvaluation(context, ExecutionResult(True))
     assert not actual.has_passed()
