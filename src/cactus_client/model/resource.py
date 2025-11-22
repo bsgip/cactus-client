@@ -121,6 +121,12 @@ class CSIPAusResourceTree:
         return self.tree.ancestor(target)  # type: ignore
 
 
+@dataclass
+class CurrentAnnotations:
+    alias: str | None
+    tags: list[str] = field(default_factory=list)
+
+
 @dataclass(frozen=True, eq=True)
 class StoredResource:
     created_at: datetime  # When did this resource get created/stored
@@ -132,7 +138,7 @@ class StoredResource:
     member_of_list: CSIPAusResource | None  # If specified - this resource is a member of a List of this type
 
     resource: Resource  # The common 2030.5 Resource that is being stored. List items "may" have some children populated
-    alias: str | None = field(
+    annotations: CurrentAnnotations = field(
         compare=False
     )  # Can be set by the test definition marking specific resources - is NOT used in equality checks.
 
@@ -145,7 +151,7 @@ class StoredResource:
                 tuple(self.resource_link_hrefs.items()),
                 self.member_of_list,
                 id(self.resource),
-                # We are deliberately NOT including alias in the hash
+                # We are deliberately NOT including annotations/alias in the hash
             )
         )
 
@@ -169,7 +175,7 @@ class StoredResource:
             resource=resource,
             resource_link_hrefs=generate_resource_link_hrefs(type, resource),
             member_of_list=member_of_list,
-            alias=alias,
+            annotations=CurrentAnnotations(alias=alias),
         )
 
 
@@ -278,6 +284,15 @@ class ResourceStore:
                 current_ancestor = current_ancestor.parent  # Keep searching up the parents
 
         return matches
+
+    def get_ancestor_of(self, target_type: CSIPAusResource, child: StoredResource) -> StoredResource | None:
+        """Walks up the parent chain to find an ancestor of the specified type."""
+        current = child.parent
+        while current is not None:
+            if current.resource_type == target_type:
+                return current
+            current = current.parent
+        return None
 
 
 def get_link_href(link: Link | None) -> str | None:

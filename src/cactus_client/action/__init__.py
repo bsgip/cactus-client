@@ -1,5 +1,11 @@
 import logging
 
+from cactus_client.action.der import (
+    action_send_malformed_der_settings,
+    action_upsert_der_capability,
+    action_upsert_der_settings,
+    action_upsert_der_status,
+)
 from cactus_client.action.discovery import action_discovery
 from cactus_client.action.end_device import (
     action_insert_end_device,
@@ -7,6 +13,7 @@ from cactus_client.action.end_device import (
 )
 from cactus_client.action.mup import action_insert_readings, action_upsert_mup
 from cactus_client.action.noop import action_noop
+from cactus_client.action.refresh_resource import action_refresh_resource
 from cactus_client.action.subscription import action_create_subscription
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
@@ -45,6 +52,16 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_upsert_mup(resolved_params, step, context)
         case "insert-readings":
             return await action_insert_readings(resolved_params, step, context)
+        case "upsert-der-capability":
+            return await action_upsert_der_capability(resolved_params, step, context)
+        case "upsert-der-settings":
+            return await action_upsert_der_settings(resolved_params, step, context)
+        case "upsert-der-status":
+            return await action_upsert_der_status(resolved_params, step, context)
+        case "send-malformed-der-settings":
+            return await action_send_malformed_der_settings(resolved_params, step, context)
+        case "refresh-resource":
+            return await action_refresh_resource(resolved_params, step, context)
         case "create_subscription":
             return await action_create_subscription(resolved_params, step, context)
         case _:
