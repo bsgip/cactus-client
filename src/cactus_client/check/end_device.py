@@ -13,7 +13,7 @@ from cactus_client.model.resource import ResourceStore, StoredResource
 
 def match_end_device_on_lfdi_caseless(resource_store: ResourceStore, lfdi: str) -> StoredResource | None:
     """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None"""
-    end_devices = resource_store.get(CSIPAusResource.EndDevice)
+    end_devices = resource_store.get_for_type(CSIPAusResource.EndDevice)
     if not end_devices:
         return None
 
@@ -54,7 +54,7 @@ def check_end_device(
 
     # If we are optionally doing a PIN check - perform it now
     if check_pin:
-        matched_registrations = resource_store.get_descendents_of(CSIPAusResource.Registration, matched_edev)
+        matched_registrations = resource_store.get_descendents_of(CSIPAusResource.Registration, matched_edev.id)
         if not matched_registrations:
             return CheckResult(False, f"{edev.href} doesn't have any Registrations associated with it")
         for registration in matched_registrations:

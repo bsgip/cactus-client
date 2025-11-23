@@ -56,7 +56,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
     resource_store = context.discovered_resources(step)
 
     # Get our list of candidate DERControls to examine
-    all_dercontrols = resource_store.get(CSIPAusResource.DERControl)
+    all_dercontrols = resource_store.get_for_type(CSIPAusResource.DERControl)
     if latest:
         latest_derc = get_latest_derc(all_dercontrols)
         if latest_derc is None:

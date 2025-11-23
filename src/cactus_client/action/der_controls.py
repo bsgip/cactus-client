@@ -1,10 +1,14 @@
-from datetime import datetime
 import logging
-from http import HTTPMethod
 import re
+from datetime import datetime
+from http import HTTPMethod
 from typing import Any, Optional, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
+from envoy_schema.server.schema.sep2.der import DERControlResponse
+from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
+from envoy_schema.server.schema.sep2.event import EventStatusType
+from envoy_schema.server.schema.sep2.response import Response, ResponseType
 
 from cactus_client.action.server import (
     client_error_request_for_step,
@@ -14,10 +18,6 @@ from cactus_client.action.server import (
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from envoy_schema.server.schema.sep2.response import Response, ResponseType
-from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
-from envoy_schema.server.schema.sep2.der import DERControlResponse
-from envoy_schema.server.schema.sep2.event import EventStatusType
 from cactus_client.model.resource import StoredResource
 from cactus_client.schema.validator import to_hex32
 from cactus_client.time import utc_now
@@ -30,7 +30,7 @@ def get_edev_lfdi_for_der_control(
 ) -> Optional[str]:
     """Helper function to reduce duplicate code. Checks for a non None parent end device lfdi given a DER control"""
     resource_store = context.discovered_resources(step)
-    edev = resource_store.get_ancestor_of(CSIPAusResource.EndDevice, der_ctl)
+    edev = resource_store.get_ancestor_of(CSIPAusResource.EndDevice, der_ctl.id)
     if edev is None:
         context.warnings.log_step_warning(
             step,
@@ -108,7 +108,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
     """Enumerates all known DERControls and sends a Response for any that require it."""
 
     resource_store = context.discovered_resources(step)
-    stored_der_controls = [sr for sr in resource_store.get(CSIPAusResource.DERControl)]
+    stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
 
     # Go through all DER controls to see if a response is required
     for der_ctl in stored_der_controls:
@@ -193,7 +193,7 @@ async def action_send_malformed_response(
         )
 
     # Find for DERControls that have replyTo set
-    stored_der_controls = [sr for sr in resource_store.get(CSIPAusResource.DERControl)]
+    stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
     der_controls_with_reply = [
         sr for sr in stored_der_controls if cast(DERControlResponse, sr.resource).replyTo is not None
     ]

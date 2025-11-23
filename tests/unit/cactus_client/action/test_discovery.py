@@ -81,7 +81,7 @@ async def test_discover_resource_dcap(
     await discover_resource(CSIPAusResource.DeviceCapability, step, context)
 
     # Assert
-    stored_resources = context.discovered_resources(step).get(CSIPAusResource.DeviceCapability)
+    stored_resources = context.discovered_resources(step).get_for_type(CSIPAusResource.DeviceCapability)
     assert len(stored_resources) == 1
     assert stored_resources[0].resource is dcap
     assert stored_resources[0].resource_type == CSIPAusResource.DeviceCapability
@@ -149,7 +149,7 @@ async def test_discover_resource_list_containers(
     await discover_resource(resource, step, context)
 
     # Assert
-    added_resources = resource_store.get(resource)
+    added_resources = resource_store.get_for_type(resource)
     assert [sr.resource for sr in added_resources] == fetched_resources
     assert all(sr.resource_type == resource for sr in added_resources)
     assert all(added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, stored_parents))
@@ -213,7 +213,7 @@ async def test_discover_resource_singular_resources(
     await discover_resource(resource, step, context)
 
     # Assert
-    added_resources = resource_store.get(resource)
+    added_resources = resource_store.get_for_type(resource)
     assert [sr.resource for sr in added_resources] == fetched_resources
     assert all(sr.resource_type == resource for sr in added_resources)
     assert all(added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, stored_parents))
@@ -306,7 +306,7 @@ async def test_discover_resource_paginated_items(
         assert call_args[0][4] == DISCOVERY_LIST_PAGE_SIZE
         assert callable(call_args[0][5])  # harder to assert on the lambda
 
-    stored_children = resource_store.get(child_resource)
+    stored_children = resource_store.get_for_type(child_resource)
     assert len(stored_children) == sum(items_per_parent)
 
     child_idx = 0

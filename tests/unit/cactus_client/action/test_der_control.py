@@ -2,18 +2,21 @@ import unittest.mock as mock
 from http import HTTPMethod
 from typing import Callable
 
-from freezegun import freeze_time
 import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
-from envoy_schema.server.schema.sep2.types import DateTimeIntervalType
 from envoy_schema.server.schema.sep2.der import DERControlResponse
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.event import EventStatus
 from envoy_schema.server.schema.sep2.response import ResponseType
+from envoy_schema.server.schema.sep2.types import DateTimeIntervalType
+from freezegun import freeze_time
 
-from cactus_client.action.der_controls import action_respond_der_controls, action_send_malformed_response
+from cactus_client.action.der_controls import (
+    action_respond_der_controls,
+    action_send_malformed_response,
+)
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.schema.validator import to_hex32
@@ -101,7 +104,7 @@ async def test_action_respond_der_controls_with_previous_responses(
     der_control.mRID = to_hex32(2000)
     der_control.interval = DateTimeIntervalType(start=current_timestamp + time_offset, duration=duration)
 
-    stored_der_control = resource_store.append_resource(CSIPAusResource.DERControl, stored_edev, der_control)
+    stored_der_control = resource_store.append_resource(CSIPAusResource.DERControl, stored_edev.id, der_control)
 
     # Set previous tags to simulate already-sent responses
     stored_der_control.annotations.tags.extend(previous_tags)
@@ -121,7 +124,7 @@ async def test_action_respond_der_controls_with_previous_responses(
         assert f"status>{expected_status}<" in call[0][5]
 
         # Verify the new tag was added
-        stored_controls = list(resource_store.get(CSIPAusResource.DERControl))
+        stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))
         assert len(stored_controls) == 1
         assert expected_new_tag in stored_controls[0].annotations.tags
         # Previous tags should still be present
@@ -131,7 +134,7 @@ async def test_action_respond_der_controls_with_previous_responses(
         assert mock_submit_and_refetch.call_count == 0
 
         # Tags should remain unchanged
-        stored_controls = list(resource_store.get(CSIPAusResource.DERControl))
+        stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))
         assert len(stored_controls) == 1
         assert stored_controls[0].annotations.tags == previous_tags
 
@@ -173,7 +176,7 @@ async def test_action_send_malformed_response(
     der_control.responseRequired = to_hex32(1)
     der_control.mRID = to_hex32(2001)
 
-    resource_store.append_resource(CSIPAusResource.DERControl, stored_edev, der_control)
+    resource_store.append_resource(CSIPAusResource.DERControl, stored_edev.id, der_control)
 
     resolved_params = {
         "mrid_unknown": mrid_unknown,

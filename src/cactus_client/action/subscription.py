@@ -102,7 +102,7 @@ async def action_create_subscription(
     store = context.discovered_resources(step)
 
     # Find the subscription list to receive this new subscription
-    subscription_lists = store.get(CSIPAusResource.SubscriptionList)
+    subscription_lists = store.get_for_type(CSIPAusResource.SubscriptionList)
     if len(subscription_lists) != 1:
         raise CactusClientException(
             f"Found {len(subscription_lists)} SubscriptionList resource(s) but expected 1. Cannot create subscription."
@@ -113,7 +113,7 @@ async def action_create_subscription(
             "SubscriptionList resource has no href attribute encoded. Cannot create subscription."
         )
 
-    subscription_targets = store.get(resource)
+    subscription_targets = store.get_for_type(resource)
     if len(subscription_targets) != 1:
         raise CactusClientException(
             f"Found {len(subscription_targets)} {resource} resource(s) but expected 1. Cannot create subscription."
@@ -146,7 +146,7 @@ async def action_create_subscription(
     returned_subscription = await submit_and_refetch_resource_for_step(
         Subscription, step, context, HTTPMethod.POST, subscription_list_href, resource_to_sep2_xml(subscription)
     )
-    store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0], returned_subscription, alias=sub_id)
+    store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription, alias=sub_id)
 
     return ActionResult.done()
 
@@ -159,7 +159,7 @@ async def action_delete_subscription(
     store = context.discovered_resources(step)
 
     # Figure out what webhook URI we can use for our subscription alias
-    matching_subs = [r for r in store.get(CSIPAusResource.Subscription) if r.annotations.alias == sub_id]
+    matching_subs = [r for r in store.get_for_type(CSIPAusResource.Subscription) if r.annotations.alias == sub_id]
     if len(matching_subs) != 1:
         raise CactusClientException(
             f"Found {len(matching_subs)} Subscription resource(s) with alias {sub_id} but expected 1. Cannot delete."

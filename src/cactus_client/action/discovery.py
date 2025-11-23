@@ -3,15 +3,24 @@ from datetime import datetime
 from typing import Any, Callable, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
-from envoy_schema.server.schema.sep2.der import DERControlListResponse, DERListResponse, DERProgramListResponse
+from envoy_schema.server.schema.sep2.der import (
+    DERControlListResponse,
+    DERListResponse,
+    DERProgramListResponse,
+)
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
 from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse
-from envoy_schema.server.schema.sep2.function_set_assignments import FunctionSetAssignmentsListResponse
+from envoy_schema.server.schema.sep2.function_set_assignments import (
+    FunctionSetAssignmentsListResponse,
+)
 from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
-from cactus_client.action.server import get_resource_for_step, paginate_list_resource_items
+from cactus_client.action.server import (
+    get_resource_for_step,
+    paginate_list_resource_items,
+)
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -27,7 +36,7 @@ def calculate_wait_next_polling_window(now: datetime, discovered_resources: Reso
     Returns the delay in seconds.
     """
 
-    dcaps = discovered_resources.get(CSIPAusResource.DeviceCapability)
+    dcaps = discovered_resources.get_for_type(CSIPAusResource.DeviceCapability)
     if len(dcaps) == 0:
         poll_rate_seconds = 60
     else:
@@ -93,7 +102,7 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
             raise CactusClientException(f"resource {parent_resource} has no registered get_list_items function.")
 
         # Each of our parent resources will be a List - time to paginate through them
-        for parent_sr in resource_store.get(parent_resource):
+        for parent_sr in resource_store.get_for_type(parent_resource):
             list_href = parent_sr.resource.href
             if not list_href:
                 continue
@@ -103,15 +112,17 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
                 RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, DISCOVERY_LIST_PAGE_SIZE, get_list_items
             )
             for item in list_items:
-                resource_store.append_resource(resource, parent_sr, check_item_for_href(step, context, list_href, item))
+                resource_store.append_resource(
+                    resource, parent_sr.id, check_item_for_href(step, context, list_href, item)
+                )
     else:
         # Not a list item - look for direct links from parent (eg an EndDevice.ConnectionPointLink -> ConnectionPoint)
-        for parent_sr in resource_store.get(parent_resource):
+        for parent_sr in resource_store.get_for_type(parent_resource):
             href = parent_sr.resource_link_hrefs.get(resource, None)
             if href:
                 resource_store.append_resource(
                     resource,
-                    parent_sr,
+                    parent_sr.id,
                     check_item_for_href(
                         step,
                         context,
