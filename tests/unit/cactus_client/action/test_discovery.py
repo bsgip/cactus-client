@@ -14,18 +14,15 @@ from cactus_client.action.discovery import (
     calculate_wait_next_polling_window,
     discover_resource,
 )
+from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
 
 
-def setup_discovery_test(
-    testing_contexts_factory,
-    resource: CSIPAusResource,
-    matched_parents: int,
-    is_list_container: bool = False,
-):
+def setup_discovery_test(testing_contexts_factory, resource: CSIPAusResource, matched_parents: int):
     """Common setup for discovery tests."""
+    context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
 
@@ -41,19 +38,11 @@ def setup_discovery_test(
                 parent_type,
                 generate_relationships=True,
                 seed=idx,
-                href=f"/{parent_resource.value}/{idx}" if is_list_container else None,
+                href=f"/{parent_resource.value}/{idx}",
             ),
         )
         for idx in range(matched_parents)
     ]
-
-    # Add dud parents with missing/empty hrefs (should be ignored)
-    resource_store.append_resource(
-        parent_resource,
-        None,
-        generate_class_instance(parent_type, seed=1001, generate_relationships=True, optional_is_none=True),
-    )
-    resource_store.append_resource(parent_resource, None, generate_class_instance(parent_type, seed=1001, href=""))
 
     expected_type = RESOURCE_SEP2_TYPES[resource]
 
@@ -78,21 +67,26 @@ async def test_discover_resource_dcap(
     mock_get_resource_for_step.return_value = dcap
 
     # Act
-    await discover_resource(CSIPAusResource.DeviceCapability, step, context)
+    if has_href:
+        await discover_resource(CSIPAusResource.DeviceCapability, step, context)
+    else:
+        with pytest.raises(CactusClientException):
+            await discover_resource(CSIPAusResource.DeviceCapability, step, context)
 
     # Assert
     stored_resources = context.discovered_resources(step).get_for_type(CSIPAusResource.DeviceCapability)
-    assert len(stored_resources) == 1
-    assert stored_resources[0].resource is dcap
-    assert stored_resources[0].resource_type == CSIPAusResource.DeviceCapability
-    assert stored_resources[0].parent is None
     mock_get_resource_for_step.assert_called_once_with(DeviceCapabilityResponse, step, context, context.dcap_path)
     mock_paginate_list_resource_items.assert_not_called()
 
     if has_href:
         assert len(context.warnings.warnings) == 0
+        assert len(stored_resources) == 1
+        assert stored_resources[0].resource is dcap
+        assert stored_resources[0].resource_type == CSIPAusResource.DeviceCapability
+        assert stored_resources[0].id.parent_id() is None
     else:
         assert len(context.warnings.warnings) == 1
+        assert len(stored_resources) == 0
 
 
 @pytest.mark.parametrize(
@@ -132,7 +126,7 @@ async def test_discover_resource_list_containers(
     """
     # Arrange
     context, step, resource_store, stored_parents, expected_type = setup_discovery_test(
-        testing_contexts_factory, resource, matched_parents, has_href
+        testing_contexts_factory, resource, matched_parents
     )
 
     fetched_resources = [
@@ -146,17 +140,28 @@ async def test_discover_resource_list_containers(
     mock_get_resource_for_step.side_effect = fetched_resources
 
     # Act
-    await discover_resource(resource, step, context)
+    if has_href or matched_parents == 0:
+        await discover_resource(resource, step, context)
+    else:
+        with pytest.raises(CactusClientException):
+            await discover_resource(resource, step, context)
 
     # Assert
     added_resources = resource_store.get_for_type(resource)
-    assert [sr.resource for sr in added_resources] == fetched_resources
-    assert all(sr.resource_type == resource for sr in added_resources)
-    assert all(added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, stored_parents))
+    if has_href:
+        assert [sr.resource for sr in added_resources] == fetched_resources
+        assert all(sr.resource_type == resource for sr in added_resources)
+        assert all(
+            added_sr.id.parent_id() == parent_sr.id for added_sr, parent_sr in zip(added_resources, stored_parents)
+        )
+    else:
+        assert len(added_resources) == 0
 
-    mock_get_resource_for_step.assert_has_calls(
-        [mock.call(expected_type, step, context, spr.resource_link_hrefs[resource]) for spr in stored_parents]
-    )
+    if matched_parents:
+        mock_get_resource_for_step.assert_called()
+    else:
+        mock_get_resource_for_step.assert_not_called()
+
     assert len(context.warnings.warnings) > 0 if expect_warnings else len(context.warnings.warnings) == 0
 
 
@@ -198,7 +203,7 @@ async def test_discover_resource_singular_resources(
     """
     # Arrange
     context, step, resource_store, stored_parents, expected_type = setup_discovery_test(
-        testing_contexts_factory, resource, matched_parents, has_href
+        testing_contexts_factory, resource, matched_parents
     )
 
     fetched_resources = [
@@ -210,17 +215,24 @@ async def test_discover_resource_singular_resources(
     mock_get_resource_for_step.side_effect = fetched_resources
 
     # Act
-    await discover_resource(resource, step, context)
+    if has_href or matched_parents == 0:
+        await discover_resource(resource, step, context)
+    else:
+        with pytest.raises(CactusClientException):
+            await discover_resource(resource, step, context)
 
     # Assert
     added_resources = resource_store.get_for_type(resource)
-    assert [sr.resource for sr in added_resources] == fetched_resources
-    assert all(sr.resource_type == resource for sr in added_resources)
-    assert all(added_sr.parent is parent_sr for added_sr, parent_sr in zip(added_resources, stored_parents))
+    if has_href:
+        assert [sr.resource for sr in added_resources] == fetched_resources
+        assert all(sr.resource_type == resource for sr in added_resources)
+        assert all(
+            added_sr.id.parent_id() == parent_sr.id for added_sr, parent_sr in zip(added_resources, stored_parents)
+        )
+    else:
+        assert len(added_resources) == 0
 
-    mock_get_resource_for_step.assert_has_calls(
-        [mock.call(expected_type, step, context, spr.resource_link_hrefs[resource]) for spr in stored_parents]
-    )
+    mock_get_resource_for_step.assert_called()
     mock_paginate_list_resource_items.assert_not_called()
 
     assert len(context.warnings.warnings) > 0 if expect_warnings else len(context.warnings.warnings) == 0
@@ -314,7 +326,7 @@ async def test_discover_resource_paginated_items(
         for item in child_items_by_parent[parent_idx]:
             assert stored_children[child_idx].resource is item
             assert stored_children[child_idx].resource_type == child_resource
-            assert stored_children[child_idx].parent is parent_sr
+            assert stored_children[child_idx].id.parent_id() == parent_sr.id
             child_idx += 1
 
     assert len(context.warnings.warnings) == 0

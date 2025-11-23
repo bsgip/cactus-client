@@ -22,7 +22,7 @@ def style_str(success: bool, content: Any) -> str:
     return f"[{color}]{content}[/{color}]"
 
 
-def render_console(
+def render_console(  # noqa: C901
     console: Console, context: ExecutionContext, results: ResultsEvaluation, output_manager: RunOutputManager
 ) -> None:
     """Renders a "results report" to the console output"""

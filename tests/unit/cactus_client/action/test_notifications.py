@@ -29,6 +29,7 @@ from cactus_client.model.context import (
     NotificationEndpoint,
     NotificationsContext,
 )
+from cactus_client.model.resource import StoredResourceId
 
 
 @dataclass
@@ -99,13 +100,25 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
         execution_context: ExecutionContext
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         result1 = await fetch_notification_webhook_for_subscription(
-            step_execution, execution_context, "sub123", "/href1", CSIPAusResource.DER
+            step_execution,
+            execution_context,
+            "sub123",
+            CSIPAusResource.DER,
+            StoredResourceId.from_parent(None, "/hrefa"),
         )
         result2 = await fetch_notification_webhook_for_subscription(
-            step_execution, execution_context, "sub123", "/href2", CSIPAusResource.DERSettings
+            step_execution,
+            execution_context,
+            "sub123",
+            CSIPAusResource.DERCapability,
+            StoredResourceId.from_parent(None, "/hrefb"),
         )
         result3 = await fetch_notification_webhook_for_subscription(
-            step_execution, execution_context, "sub1234", "/href3", CSIPAusResource.ConnectionPoint
+            step_execution,
+            execution_context,
+            "sub1234",
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/hrefc"),
         )
 
     # Assert - contents of response
@@ -117,10 +130,12 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
     # Assert the notifications context is populated with what we expect
     assert execution_context.notifications_context(step_execution).endpoint_by_sub_alias[
         "sub123"
-    ] == NotificationEndpoint(create_endpoint_1, "/href1", CSIPAusResource.DER)
+    ] == NotificationEndpoint(create_endpoint_1, CSIPAusResource.DER, StoredResourceId.from_parent(None, "/hrefa"))
     assert execution_context.notifications_context(step_execution).endpoint_by_sub_alias[
         "sub1234"
-    ] == NotificationEndpoint(create_endpoint_2, "/href3", CSIPAusResource.ConnectionPoint)
+    ] == NotificationEndpoint(
+        create_endpoint_2, CSIPAusResource.DERControl, StoredResourceId.from_parent(None, "/hrefc")
+    )
 
 
 @pytest.mark.asyncio
@@ -143,7 +158,11 @@ async def test_notifications_server_request_status_error(aiohttp_client, testing
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
             await fetch_notification_webhook_for_subscription(
-                step_execution, execution_context, "sub123", "/fake/href", CSIPAusResource.DER
+                step_execution,
+                execution_context,
+                "sub123",
+                CSIPAusResource.DERControl,
+                StoredResourceId.from_parent(None, "/fake"),
             )
 
 
@@ -163,7 +182,11 @@ async def test_notifications_server_request_parsing_error(aiohttp_client, testin
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
             await fetch_notification_webhook_for_subscription(
-                step_execution, execution_context, "sub123", "/href1", CSIPAusResource.DER
+                step_execution,
+                execution_context,
+                "sub123",
+                CSIPAusResource.DERControl,
+                StoredResourceId.from_parent(None, "/fake"),
             )
 
 
@@ -197,7 +220,9 @@ async def test_collect_notifications_for_subscription(aiohttp_client, testing_co
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
-            CreateEndpointResponse("abc-123", "foo"), "/fake/href", CSIPAusResource.DER
+            CreateEndpointResponse("abc-123", "foo"),
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/fake"),
         )
 
         result = await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
@@ -251,7 +276,9 @@ async def test_collect_notifications_for_subscription_status_error(aiohttp_clien
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
-            CreateEndpointResponse("abc-123", "foo"), "/fake/href", CSIPAusResource.DER
+            CreateEndpointResponse("abc-123", "foo"),
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/fake"),
         )
 
         with pytest.raises(NotificationException):
@@ -278,7 +305,9 @@ async def test_collect_notifications_for_subscription_bad_response(aiohttp_clien
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
-            CreateEndpointResponse("abc-123", "foo"), "/fake/href", CSIPAusResource.DER
+            CreateEndpointResponse("abc-123", "foo"),
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/fake"),
         )
 
         with pytest.raises(NotificationException):
@@ -299,7 +328,9 @@ async def test_update_notification_webhook_for_subscription(aiohttp_client, test
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
-            CreateEndpointResponse("ABC123", "foo"), "/fake/href", CSIPAusResource.DER
+            CreateEndpointResponse("ABC123", "foo"),
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/fake"),
         )
 
         await update_notification_webhook_for_subscription(step_execution, execution_context, "sub1", enabled=enabled)
@@ -345,7 +376,9 @@ async def test_update_notification_webhook_for_subscription_status_error(aiohttp
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
-            CreateEndpointResponse("ABC123", "foo"), "/fake/href", CSIPAusResource.DER
+            CreateEndpointResponse("ABC123", "foo"),
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/fake"),
         )
 
         with pytest.raises(NotificationException):
@@ -373,13 +406,19 @@ async def test_safely_delete_all_notification_webhooks(aiohttp_client, testing_c
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
-            CreateEndpointResponse("abc123", "foo"), "/fake/href1", CSIPAusResource.DER
+            CreateEndpointResponse("abc123", "foo"),
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/fake1"),
         )
         notification_context.endpoint_by_sub_alias["sub2"] = NotificationEndpoint(
-            CreateEndpointResponse("def456", "foo"), "/fake/href2", CSIPAusResource.DER
+            CreateEndpointResponse("def456", "foo"),
+            CSIPAusResource.DERCapability,
+            StoredResourceId.from_parent(None, "/fake2"),
         )
         notification_context.endpoint_by_sub_alias["sub3"] = NotificationEndpoint(
-            CreateEndpointResponse("ghi789", "foo"), "/fake/href3", CSIPAusResource.DER
+            CreateEndpointResponse("ghi789", "foo"),
+            CSIPAusResource.DeviceCapability,
+            StoredResourceId.from_parent(None, "/fake3"),
         )
         await safely_delete_all_notification_webhooks(notification_context)
 

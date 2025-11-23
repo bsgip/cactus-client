@@ -53,6 +53,7 @@ def generate_notification(seed: int, xsd_errors: list[str] | None) -> Notificati
         headers=CIMultiDict(),
         received_at=generate_value(datetime, seed + 4),
         remote=generate_value(str, seed + 5),
+        sub_id=generate_value(str, seed + 6),
         xsd_errors=xsd_errors,
     )
 

@@ -17,6 +17,7 @@ from cactus_client.action.refresh_resource import action_refresh_resource
 from cactus_client.action.subscription import (
     action_create_subscription,
     action_delete_subscription,
+    action_notification,
 )
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
@@ -47,6 +48,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_noop()
         case "discovery":
             return await action_discovery(resolved_params, step, context)
+        case "notification":
+            return await action_notification(resolved_params, step, context)
         case "insert-end-device":
             return await action_insert_end_device(resolved_params, step, context)
         case "upsert-connection-point":

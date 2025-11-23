@@ -52,6 +52,50 @@ def check_item_for_href(step: StepExecution, context: ExecutionContext, href: st
     return item
 
 
+def get_list_item_callback(
+    list_resource: CSIPAusResource,
+) -> tuple[Callable[[Resource], list[Resource] | None], CSIPAusResource]:
+    """Generates a callback that when executed (with a Resource) will generate the list of child items that belong
+    to that resource.
+
+    list_resource: Should be a list type CSIPAusResource
+
+    raises CactusClientException if list_resource is unsupported
+
+    returns a tuple:
+        callback: A callable that takes a Resource and returns a list of child Resources (or None)
+        list_item_type: A CSIPAusResource matching the type of the child list items"""
+    get_list_items: Callable[[Resource], list[Resource] | None] | None = None
+    list_item_type: CSIPAusResource | None = None
+    match (list_resource):
+        case CSIPAusResource.MirrorUsagePointList:
+            get_list_items = lambda list_: cast(MirrorUsagePointListResponse, list_).mirrorUsagePoints  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.MirrorUsagePoint
+        case CSIPAusResource.EndDeviceList:
+            get_list_items = lambda list_: cast(EndDeviceListResponse, list_).EndDevice  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.EndDevice
+        case CSIPAusResource.DERList:
+            get_list_items = lambda list_: cast(DERListResponse, list_).DER_  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.DER
+        case CSIPAusResource.DERProgramList:
+            get_list_items = lambda list_: cast(DERProgramListResponse, list_).DERProgram  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.DERProgram
+        case CSIPAusResource.DERControlList:
+            get_list_items = lambda list_: cast(DERControlListResponse, list_).DERControl  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.DERControl
+        case CSIPAusResource.FunctionSetAssignmentsList:
+            get_list_items = lambda list_: cast(FunctionSetAssignmentsListResponse, list_).FunctionSetAssignments  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.FunctionSetAssignments
+        case CSIPAusResource.SubscriptionList:
+            get_list_items = lambda list_: cast(SubscriptionListResponse, list_).subscriptions  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.Subscription
+
+    if get_list_items is None or list_item_type is None:
+        raise CactusClientException(f"resource {list_resource} has no registered get_list_items function.")
+
+    return (get_list_items, list_item_type)
+
+
 async def discover_resource(resource: CSIPAusResource, step: StepExecution, context: ExecutionContext) -> None:
     """Performs discovery for the particular resource - it is assumed that all parent resources have been previously
     fetched."""
@@ -81,25 +125,7 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
         # If this is a member of a list (eg resource is EndDevice and parent_resource is EndDeviceList)
 
         # We need to know how to decompose a parent list to get at the child items
-        get_list_items: Callable[[Resource], list[Resource] | None] | None = None
-        match (parent_resource):
-            case CSIPAusResource.MirrorUsagePointList:
-                get_list_items = lambda list_: cast(MirrorUsagePointListResponse, list_).mirrorUsagePoints  # type: ignore # noqa: E731
-            case CSIPAusResource.EndDeviceList:
-                get_list_items = lambda list_: cast(EndDeviceListResponse, list_).EndDevice  # type: ignore # noqa: E731
-            case CSIPAusResource.DERList:
-                get_list_items = lambda list_: cast(DERListResponse, list_).DER_  # type: ignore # noqa: E731
-            case CSIPAusResource.DERProgramList:
-                get_list_items = lambda list_: cast(DERProgramListResponse, list_).DERProgram  # type: ignore # noqa: E731
-            case CSIPAusResource.DERControlList:
-                get_list_items = lambda list_: cast(DERControlListResponse, list_).DERControl  # type: ignore # noqa: E731
-            case CSIPAusResource.FunctionSetAssignmentsList:
-                get_list_items = lambda list_: cast(FunctionSetAssignmentsListResponse, list_).FunctionSetAssignments  # type: ignore # noqa: E731
-            case CSIPAusResource.SubscriptionList:
-                get_list_items = lambda list_: cast(SubscriptionListResponse, list_).subscriptions  # type: ignore # noqa: E731
-
-        if get_list_items is None:
-            raise CactusClientException(f"resource {parent_resource} has no registered get_list_items function.")
+        get_list_items, _ = get_list_item_callback(parent_resource)
 
         # Each of our parent resources will be a List - time to paginate through them
         for parent_sr in resource_store.get_for_type(parent_resource):

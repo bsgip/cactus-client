@@ -18,7 +18,11 @@ from cactus_client.model.progress import (
     ResponseTracker,
     WarningTracker,
 )
-from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
+from cactus_client.model.resource import (
+    CSIPAusResourceTree,
+    ResourceStore,
+    StoredResourceId,
+)
 from cactus_client.time import utc_now
 
 
@@ -27,8 +31,8 @@ class NotificationEndpoint:
     """Metadata about a single notification endpoint"""
 
     created_endpoint: CreateEndpointResponse  # Raw metadata from the cactus-client-notifications instance
-    subscribed_resource_href: str  # The Subscription.subscribedResource for this endpoint
-    subscribed_resource: CSIPAusResource  # The type of the subscribedResource for this endpoint
+    subscribed_resource_type: CSIPAusResource  # The resource type of the subscribed resource
+    subscribed_resource_id: StoredResourceId  # The StoredResource.id that this subscription is for
 
 
 @dataclass(frozen=True)

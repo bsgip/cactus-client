@@ -103,13 +103,10 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
             continue
 
         if derp_primacy is not None:
-            if derc_sr.parent is None:
-                raise CactusClientException(
-                    f"DERControl {derc.href} {derc.mRID} has no link to a parent DERControlList"
-                )
-            if derc_sr.parent.parent is None:
+            parent_derp_sr = resource_store.get_ancestor_of(CSIPAusResource.DERProgram, derc_sr.id)
+            if parent_derp_sr is None:
                 raise CactusClientException(f"DERControl {derc.href} {derc.mRID} has no link to a parent DERProgram")
-            if cast(DERProgramResponse, derc_sr.parent.parent.resource).primacy != derp_primacy:
+            if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
                 continue
 
         matching_der_controls.append(derc_sr)

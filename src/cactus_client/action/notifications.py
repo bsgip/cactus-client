@@ -20,6 +20,7 @@ from cactus_client.model.context import (
     NotificationsContext,
 )
 from cactus_client.model.execution import StepExecution
+from cactus_client.model.resource import StoredResourceId
 
 logger = logging.getLogger(__name__)
 
@@ -65,15 +66,15 @@ async def fetch_notification_webhook_for_subscription(
     step: StepExecution,
     context: ExecutionContext,
     subscription_alias: str,
-    subscribed_resource_href: str,
-    subscribed_resource: CSIPAusResource,
+    subscribed_resource_type: CSIPAusResource,
+    subscribed_resource_id: StoredResourceId,
 ) -> str:
     """Fetches the fully qualified webhook for notifications associated with subscription_alias. This will be cached
     for future calls.
 
     subscription_alias: Alias used for identifying this subscription within the test procedure
-    subscribed_resource_href: Metadata about the intended subscribedResource href for this webhook
-    subscribed_resource: Metadata about the type of the subscribedResource (eg: what is being subscribed to)
+    subscribed_resource_type: The type of the resource being subscribed to (Metadata only)
+    subscribed_resource_id: The StoredResource.id that forms the subscribedResource (what is being subscribed to)
 
     Will involve interacting with the remote notifications server.
 
@@ -107,8 +108,8 @@ async def fetch_notification_webhook_for_subscription(
     logger.info(f"Created webhook {new_endpoint.fully_qualified_endpoint} for {subscription_alias}")
     notification_context.endpoint_by_sub_alias[subscription_alias] = NotificationEndpoint(
         created_endpoint=new_endpoint,
-        subscribed_resource_href=subscribed_resource_href,
-        subscribed_resource=subscribed_resource,
+        subscribed_resource_type=subscribed_resource_type,
+        subscribed_resource_id=subscribed_resource_id,
     )
     return new_endpoint.fully_qualified_endpoint
 

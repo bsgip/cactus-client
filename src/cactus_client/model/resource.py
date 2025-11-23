@@ -129,9 +129,14 @@ class CSIPAusResourceTree:
 
 @dataclass(frozen=True, eq=True)
 class StoredResourceId:
-    """Represents a unique ID for a single Resource that's based on the chain of parent hrefs"""
+    """Represents a unique ID for a single Resource that's based on the chain of parent hrefs and the href for this
+    node"""
 
     hrefs: tuple[str, ...]
+
+    def href(self) -> str:
+        """Fetches the href associated with this specific ID"""
+        return self.hrefs[0]
 
     def parent_id(self) -> Optional["StoredResourceId"]:
         """Generates a new ResourceId that's equivalent to the parent that created this ResourceId"""
@@ -208,7 +213,7 @@ class StoredResource:
             member_of_list = None
 
         if not resource.href:
-            raise CactusClientException(f"Received a {resource} under {parent} with no href.")
+            raise CactusClientException(f"Received a {type} under {parent} with no href.")
 
         return StoredResource(
             id=StoredResourceId.from_parent(parent, resource.href),

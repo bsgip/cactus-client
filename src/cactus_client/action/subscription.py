@@ -1,8 +1,6 @@
-import asyncio
 import logging
-from datetime import datetime
 from http import HTTPMethod
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from cactus_client_notifications.schema import CollectedNotification
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
@@ -11,20 +9,17 @@ from envoy_schema.server.schema.sep2.der import (
     DERAvailability,
     DERCapability,
     DERControlListResponse,
-    DERControlResponse,
-    DERListResponse,
     DERProgramListResponse,
     DERSettings,
     DERStatus,
 )
-from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
 from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse
 from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsListResponse,
 )
+from envoy_schema.server.schema.sep2.identification import List as Sep2List
 from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering import ReadingListResponse
-from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pub_sub import (
     XSI_TYPE_DEFAULT_DER_CONTROL,
     XSI_TYPE_DER_AVAILABILITY,
@@ -36,17 +31,15 @@ from envoy_schema.server.schema.sep2.pub_sub import (
     XSI_TYPE_END_DEVICE_LIST,
     XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
     XSI_TYPE_READING_LIST,
-    XSI_TYPE_RESOURCE,
-    XSI_TYPE_TIME_TARIFF_INTERVAL_LIST,
     Notification,
     NotificationResourceCombined,
     NotificationStatus,
     Subscription,
     SubscriptionEncoding,
-    SubscriptionListResponse,
 )
 from envoy_schema.server.schema.sep2.types import SubscribableType
 
+from cactus_client.action.discovery import get_list_item_callback
 from cactus_client.action.notifications import (
     collect_notifications_for_subscription,
     fetch_notification_webhook_for_subscription,
@@ -54,8 +47,6 @@ from cactus_client.action.notifications import (
 )
 from cactus_client.action.server import (
     delete_and_check_resource_for_step,
-    get_resource_for_step,
-    paginate_list_resource_items,
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
@@ -64,9 +55,6 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.http import NotificationRequest
-from cactus_client.model.resource import RESOURCE_SEP2_TYPES, ResourceStore
-from cactus_client.schema.validator import validate_xml
-from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +112,9 @@ async def action_create_subscription(
         raise CactusClientException(f"Found {resource} with no href attribute encoded. Cannot subscribe to this.")
 
     # Figure out what webhook URI we can use for our subscription alias
-    webhook_uri = await fetch_notification_webhook_for_subscription(step, context, sub_id, target.resource.href)
+    webhook_uri = await fetch_notification_webhook_for_subscription(
+        step, context, sub_id, target.resource_type, target.id
+    )
 
     # Check that the element is marked as subscribable
     subscribable: SubscribableType | None = getattr(target.resource, "subscribable", None)
@@ -169,7 +159,7 @@ async def action_delete_subscription(
         raise CactusClientException("Found Subscription with no href attribute encoded. Cannot delete this.")
 
     await delete_and_check_resource_for_step(step, context, target.resource.href)
-    store.delete_resource(target)
+    store.delete_resource(target.id)
 
     return ActionResult.done()
 
@@ -211,20 +201,26 @@ async def handle_notification_resource(
     if endpoint is None:
         raise CactusClientException(f"There is no subscription endpoint for {sub_id}. Has a subscription been created?")
 
-    # Find the parent resource to nest this new resource under
-    parent_resource_type = context.resource_tree.parent_resource(endpoint.subscribed_resource)
-    raise NotImplementedError()
+    # Add this new notification contents to the store - this can be done via direct upsert
+    upserted_resource = store.upsert_resource(
+        endpoint.subscribed_resource_type, endpoint.subscribed_resource_id.parent_id(), parsed_resource
+    )
 
-    # parent_resource = endpoint.subscribed_resource
-    # parent_href = endpoint.subscribed_resource_href
-    # matching_parents = [sr for sr in store.get(parent_resource) if sr.resource.href == parent_href]
-    # if len(matching_parents) != 1:
-    #     raise CactusClientException(
-    #         f"Found {len(matching_parents)} {parent_resource} resource(s) with href {parent_href}. Expected 1."
-    #     )
-    # parent = matching_parents[0]
+    # The upserted item might also be a list - in which case we will need to insert any included list items to the
+    # store as well
+    if is_list_resource(upserted_resource.resource_type):
+        get_list_items, list_item_type = get_list_item_callback(upserted_resource.resource_type)
+        list_items = get_list_items(parsed_resource) or []
+        for child_list_item in list_items:
+            store.upsert_resource(list_item_type, upserted_resource.id, child_list_item)
 
-    # store.upsert_resource(endpoint.subscribed_resource,)
+        total_results = cast(Sep2List, upserted_resource.resource).results
+        if len(list_items) != cast(Sep2List, upserted_resource.resource).results:
+            context.warnings.log_step_warning(
+                step,
+                f"Notification for {upserted_resource.resource_type} returned a List with results={total_results} but "
+                + f"{len(list_items)} items in the list",
+            )
 
 
 async def handle_notification_cancellation(
@@ -286,11 +282,11 @@ async def collect_and_validate_notification(
     context.discovered_resources(step).append_resource(
         CSIPAusResource.Notification, None, sep2_notification, alias=sub_id
     )
-    if sep2_notification.subscribedResource != endpoint.subscribed_resource_href:
+    if sep2_notification.subscribedResource != endpoint.subscribed_resource_id.href():
         context.warnings.log_step_warning(
             step,
             f"Notification <subscribedResource> has value {sep2_notification.subscribedResource}"
-            + f" but expected {endpoint.subscribed_resource_href} as per initial Subscription.",
+            + f" but expected {endpoint.subscribed_resource_id.href()} as per initial Subscription.",
         )
 
     if sep2_notification.status == NotificationStatus.DEFAULT:
@@ -299,7 +295,6 @@ async def collect_and_validate_notification(
         await handle_notification_cancellation(step, context, sep2_notification)
 
 
-# notifications	collect: bool disable: bool	If collect, consumes subscription notifications and inserts them into the current context, if disable causes the subscription notification webhook to simulate an outage (return HTTP 5XX)
 async def action_notification(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
@@ -308,7 +303,6 @@ async def action_notification(
     disable: bool | None = resolved_parameters.get("disable", None)
 
     if collect:
-        store = context.discovered_resources(step)
         for collected_notification in await collect_notifications_for_subscription(step, context, sub_id):
             await collect_and_validate_notification(step, context, collected_notification, sub_id)
 

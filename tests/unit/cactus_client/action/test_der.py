@@ -57,12 +57,13 @@ async def test_action_upsert_der_capability(
     inserted_dcaps = [
         generate_class_instance(
             DERCapability,
+            seed=i * 101,
             type_=expected_type,
             rtgMaxW=expected_rtgMaxW,
             modesSupported=expected_modesSupported,
             doeModesSupported=expected_doeModesSupported,
         )
-        for _ in range(num_devices)
+        for i in range(num_devices)
     ]
     mock_submit_and_refetch.side_effect = inserted_dcaps
 
@@ -121,13 +122,14 @@ async def test_action_upsert_der_settings(
     inserted_settings = [
         generate_class_instance(
             DERSettings,
+            seed=i * 101,
             updatedTime=expected_timestamp,
             setMaxW=expected_setMaxW,
             setGradW=expected_setGradW,
             modesEnabled=expected_modesEnabled,
             doeModesEnabled=expected_doeModesEnabled,
         )
-        for _ in range(num_devices)
+        for i in range(num_devices)
     ]
     mock_submit_and_refetch.side_effect = inserted_settings
 
@@ -195,12 +197,13 @@ async def test_action_upsert_der_status(
     # Mock the response with expected values
     inserted_statuses = [
         DERStatus(
+            href=f"/derstatus{i}",
             readingTime=expected_timestamp,
             genConnectStatus=expected_gen_connect_status,
             operationalModeStatus=expected_operational_mode_status,
             alarmStatus=expected_alarm_status,
         )
-        for _ in range(num_devices)
+        for i in range(num_devices)
     ]
     mock_submit_and_refetch.side_effect = inserted_statuses
 

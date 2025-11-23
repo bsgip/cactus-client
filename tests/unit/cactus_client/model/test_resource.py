@@ -28,7 +28,6 @@ from cactus_client.model.resource import (
     RESOURCE_SEP2_TYPES,
     CSIPAusResourceTree,
     ResourceStore,
-    StoredResource,
     StoredResourceId,
     generate_resource_link_hrefs,
 )
@@ -163,6 +162,13 @@ def test_StoredResourceId():
     derc4 = StoredResourceId.from_parent(derp3, "/derc4")
     derc5 = StoredResourceId.from_parent(derp4, "/derc1")  # Same HREF as derc1
 
+    # Testing href
+    assert dcap1.href() == "/dcap1"
+    assert dcap2.href() == "/dcap2"
+    assert derp1.href() == "/derp"
+    assert derp4.href() == "/derp"
+    assert derc1.href() == "/derc1"
+
     # Testing equality
     assert dcap1 != dcap2
     assert dcap1 != dcap2, "Different URIs"
@@ -247,6 +253,7 @@ def test_ResourceStore():
     assert sr1.resource is r1
     assert sr1.resource_type == CSIPAusResource.DER
     assert sr1.member_of_list == CSIPAusResource.DERList
+    assert_nowish(sr1.created_at)
     assert_dict_type(CSIPAusResource, str, sr1.resource_link_hrefs, count=3)
     assert CSIPAusResource.DERCapability in sr1.resource_link_hrefs
     assert CSIPAusResource.DERStatus in sr1.resource_link_hrefs

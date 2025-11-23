@@ -5,24 +5,7 @@ from assertical.asserts.generator import assert_class_instance_equality
 from assertical.fake.generator import generate_class_instance, register_value_generator
 from assertical.fixtures.generator import generator_registry_snapshot
 from envoy_schema.server.schema.sep2.pub_sub import (
-    XSI_TYPE_DEFAULT_DER_CONTROL,
-    XSI_TYPE_DER_AVAILABILITY,
-    XSI_TYPE_DER_CAPABILITY,
-    XSI_TYPE_DER_CONTROL_LIST,
-    XSI_TYPE_DER_PROGRAM_LIST,
-    XSI_TYPE_DER_SETTINGS,
-    XSI_TYPE_DER_STATUS,
-    XSI_TYPE_END_DEVICE_LIST,
-    XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
-    XSI_TYPE_READING_LIST,
-    XSI_TYPE_RESOURCE,
-    XSI_TYPE_TIME_TARIFF_INTERVAL_LIST,
-    Notification,
     NotificationResourceCombined,
-    NotificationStatus,
-    Subscription,
-    SubscriptionEncoding,
-    SubscriptionListResponse,
 )
 
 from cactus_client.action.subscription import (

@@ -10,10 +10,11 @@ from typing import AsyncIterator
 from aiohttp import ClientSession, TCPConnector
 from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
-    TestProcedureConfig,
+    get_test_procedure,
 )
 
 from cactus_client.action.notifications import safely_delete_all_notification_webhooks
+from cactus_client.constants import CACTUS_TEST_DEFINITIONS_VERSION
 from cactus_client.error import ConfigException
 from cactus_client.model.config import (
     ClientConfig,
@@ -169,11 +170,16 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
 
     tp_id = run_config.test_procedure_id
 
-    all_test_procedures = TestProcedureConfig.from_resource()
-    tp_version = all_test_procedures.version
-    tp = all_test_procedures.test_procedures.get(tp_id, None)
-    if tp is None:
-        raise ConfigException(f"Test Procedure ID '{tp_id}' isn't recognised for version {tp_version}.")
+    try:
+        tp = get_test_procedure(tp_id)
+    except Exception as exc:
+        logger.error(
+            f"Unable to load Test Procedure ID '{tp_id}' with test definitions {CACTUS_TEST_DEFINITIONS_VERSION}",
+            exc_info=exc,
+        )
+        raise ConfigException(
+            f"Test Procedure ID '{tp_id}' isn't recognised for version {CACTUS_TEST_DEFINITIONS_VERSION}."
+        )
 
     if run_config.csip_aus_version not in tp.target_versions:
         raise ConfigException(f"The requested version {run_config.csip_aus_version} is not supported by {tp_id}")
@@ -217,7 +223,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
     yield ExecutionContext(
         test_procedure_id=tp_id,
         test_procedure=tp,
-        test_procedures_version=tp_version,
+        test_procedures_version=CACTUS_TEST_DEFINITIONS_VERSION,
         output_directory=output_dir,
         dcap_path=dcap_path,
         server_config=user_config.server,

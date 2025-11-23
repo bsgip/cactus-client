@@ -265,7 +265,7 @@ async def test_check_mirror_usage_point_full_chain(
     )
 
     resource_store = ResourceStore(CSIPAusResourceTree())
-    resource_store.set_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
 
     # Verify check finds the match
     async with ClientSession() as session:
@@ -305,7 +305,7 @@ async def test_check_mirror_usage_point_negative_cases(testing_contexts_factory)
     )
 
     resource_store = ResourceStore(CSIPAusResourceTree())
-    resource_store.set_resource(CSIPAusResource.MirrorUsagePoint, None, device_mup)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, device_mup)
 
     async with ClientSession() as session:
         context, step = testing_contexts_factory(session)

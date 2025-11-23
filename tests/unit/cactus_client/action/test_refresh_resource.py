@@ -1,11 +1,17 @@
 from http import HTTPMethod
 from unittest import mock
+
 import pytest
-from cactus_client.action.refresh_resource import action_refresh_resource
 from assertical.fake.generator import generate_class_instance
-from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse, EndDeviceListResponse
-from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
 from cactus_test_definitions.csipaus import CSIPAusResource
+from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
+from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceListResponse,
+    EndDeviceResponse,
+)
+
+from cactus_client.action.refresh_resource import action_refresh_resource
+from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
 
 
@@ -13,6 +19,7 @@ from cactus_client.model.execution import ActionResult
 async def test_action_refresh_resource_happy_path(testing_contexts_factory):
 
     # Arrange
+    context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
 
@@ -47,7 +54,7 @@ async def test_action_refresh_resource_happy_path(testing_contexts_factory):
         assert first_call_args[0][3] == "/edev/1"
 
         # Verify both resources were updated in the store
-        stored_edevs = resource_store.get(CSIPAusResource.EndDevice)
+        stored_edevs = resource_store.get_for_type(CSIPAusResource.EndDevice)
         assert len(stored_edevs) == 2
         assert stored_edevs[0].resource.postRate == 120  # Updated value
         assert stored_edevs[1].resource.postRate == 200  # Updated value
