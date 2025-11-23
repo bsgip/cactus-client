@@ -15,6 +15,7 @@ from cactus_client_notifications.schema import (
     CollectEndpointResponse,
     CreateEndpointResponse,
 )
+from cactus_test_definitions.csipaus import CSIPAusResource
 
 from cactus_client.action.notifications import (
     collect_notifications_for_subscription,
@@ -23,7 +24,11 @@ from cactus_client.action.notifications import (
     update_notification_webhook_for_subscription,
 )
 from cactus_client.error import NotificationException
-from cactus_client.model.context import NotificationsContext
+from cactus_client.model.context import (
+    ExecutionContext,
+    NotificationEndpoint,
+    NotificationsContext,
+)
 
 
 @dataclass
@@ -76,6 +81,8 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
 @pytest.mark.asyncio
 async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testing_contexts_factory):
     """Does fetch_notification_webhook_for_subscription handle a valid response from the server"""
+    create_endpoint_1 = CreateEndpointResponse("abc123", "https://my.example:123/uri")
+    create_endpoint_2 = CreateEndpointResponse("def456", "https://my.other.example:456/path")
     async with create_test_session(
         aiohttp_client,
         [
@@ -83,26 +90,37 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
                 HTTPMethod.POST,
                 URI_MANAGE_ENDPOINT_LIST,
                 [
-                    RouteBehaviour(
-                        HTTPStatus.OK, CreateEndpointResponse("abc123", "https://my.example:123/uri").to_json()
-                    ),
-                    RouteBehaviour(
-                        HTTPStatus.OK, CreateEndpointResponse("def456", "https://my.other.example:456/path").to_json()
-                    ),
+                    RouteBehaviour(HTTPStatus.OK, create_endpoint_1.to_json()),
+                    RouteBehaviour(HTTPStatus.OK, create_endpoint_2.to_json()),
                 ],
             )
         ],
     ) as session:
+        execution_context: ExecutionContext
         (execution_context, step_execution) = testing_contexts_factory(None, session)
-        result1 = await fetch_notification_webhook_for_subscription(step_execution, execution_context, "sub123")
-        result2 = await fetch_notification_webhook_for_subscription(step_execution, execution_context, "sub123")
-        result3 = await fetch_notification_webhook_for_subscription(step_execution, execution_context, "sub1234")
+        result1 = await fetch_notification_webhook_for_subscription(
+            step_execution, execution_context, "sub123", "/href1", CSIPAusResource.DER
+        )
+        result2 = await fetch_notification_webhook_for_subscription(
+            step_execution, execution_context, "sub123", "/href2", CSIPAusResource.DERSettings
+        )
+        result3 = await fetch_notification_webhook_for_subscription(
+            step_execution, execution_context, "sub1234", "/href3", CSIPAusResource.ConnectionPoint
+        )
 
     # Assert - contents of response
     assert isinstance(result1, str) and isinstance(result2, str) and isinstance(result3, str)
     assert result1 == "https://my.example:123/uri"
     assert result2 == "https://my.example:123/uri", "The second request should come from the cache"
     assert result3 == "https://my.other.example:456/path"
+
+    # Assert the notifications context is populated with what we expect
+    assert execution_context.notifications_context(step_execution).endpoint_by_sub_alias[
+        "sub123"
+    ] == NotificationEndpoint(create_endpoint_1, "/href1", CSIPAusResource.DER)
+    assert execution_context.notifications_context(step_execution).endpoint_by_sub_alias[
+        "sub1234"
+    ] == NotificationEndpoint(create_endpoint_2, "/href3", CSIPAusResource.ConnectionPoint)
 
 
 @pytest.mark.asyncio
@@ -124,7 +142,9 @@ async def test_notifications_server_request_status_error(aiohttp_client, testing
     ) as session:
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
-            await fetch_notification_webhook_for_subscription(step_execution, execution_context, "sub123")
+            await fetch_notification_webhook_for_subscription(
+                step_execution, execution_context, "sub123", "/fake/href", CSIPAusResource.DER
+            )
 
 
 @pytest.mark.asyncio
@@ -142,7 +162,9 @@ async def test_notifications_server_request_parsing_error(aiohttp_client, testin
     ) as session:
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
-            await fetch_notification_webhook_for_subscription(step_execution, execution_context, "sub123")
+            await fetch_notification_webhook_for_subscription(
+                step_execution, execution_context, "sub123", "/href1", CSIPAusResource.DER
+            )
 
 
 @pytest.mark.parametrize(
@@ -174,7 +196,9 @@ async def test_collect_notifications_for_subscription(aiohttp_client, testing_co
         (execution_context, step_execution) = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoint_by_sub_alias["sub1"] = CreateEndpointResponse("abc-123", "foo")
+        notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
+            CreateEndpointResponse("abc-123", "foo"), "/fake/href", CSIPAusResource.DER
+        )
 
         result = await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
 
@@ -226,7 +250,9 @@ async def test_collect_notifications_for_subscription_status_error(aiohttp_clien
         (execution_context, step_execution) = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoint_by_sub_alias["sub1"] = CreateEndpointResponse("abc-123", "foo")
+        notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
+            CreateEndpointResponse("abc-123", "foo"), "/fake/href", CSIPAusResource.DER
+        )
 
         with pytest.raises(NotificationException):
             await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
@@ -251,7 +277,9 @@ async def test_collect_notifications_for_subscription_bad_response(aiohttp_clien
         (execution_context, step_execution) = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoint_by_sub_alias["sub1"] = CreateEndpointResponse("abc-123", "foo")
+        notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
+            CreateEndpointResponse("abc-123", "foo"), "/fake/href", CSIPAusResource.DER
+        )
 
         with pytest.raises(NotificationException):
             await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
@@ -270,7 +298,9 @@ async def test_update_notification_webhook_for_subscription(aiohttp_client, test
     async with create_test_session(aiohttp_client, [route]) as session:
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoint_by_sub_alias["sub1"] = CreateEndpointResponse("ABC123", "foo")
+        notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
+            CreateEndpointResponse("ABC123", "foo"), "/fake/href", CSIPAusResource.DER
+        )
 
         await update_notification_webhook_for_subscription(step_execution, execution_context, "sub1", enabled=enabled)
 
@@ -314,7 +344,9 @@ async def test_update_notification_webhook_for_subscription_status_error(aiohttp
     ) as session:
         (execution_context, step_execution) = testing_contexts_factory(None, session)
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoint_by_sub_alias["sub1"] = CreateEndpointResponse("ABC123", "foo")
+        notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
+            CreateEndpointResponse("ABC123", "foo"), "/fake/href", CSIPAusResource.DER
+        )
 
         with pytest.raises(NotificationException):
             await update_notification_webhook_for_subscription(step_execution, execution_context, "sub1", enabled=False)
@@ -340,9 +372,15 @@ async def test_safely_delete_all_notification_webhooks(aiohttp_client, testing_c
         (execution_context, step_execution) = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoint_by_sub_alias["sub1"] = CreateEndpointResponse("abc123", "foo")
-        notification_context.endpoint_by_sub_alias["sub2"] = CreateEndpointResponse("def456", "foo")
-        notification_context.endpoint_by_sub_alias["sub3"] = CreateEndpointResponse("ghi789", "foo")
+        notification_context.endpoint_by_sub_alias["sub1"] = NotificationEndpoint(
+            CreateEndpointResponse("abc123", "foo"), "/fake/href1", CSIPAusResource.DER
+        )
+        notification_context.endpoint_by_sub_alias["sub2"] = NotificationEndpoint(
+            CreateEndpointResponse("def456", "foo"), "/fake/href2", CSIPAusResource.DER
+        )
+        notification_context.endpoint_by_sub_alias["sub3"] = NotificationEndpoint(
+            CreateEndpointResponse("ghi789", "foo"), "/fake/href3", CSIPAusResource.DER
+        )
         await safely_delete_all_notification_webhooks(notification_context)
 
     assert len(route1.behaviour) == 0, "All requests should've been consumed"

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from aiohttp import ClientSession
 from cactus_client_notifications.schema import CreateEndpointResponse
+from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
     TestProcedureId,
@@ -22,14 +23,24 @@ from cactus_client.time import utc_now
 
 
 @dataclass(frozen=True)
+class NotificationEndpoint:
+    """Metadata about a single notification endpoint"""
+
+    created_endpoint: CreateEndpointResponse  # Raw metadata from the cactus-client-notifications instance
+    subscribed_resource_href: str  # The Subscription.subscribedResource for this endpoint
+    subscribed_resource: CSIPAusResource  # The type of the subscribedResource for this endpoint
+
+
+@dataclass(frozen=True)
 class NotificationsContext:
+    """Represents the current state of a client's subscription/notification webhooks"""
 
     # Used for making HTTP requests to the cactus-client-notifications instance
     # will have base_url, timeouts, ssl_context set
     session: ClientSession
 
     endpoint_by_sub_alias: dict[
-        str, CreateEndpointResponse
+        str, NotificationEndpoint
     ]  # notification server endpoint, keyed by the subscription alias that it corresponds to
 
 

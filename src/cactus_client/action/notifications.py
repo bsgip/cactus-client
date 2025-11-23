@@ -11,9 +11,14 @@ from cactus_client_notifications.schema import (
     ConfigureEndpointRequest,
     CreateEndpointResponse,
 )
+from cactus_test_definitions.csipaus import CSIPAusResource
 
 from cactus_client.error import NotificationException
-from cactus_client.model.context import ExecutionContext, NotificationsContext
+from cactus_client.model.context import (
+    ExecutionContext,
+    NotificationEndpoint,
+    NotificationsContext,
+)
 from cactus_client.model.execution import StepExecution
 
 logger = logging.getLogger(__name__)
@@ -57,10 +62,18 @@ async def notifications_server_request(
 
 
 async def fetch_notification_webhook_for_subscription(
-    step: StepExecution, context: ExecutionContext, subscription_alias: str
+    step: StepExecution,
+    context: ExecutionContext,
+    subscription_alias: str,
+    subscribed_resource_href: str,
+    subscribed_resource: CSIPAusResource,
 ) -> str:
     """Fetches the fully qualified webhook for notifications associated with subscription_alias. This will be cached
     for future calls.
+
+    subscription_alias: Alias used for identifying this subscription within the test procedure
+    subscribed_resource_href: Metadata about the intended subscribedResource href for this webhook
+    subscribed_resource: Metadata about the type of the subscribedResource (eg: what is being subscribed to)
 
     Will involve interacting with the remote notifications server.
 
@@ -71,7 +84,7 @@ async def fetch_notification_webhook_for_subscription(
     # If we have it in the cache - just grab it from there
     endpoint = notification_context.endpoint_by_sub_alias.get(subscription_alias, None)
     if endpoint is not None:
-        return endpoint.fully_qualified_endpoint
+        return endpoint.created_endpoint.fully_qualified_endpoint
 
     # otherwise we need to make an outgoing request for a new endpoint
 
@@ -92,7 +105,11 @@ async def fetch_notification_webhook_for_subscription(
         raise NotificationException("The CreateEndpointResponse from the notification server appears to be invalid.")
 
     logger.info(f"Created webhook {new_endpoint.fully_qualified_endpoint} for {subscription_alias}")
-    notification_context.endpoint_by_sub_alias[subscription_alias] = new_endpoint
+    notification_context.endpoint_by_sub_alias[subscription_alias] = NotificationEndpoint(
+        created_endpoint=new_endpoint,
+        subscribed_resource_href=subscribed_resource_href,
+        subscribed_resource=subscribed_resource,
+    )
     return new_endpoint.fully_qualified_endpoint
 
 
@@ -119,13 +136,13 @@ async def update_notification_webhook_for_subscription(
         notification_context.session,
         step,
         context,
-        URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.endpoint_id),
+        URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id),
         HTTPMethod.PUT,
         json_body=ConfigureEndpointRequest(enabled=enabled).to_json(),
     )
     if not response.is_success():
         raise NotificationException(
-            f"Updating a notification webhook {endpoint.fully_qualified_endpoint} to enabled={enabled}"
+            f"Updating a notification webhook {endpoint.created_endpoint.fully_qualified_endpoint} to enabled={enabled}"
             + f" raised a HTTP {response.status}: {response.body}"
         )
 
@@ -151,13 +168,13 @@ async def collect_notifications_for_subscription(
         notification_context.session,
         step,
         context,
-        URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.endpoint_id),
+        URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id),
         HTTPMethod.GET,
         json_body=None,
     )
     if not response.is_success():
         raise NotificationException(
-            f"Fetching notifications for {endpoint.fully_qualified_endpoint}"
+            f"Fetching notifications for {endpoint.created_endpoint.fully_qualified_endpoint}"
             + f" raised a HTTP {response.status}: {response.body}"
         )
 
@@ -182,10 +199,15 @@ async def safely_delete_all_notification_webhooks(notification_context: Notifica
     for endpoint in notification_context.endpoint_by_sub_alias.values():
         try:
             async with notification_context.session.request(
-                method=HTTPMethod.DELETE, url=URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.endpoint_id)
+                method=HTTPMethod.DELETE,
+                url=URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id),
             ) as raw_response:
                 logger.info(
-                    f"Deleting notification endpoint: {endpoint.endpoint_id} yielded a HTTP {raw_response.status}"
+                    f"Deleting notification endpoint: {endpoint.created_endpoint.endpoint_id}"
+                    + f"yielded a HTTP {raw_response.status}"
                 )
         except Exception as exc:
-            logger.info(f"Deleting notification endpoint: {endpoint.endpoint_id} yielded an error", exc_info=exc)
+            logger.info(
+                f"Deleting notification endpoint: {endpoint.created_endpoint.endpoint_id} yielded an error",
+                exc_info=exc,
+            )
