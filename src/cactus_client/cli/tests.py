@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from cactus_test_definitions.server import (
+    TestProcedureId,
     get_all_test_procedures,
     get_test_procedure,
 )
@@ -43,7 +44,7 @@ def print_tests(console: Console) -> None:
 def print_test(console: Console, tp_id: str) -> None:
 
     try:
-        tp = get_test_procedure(tp_id)
+        tp = get_test_procedure(TestProcedureId(tp_id))
     except Exception:
         tp = None
 
