@@ -30,7 +30,7 @@ def check_default_der_control(
     set_grad_w: int | None = resolved_parameters.get("setGradW", None)
 
     resource_store = context.discovered_resources(step)
-    default_der_controls = resource_store.get(CSIPAusResource.DefaultDERControl)
+    default_der_controls = resource_store.get_for_type(CSIPAusResource.DefaultDERControl)
 
     if not default_der_controls:
         return CheckResult(False, "No DefaultDERControl found in resource store")

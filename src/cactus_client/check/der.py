@@ -18,11 +18,11 @@ def check_der_program(
     fsa_index: int | None = resolved_parameters.get("fsa_index", None)
 
     resource_store = context.discovered_resources(step)
-    all_der_programs = resource_store.get(CSIPAusResource.DERProgram)
+    all_der_programs = resource_store.get_for_type(CSIPAusResource.DERProgram)
 
     # Get all FSAs to determine the index, sort FSAs by href for consistent ordering
     if fsa_index is not None:
-        all_fsas = resource_store.get(CSIPAusResource.FunctionSetAssignments)
+        all_fsas = resource_store.get_for_type(CSIPAusResource.FunctionSetAssignments)
         sorted_fsas = sorted(all_fsas, key=lambda sr: sr.resource.href if sr.resource.href else "")
 
     # Perform filtering
@@ -36,14 +36,10 @@ def check_der_program(
 
         # Filter by FSA index if specified
         if fsa_index is not None:
-            # Get the parent DERProgramList
-            derp_list = derp_sr.parent
-            if derp_list is None or derp_list.resource_type != CSIPAusResource.DERProgramList:
-                continue
+            # Get the parent FSA
+            fsa = resource_store.get_ancestor_of(CSIPAusResource.FunctionSetAssignments, derp_sr.id)
 
-            # Get the parent FunctionSetAssignment
-            fsa = derp_list.parent
-            if fsa is None or fsa.resource_type != CSIPAusResource.FunctionSetAssignments:
+            if fsa is None:
                 continue
 
             # Find the index of this FSA

@@ -355,15 +355,6 @@ class ResourceStore:
             current_id = current_id.parent_id()
         return None
 
-    def get_ancestor_of(self, target_type: CSIPAusResource, child: StoredResource) -> StoredResource | None:
-        """Walks up the parent chain to find an ancestor of the specified type."""
-        current = child.parent
-        while current is not None:
-            if current.resource_type == target_type:
-                return current
-            current = current.parent
-        return None
-
 
 def get_link_href(link: Link | None) -> str | None:
     """Convenience function to reduce boilerplate - returns the href (if available) or None"""

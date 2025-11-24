@@ -5,6 +5,7 @@ from assertical.fake.generator import generate_class_instance
 from envoy_schema.server.schema.sep2.der import DERProgramResponse, DERProgramListResponse
 from envoy_schema.server.schema.sep2.function_set_assignments import FunctionSetAssignmentsResponse
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult
 
 
@@ -80,22 +81,24 @@ def test_check_der_program_fsa_index_order_independence(testing_contexts_factory
         fsa_data.append((fsa, derp_list, derp))
 
     # First context: add in order 0, 1, 2
+    context1: ExecutionContext
     context1, step1 = testing_contexts_factory(mock.Mock())
     resource_store1 = context1.discovered_resources(step1)
 
     for fsa, derp_list, derp in fsa_data:
         fsa_sr = resource_store1.upsert_resource(CSIPAusResource.FunctionSetAssignments, None, fsa)
-        derp_list_sr = resource_store1.upsert_resource(CSIPAusResource.DERProgramList, fsa_sr, derp_list)
-        resource_store1.upsert_resource(CSIPAusResource.DERProgram, derp_list_sr, derp)
+        derp_list_sr = resource_store1.upsert_resource(CSIPAusResource.DERProgramList, fsa_sr.id, derp_list)
+        resource_store1.upsert_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp)
 
     # Second context: add in reverse order 2, 1, 0
+    context2: ExecutionContext
     context2, step2 = testing_contexts_factory(mock.Mock())
     resource_store2 = context2.discovered_resources(step2)
 
     for fsa, derp_list, derp in reversed(fsa_data):
         fsa_sr = resource_store2.upsert_resource(CSIPAusResource.FunctionSetAssignments, None, fsa)
-        derp_list_sr = resource_store2.upsert_resource(CSIPAusResource.DERProgramList, fsa_sr, derp_list)
-        resource_store2.upsert_resource(CSIPAusResource.DERProgram, derp_list_sr, derp)
+        derp_list_sr = resource_store2.upsert_resource(CSIPAusResource.DERProgramList, fsa_sr.id, derp_list)
+        resource_store2.upsert_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp)
 
     # Act & Assert - Check each fsa_index in both contexts
     for fsa_idx in range(3):
