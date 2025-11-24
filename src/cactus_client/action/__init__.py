@@ -14,6 +14,11 @@ from cactus_client.action.end_device import (
 from cactus_client.action.mup import action_insert_readings, action_upsert_mup
 from cactus_client.action.noop import action_noop
 from cactus_client.action.refresh_resource import action_refresh_resource
+from cactus_client.action.subscription import (
+    action_create_subscription,
+    action_delete_subscription,
+    action_notification,
+)
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -43,6 +48,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_noop()
         case "discovery":
             return await action_discovery(resolved_params, step, context)
+        case "notification":
+            return await action_notification(resolved_params, step, context)
         case "insert-end-device":
             return await action_insert_end_device(resolved_params, step, context)
         case "upsert-connection-point":
@@ -61,6 +68,10 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_send_malformed_der_settings(resolved_params, step, context)
         case "refresh-resource":
             return await action_refresh_resource(resolved_params, step, context)
+        case "create_subscription":
+            return await action_create_subscription(resolved_params, step, context)
+        case "delete_subscription":
+            return await action_delete_subscription(resolved_params, step, context)
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
             raise CactusClientException(

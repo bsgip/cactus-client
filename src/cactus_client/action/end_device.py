@@ -49,7 +49,7 @@ async def action_insert_end_device(
     expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
 
     resource_store = context.discovered_resources(step)
-    edev_list_resources = resource_store.get(CSIPAusResource.EndDeviceList)
+    edev_list_resources = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
 
     list_edevs = [sr for sr in edev_list_resources if sr.resource.href]
     if len(list_edevs) != 1:
@@ -68,7 +68,7 @@ async def action_insert_end_device(
             EndDeviceResponse, step, context, HTTPMethod.POST, list_href, edev_xml
         )
 
-        resource_store.upsert_resource(CSIPAusResource.EndDevice, list_edevs[0], inserted_edev)
+        resource_store.upsert_resource(CSIPAusResource.EndDevice, list_edevs[0].id, inserted_edev)
     return ActionResult.done()
 
 
@@ -109,5 +109,5 @@ async def action_upsert_connection_point(
             ConnectionPointResponse, step, context, HTTPMethod.PUT, href, cp_xml
         )
 
-        resource_store.upsert_resource(CSIPAusResource.ConnectionPoint, parent_edev, inserted_edev)
+        resource_store.upsert_resource(CSIPAusResource.ConnectionPoint, parent_edev.id, inserted_edev)
     return ActionResult.done()

@@ -16,6 +16,7 @@ from envoy_schema.server.schema.sep2.end_device import (
 )
 
 from cactus_client.action.server import (
+    delete_and_check_resource_for_step,
     get_resource_for_step,
     paginate_list_resource_items,
     resource_to_sep2_xml,
@@ -77,6 +78,74 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
     client: TestClient = await aiohttp_client(create_test_app_for_routes(routes))
 
     yield ClientSession(base_url=client.server.make_url("/"))
+
+
+@pytest.mark.parametrize("refetch_status", [HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN])
+@pytest.mark.asyncio
+async def test_delete_and_check_resource_for_step_success(aiohttp_client, testing_contexts_factory, refetch_status):
+    """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
+    async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
+        (execution_context, step_execution) = testing_contexts_factory(session)
+        await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
+
+    assert len(delete_route.behaviour) == 0, "Request should've been made"
+    assert len(get_route.behaviour) == 0, "Request should've been made"
+
+
+@pytest.mark.parametrize(
+    "refetch_status",
+    [
+        HTTPStatus.OK,
+        HTTPStatus.NO_CONTENT,
+        HTTPStatus.MOVED_PERMANENTLY,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.METHOD_NOT_ALLOWED,
+    ],
+)
+@pytest.mark.asyncio
+async def test_delete_and_check_resource_for_step_refetch_bad_response(
+    aiohttp_client, testing_contexts_factory, refetch_status
+):
+    """Does delete_and_check_resource_for_step Raise exceptions if the refetch doesn't behave as expected"""
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
+    async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
+        (execution_context, step_execution) = testing_contexts_factory(session)
+
+        with pytest.raises(RequestException):
+            await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
+
+    assert len(delete_route.behaviour) == 0, "Request should've been made"
+    assert len(get_route.behaviour) == 0, "Request should've been made"
+
+
+@pytest.mark.parametrize(
+    "delete_status",
+    [
+        HTTPStatus.MOVED_PERMANENTLY,
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.METHOD_NOT_ALLOWED,
+    ],
+)
+@pytest.mark.asyncio
+async def test_delete_and_check_resource_for_step_delete_bad_response(
+    aiohttp_client, testing_contexts_factory, delete_status
+):
+    """Does delete_and_check_resource_for_step Raise exceptions if the delete doesn't behave as expected"""
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(delete_status, bytes(), {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.NOT_FOUND, bytes(), {})])
+    async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
+        (execution_context, step_execution) = testing_contexts_factory(session)
+
+        with pytest.raises(RequestException):
+            await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
+
+    assert len(delete_route.behaviour) == 0, "Request should've been made"
+    assert len(get_route.behaviour) == 1, "The refetch shouldn't have been made"
 
 
 @pytest.mark.asyncio

@@ -11,6 +11,12 @@ class ConfigException(CactusClientException):
 
 
 class RequestException(CactusClientException):
-    """Something is went wrong when accessing the remote CSIP-Aus utility server"""
+    """Something went wrong when accessing the remote CSIP-Aus utility server"""
+
+    pass
+
+
+class NotificationException(CactusClientException):
+    """Something went wrong when interacting with the remote CACTUS Client Notification server."""
 
     pass

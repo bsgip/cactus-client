@@ -1,16 +1,26 @@
 from http import HTTPMethod
 from unittest import mock
+
 import pytest
-from cactus_client.action.end_device import action_insert_end_device, action_upsert_connection_point
+from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions.csipaus import CSIPAusResource
+from envoy_schema.server.schema.csip_aus.connection_point import (
+    ConnectionPointRequest,
+    ConnectionPointResponse,
+)
+from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceListResponse,
+    EndDeviceRequest,
+    EndDeviceResponse,
+)
 from envoy_schema.server.schema.sep2.identification import Link
 from envoy_schema.server.schema.sep2.types import DeviceCategory
 
-from assertical.fake.generator import generate_class_instance
-from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointRequest, ConnectionPointResponse
-
-from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse, EndDeviceRequest, EndDeviceResponse
-
-from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_client.action.end_device import (
+    action_insert_end_device,
+    action_upsert_connection_point,
+)
+from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
 
 
@@ -19,6 +29,7 @@ async def test_action_upsert_connection_point(testing_contexts_factory):
     """Test that action_upsert_connection_point creates a valid ConnectionPoint request"""
 
     # Arrange
+    context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
     client_config = context.client_config(step)
@@ -55,7 +66,7 @@ async def test_action_upsert_connection_point(testing_contexts_factory):
         assert sent_request.id == cp_id
 
         # Verify the ConnectionPoint was stored in the resource store with the NEW href
-        stored_cps = resource_store.get(CSIPAusResource.ConnectionPoint)
+        stored_cps = resource_store.get_for_type(CSIPAusResource.ConnectionPoint)
         assert len(stored_cps) == 1
         assert stored_cps[0].resource.id == inserted_cp.id
         assert stored_cps[0].resource.href == inserted_cp.href  # Should be the new href from server
@@ -67,12 +78,13 @@ async def test_action_insert_end_device(testing_contexts_factory):
     """Test that action_insert_end_device creates a valid EndDevice request"""
 
     # Arrange
+    context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
     client_config = context.client_config(step)
 
     edev_list = generate_class_instance(EndDeviceListResponse, href="/edev")
-    resource_store.set_resource(CSIPAusResource.EndDeviceList, None, edev_list)
+    resource_store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
 
     with mock.patch("cactus_client.action.end_device.submit_and_refetch_resource_for_step") as mock_submit:
 
@@ -110,7 +122,7 @@ async def test_action_insert_end_device(testing_contexts_factory):
         assert sent_request.deviceCategory == f"{DeviceCategory.PHOTOVOLTAIC_SYSTEM.value:02X}"
 
         # Verify the EndDevice was stored in the resource store
-        stored_edevs = resource_store.get(CSIPAusResource.EndDevice)
+        stored_edevs = resource_store.get_for_type(CSIPAusResource.EndDevice)
         assert len(stored_edevs) == 1
         assert stored_edevs[0].resource.lFDI == inserted_edev.lFDI
         assert stored_edevs[0].resource.href == inserted_edev.href

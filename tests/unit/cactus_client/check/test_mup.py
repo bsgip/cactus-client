@@ -1,22 +1,35 @@
 import re
 
 import pytest
+from aiohttp import ClientSession
 from assertical.asserts.type import assert_dict_type
 from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions.csipaus import (
+    CSIPAusReadingLocation,
+    CSIPAusReadingType,
+    CSIPAusResource,
+)
+from envoy_schema.server.schema.sep2.metering_mirror import (
+    MirrorMeterReading,
+    MirrorUsagePoint,
+    ReadingType,
+)
+from envoy_schema.server.schema.sep2.types import (
+    DataQualifierType,
+    KindType,
+    RoleFlagsType,
+    UomType,
+)
 
-from envoy_schema.server.schema.sep2.types import DataQualifierType, KindType, RoleFlagsType, UomType
-from envoy_schema.server.schema.sep2.metering_mirror import MirrorMeterReading, MirrorUsagePoint, ReadingType
-from aiohttp import ClientSession
-from cactus_test_definitions.csipaus import CSIPAusReadingLocation, CSIPAusReadingType, CSIPAusResource
 from cactus_client.check.mup import (
     MirrorUsagePointMrids,
+    check_mirror_usage_point,
+    find_mrids_matching,
     generate_hashed_mrid,
     generate_mmr_mrid,
     generate_mup_mrids,
     generate_reading_type_values,
     generate_role_flags,
-    find_mrids_matching,
-    check_mirror_usage_point,
 )
 from cactus_client.error import CactusClientException
 from cactus_client.model.config import ClientConfig
@@ -252,7 +265,7 @@ async def test_check_mirror_usage_point_full_chain(
     )
 
     resource_store = ResourceStore(CSIPAusResourceTree())
-    resource_store.set_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
 
     # Verify check finds the match
     async with ClientSession() as session:
@@ -292,7 +305,7 @@ async def test_check_mirror_usage_point_negative_cases(testing_contexts_factory)
     )
 
     resource_store = ResourceStore(CSIPAusResourceTree())
-    resource_store.set_resource(CSIPAusResource.MirrorUsagePoint, None, device_mup)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, device_mup)
 
     async with ClientSession() as session:
         context, step = testing_contexts_factory(session)
@@ -353,8 +366,8 @@ async def test_find_mrids_matching_filters(testing_contexts_factory):
     )
 
     resource_store = ResourceStore(CSIPAusResourceTree())
-    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, device_mup.mRID, device_mup)
-    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, site_mup.mRID, site_mup)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, device_mup)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, site_mup)
 
     # Act/Assert
 

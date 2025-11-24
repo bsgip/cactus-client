@@ -23,7 +23,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
     if not global_config.output_dir:
         raise ConfigException("The output_dir configuration setting is missing.")
 
-    async with await build_execution_context(global_config, run_config) as context:
+    async with build_execution_context(global_config, run_config) as context:
 
         # We're clear to start - generate the output directory
         output_manager = RunOutputManager(global_config.output_dir, run_config)

@@ -1,9 +1,13 @@
 from http import HTTPMethod
 from typing import Any
 
-from cactus_test_definitions.csipaus import CSIPAusResource
-from cactus_test_definitions.csipaus import is_list_resource
-from cactus_client.action.server import client_error_request_for_step, get_resource_for_step, request_for_step
+from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
+
+from cactus_client.action.server import (
+    client_error_request_for_step,
+    get_resource_for_step,
+    request_for_step,
+)
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -21,13 +25,12 @@ async def action_refresh_resource(
     expect_rejection_or_empty: bool = resolved_parameters.get("expect_rejection_or_empty", False)
 
     resource_store = context.discovered_resources(step)
-    matching_resources: list[StoredResource] = resource_store.get(resource_type)
+    matching_resources: list[StoredResource] = resource_store.get_for_type(resource_type)
 
     if len(matching_resources) == 0:
         raise CactusClientException(f"Expected matching resources to refresh for resource {resource_type}. None found.")
 
     for resource in matching_resources:
-        parent = resource.parent
         href = resource.resource.href
 
         if href is None:  # Skip resources without a href
@@ -42,7 +45,7 @@ async def action_refresh_resource(
         # If not expected to fail, actually request the resource and upsert in the resource store
         else:
             fetched_resource = await get_resource_for_step(type(resource.resource), step, context, href)
-            resource_store.upsert_resource(resource_type, parent, fetched_resource)
+            resource_store.upsert_resource(resource_type, resource.id.parent_id(), fetched_resource)
 
     return ActionResult.done()
 

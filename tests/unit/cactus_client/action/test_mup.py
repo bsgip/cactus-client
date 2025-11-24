@@ -1,27 +1,36 @@
-from datetime import datetime, timedelta
 import re
+from datetime import datetime, timedelta
 from unittest import mock
+
 import pytest
+from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions.csipaus import (
+    CSIPAusReadingLocation,
+    CSIPAusReadingType,
+    CSIPAusResource,
+)
+from envoy_schema.server.schema.sep2.metering_mirror import (
+    MirrorMeterReading,
+    MirrorMeterReadingListRequest,
+    MirrorUsagePoint,
+    MirrorUsagePointListResponse,
+    MirrorUsagePointRequest,
+    ReadingType,
+)
+from envoy_schema.server.schema.sep2.types import FlowDirectionType, ServiceKind
+
 from cactus_client.action.mup import (
     action_insert_readings,
     action_upsert_mup,
     calculate_reading_time,
     value_to_sep2,
 )
-from cactus_client.check.mup import generate_mmr_mrid, generate_reading_type_values, generate_role_flags
-from assertical.fake.generator import generate_class_instance
-from envoy_schema.server.schema.sep2.types import FlowDirectionType, ServiceKind
-
-
-from envoy_schema.server.schema.sep2.metering_mirror import (
-    MirrorMeterReading,
-    MirrorUsagePoint,
-    ReadingType,
-    MirrorUsagePointListResponse,
-    MirrorMeterReadingListRequest,
-    MirrorUsagePointRequest,
+from cactus_client.check.mup import (
+    generate_mmr_mrid,
+    generate_reading_type_values,
+    generate_role_flags,
 )
-from cactus_test_definitions.csipaus import CSIPAusReadingLocation, CSIPAusReadingType, CSIPAusResource
+from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
 
 
@@ -81,13 +90,14 @@ async def test_action_upsert_mup(testing_contexts_factory):
     """Test that action_upsert_mup creates a valid MUP request with correct structure and data"""
 
     # Arrange
+    context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
     client_config = context.client_config(step)
 
     # Add a MirrorUsagePointList
     mup_list = generate_class_instance(MirrorUsagePointListResponse, href="/mup")
-    resource_store.set_resource(CSIPAusResource.MirrorUsagePointList, None, mup_list)
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePointList, None, mup_list)
 
     with mock.patch("cactus_client.action.mup.submit_and_refetch_resource_for_step") as mock_submit:
         mrid = "ABC123456789012345678901TESTPEN1"
@@ -175,7 +185,9 @@ async def test_action_upsert_mup(testing_contexts_factory):
 
         # Verify the MUP was stored in the resource store with the correct alias
         stored_mups = [
-            sr for sr in resource_store.get(CSIPAusResource.MirrorUsagePoint) if sr.annotations.alias == "test-mup-1"
+            sr
+            for sr in resource_store.get_for_type(CSIPAusResource.MirrorUsagePoint)
+            if sr.annotations.alias == "test-mup-1"
         ]
         assert len(stored_mups) == 1
         assert stored_mups[0].resource.mRID == inserted_mup.mRID
