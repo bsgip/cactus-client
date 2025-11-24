@@ -279,9 +279,6 @@ async def collect_and_validate_notification(
         )
 
     # Now start inspecting the returned Notification
-    context.discovered_resources(step).append_resource(
-        CSIPAusResource.Notification, None, sep2_notification, alias=sub_id
-    )
     if sep2_notification.subscribedResource != endpoint.subscribed_resource_id.href():
         context.warnings.log_step_warning(
             step,
