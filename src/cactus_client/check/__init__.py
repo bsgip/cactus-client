@@ -1,10 +1,11 @@
 import logging
 
-from cactus_client.check.der_controls import check_der_control
+from cactus_client.check.der import check_der_program
+from cactus_client.check.der_controls import check_default_der_control, check_der_control
 from cactus_client.check.discovered import check_discovered
 from cactus_client.check.end_device import check_end_device
 from cactus_client.check.mup import check_mirror_usage_point
-from cactus_client.check.time import check_time_synced
+from cactus_client.check.time import check_poll_rate, check_time_synced
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
@@ -42,6 +43,12 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
                 last_result = check_mirror_usage_point(resolved_params, step, context)
             case "der-control":
                 last_result = check_der_control(resolved_params, step, context)
+            case "default-der-control":
+                last_result = check_default_der_control(resolved_params, step, context)
+            case "der-program":
+                last_result = check_der_program(resolved_params, step, context)
+            case "poll-rate":
+                last_result = check_poll_rate(resolved_params, step, context)
             case _:
                 logger.error(f"Unrecognised check type {check.type} in step {step.source.id}")
                 raise CactusClientException(
