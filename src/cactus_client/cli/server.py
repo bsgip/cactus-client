@@ -24,6 +24,7 @@ class ServerConfigKey(StrEnum):
     DCAP = auto()
     VERIFY = auto()
     SERCA = auto()
+    NOTIFICATION = auto()
 
 
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
@@ -69,6 +70,11 @@ def update_server_key(
                     raise ValueError(cert_error)
 
                 return replace(server, serca_pem_file=new_value)
+            case ServerConfigKey.NOTIFICATION:
+                parsed = urlparse(new_value)
+                if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                    raise ValueError(f"{new_value} doesn't appear to be a valid URI. Got: {parsed}")
+                return replace(server, notification_uri=new_value)
             case _:
                 console.print(f"[b]{config_key}[/b] can't be updated", style="red")
                 sys.exit(1)
@@ -82,14 +88,34 @@ def print_server(console: Console, config: GlobalConfig) -> None:
     table = Table(title="Server Config")
     table.add_column("key")
     table.add_column("value")
+    table.add_column("description")
 
     dcap = config.server.device_capability_uri if config.server else None
     verify = config.server.verify_ssl if config.server else None
     serca_pem_file = config.server.serca_pem_file if config.server else None
+    notification = config.server.notification_uri if config.server else None
 
-    table.add_row("dcap", dcap if dcap else "[b red]null[/b red]")
-    table.add_row("verify", str(verify) if verify is not None else "[b red]null[/b red]")
-    table.add_row("serca", rich_cert_file_value(serca_pem_file))
+    table.add_row(
+        "dcap",
+        dcap if dcap else "[b red]null[/b red]",
+        "The [b]DeviceCapability[/b] URI all clients will connect to. eg: https://example.com/sep2/dcap",
+    )
+    table.add_row(
+        "verify",
+        str(verify) if verify is not None else "[b red]null[/b red]",
+        "Set to False to disable SSL/TLS validation.",
+    )
+    table.add_row(
+        "serca",
+        rich_cert_file_value(serca_pem_file),
+        "Path to a PEM encoded SERCA certificate that is the trust root for the server AND client certificates.",
+    )
+    table.add_row(
+        "notification",
+        notification if notification else "[b red]null[/b red]",
+        "URI to the [b]cactus-client-notifications[/b] server instance that will implement webhooks for"
+        + " subscription/notification tests. eg: https://cactus.cecs.anu.edu.au/api/cactus-client-notifications/",
+    )
     console.print(table)
 
 

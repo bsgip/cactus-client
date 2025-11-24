@@ -136,7 +136,7 @@ def find_mrids_matching(
 ) -> list[StoredResource]:
     """Finds all MirrorUsagePoints in the resource store that match the specified criteria (None means no assertion)"""
     all_matches: list[StoredResource] = []
-    for mup in store.get(CSIPAusResource.MirrorUsagePoint):
+    for mup in store.get_for_type(CSIPAusResource.MirrorUsagePoint):
         resource = cast(MirrorUsagePoint, mup.resource)
 
         # Look to disqualify mups as matches by checking things one by one

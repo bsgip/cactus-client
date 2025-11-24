@@ -145,7 +145,9 @@ async def action_insert_readings(
 
     resource_store = context.discovered_resources(step)
     mups_with_id = [
-        sr for sr in resource_store.get(CSIPAusResource.MirrorUsagePoint) if sr.resource.href and sr.alias == mup_id
+        sr
+        for sr in resource_store.get_for_type(CSIPAusResource.MirrorUsagePoint)
+        if sr.resource.href and sr.annotations.alias == mup_id
     ]
 
     if len(mups_with_id) != 1:
@@ -212,7 +214,9 @@ async def action_upsert_mup(
     pow10_multiplier: int = resolved_parameters.get("pow10_multiplier", 0)
 
     resource_store = context.discovered_resources(step)
-    mup_list_resources = [sr for sr in resource_store.get(CSIPAusResource.MirrorUsagePointList) if sr.resource.href]
+    mup_list_resources = [
+        sr for sr in resource_store.get_for_type(CSIPAusResource.MirrorUsagePointList) if sr.resource.href
+    ]
 
     if len(mup_list_resources) != 1:
         raise CactusClientException(
@@ -233,6 +237,6 @@ async def action_upsert_mup(
         )
 
         resource_store.upsert_resource(
-            CSIPAusResource.MirrorUsagePoint, mup_list_resources[0], inserted_mup, alias=mup_id
+            CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup, alias=mup_id
         )
     return ActionResult.done()

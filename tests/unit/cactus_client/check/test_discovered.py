@@ -55,15 +55,17 @@ from cactus_client.model.execution import CheckResult, StepExecution
             [
                 (
                     CSIPAusResource.Subscription,
-                    generate_class_instance(Subscription),
+                    generate_class_instance(Subscription, seed=1),
                 ),
                 (
                     CSIPAusResource.DeviceCapability,
-                    generate_class_instance(DeviceCapabilityResponse, generate_relationships=True),  # include href
+                    generate_class_instance(
+                        DeviceCapabilityResponse, seed=2, generate_relationships=True
+                    ),  # include href
                 ),
                 (
                     CSIPAusResource.EndDevice,
-                    generate_class_instance(EndDeviceResponse),
+                    generate_class_instance(EndDeviceResponse, seed=3),
                 ),
             ],
             True,
@@ -73,15 +75,17 @@ from cactus_client.model.execution import CheckResult, StepExecution
             [
                 (
                     CSIPAusResource.Subscription,
-                    generate_class_instance(Subscription),
+                    generate_class_instance(Subscription, seed=1),
                 ),
                 (
                     CSIPAusResource.DeviceCapability,
-                    generate_class_instance(DeviceCapabilityResponse, generate_relationships=True),  # include href
+                    generate_class_instance(
+                        DeviceCapabilityResponse, seed=2, generate_relationships=True
+                    ),  # include href
                 ),
                 (
                     CSIPAusResource.EndDevice,
-                    generate_class_instance(EndDeviceResponse),
+                    generate_class_instance(EndDeviceResponse, seed=3),
                 ),
             ],
             False,
@@ -91,15 +95,15 @@ from cactus_client.model.execution import CheckResult, StepExecution
             [
                 (
                     CSIPAusResource.Subscription,
-                    generate_class_instance(Subscription),
+                    generate_class_instance(Subscription, seed=1),
                 ),
                 (
                     CSIPAusResource.DeviceCapability,
-                    generate_class_instance(DeviceCapabilityResponse, generate_relationships=True),  # include href
+                    generate_class_instance(DeviceCapabilityResponse, seed=2, generate_relationships=True),
                 ),
                 (
                     CSIPAusResource.EndDevice,
-                    generate_class_instance(EndDeviceResponse),
+                    generate_class_instance(EndDeviceResponse, seed=3),
                 ),
             ],
             False,

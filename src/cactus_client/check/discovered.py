@@ -13,7 +13,7 @@ def do_resources_check(
     resource_store = context.discovered_resources(step)
     missing_resources: list[CSIPAusResource] = []
     for resource in resources:
-        if not resource_store.get(resource):
+        if not resource_store.get_for_type(resource):
             missing_resources.append(resource)
     if missing_resources:
         return CheckResult(False, f"Couldn't find resources: {','.join(resources)}")
@@ -32,7 +32,7 @@ def do_links_check(links: list[CSIPAusResource], step: StepExecution, context: E
             return CheckResult(False, f"Resource {resource} has no known way to link to it (likely a test error).")
 
         # Depending on the type of parent - we need to check the link existence in different ways.
-        parent_stored_resources = resource_store.get(parent_resource)
+        parent_stored_resources = resource_store.get_for_type(parent_resource)
         if is_list_resource(parent_resource):
             # List resources are easy - If we have a list, then we have a link to child (i.e. we paginate the parent)
             # eg: EndDeviceList will have EndDevice resources (or at least a means for finding them)

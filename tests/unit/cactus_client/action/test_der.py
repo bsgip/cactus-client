@@ -2,23 +2,23 @@ import unittest.mock as mock
 from http import HTTPMethod
 from typing import Callable
 
-from freezegun import freeze_time
 import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
-
 from envoy_schema.server.schema.sep2.der import (
     DER,
-    DERCapability,
-    DERType,
     ActivePower,
+    ConnectStatusTypeValue,
+    DERCapability,
     DERSettings,
     DERStatus,
-    ConnectStatusTypeValue,
-    OperationalModeStatusTypeValue,
+    DERType,
     OperationalModeStatusType,
+    OperationalModeStatusTypeValue,
 )
+from freezegun import freeze_time
+
 from cactus_client.action.der import (
     action_send_malformed_der_settings,
     action_upsert_der_capability,
@@ -57,12 +57,13 @@ async def test_action_upsert_der_capability(
     inserted_dcaps = [
         generate_class_instance(
             DERCapability,
+            seed=i * 101,
             type_=expected_type,
             rtgMaxW=expected_rtgMaxW,
             modesSupported=expected_modesSupported,
             doeModesSupported=expected_doeModesSupported,
         )
-        for _ in range(num_devices)
+        for i in range(num_devices)
     ]
     mock_submit_and_refetch.side_effect = inserted_dcaps
 
@@ -81,7 +82,7 @@ async def test_action_upsert_der_capability(
     assert mock_submit_and_refetch.call_count == num_devices
 
     # Verify all resources were stored
-    stored_dcaps = resource_store.get(CSIPAusResource.DERCapability)
+    stored_dcaps = resource_store.get_for_type(CSIPAusResource.DERCapability)
     assert len(stored_dcaps) == num_devices
 
     # Verify contents of first device
@@ -121,13 +122,14 @@ async def test_action_upsert_der_settings(
     inserted_settings = [
         generate_class_instance(
             DERSettings,
+            seed=i * 101,
             updatedTime=expected_timestamp,
             setMaxW=expected_setMaxW,
             setGradW=expected_setGradW,
             modesEnabled=expected_modesEnabled,
             doeModesEnabled=expected_doeModesEnabled,
         )
-        for _ in range(num_devices)
+        for i in range(num_devices)
     ]
     mock_submit_and_refetch.side_effect = inserted_settings
 
@@ -146,7 +148,7 @@ async def test_action_upsert_der_settings(
     assert mock_submit_and_refetch.call_count == num_devices
 
     # Verify all resources were stored
-    stored_settings = resource_store.get(CSIPAusResource.DERSettings)
+    stored_settings = resource_store.get_for_type(CSIPAusResource.DERSettings)
     assert len(stored_settings) == num_devices
 
     # Verify contents of first device
@@ -195,12 +197,13 @@ async def test_action_upsert_der_status(
     # Mock the response with expected values
     inserted_statuses = [
         DERStatus(
+            href=f"/derstatus{i}",
             readingTime=expected_timestamp,
             genConnectStatus=expected_gen_connect_status,
             operationalModeStatus=expected_operational_mode_status,
             alarmStatus=expected_alarm_status,
         )
-        for _ in range(num_devices)
+        for i in range(num_devices)
     ]
     mock_submit_and_refetch.side_effect = inserted_statuses
 
@@ -218,7 +221,7 @@ async def test_action_upsert_der_status(
     assert mock_submit_and_refetch.call_count == num_devices
 
     # Verify all resources were stored
-    stored_statuses = resource_store.get(CSIPAusResource.DERStatus)
+    stored_statuses = resource_store.get_for_type(CSIPAusResource.DERStatus)
     assert len(stored_statuses) == num_devices
 
     # Verify contents of first device

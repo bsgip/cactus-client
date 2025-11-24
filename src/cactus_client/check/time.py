@@ -15,7 +15,7 @@ MAX_TIME_DRIFT_SECONDS = 5
 def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckResult:
     resource_store = context.discovered_resources(step)
 
-    time_resources = resource_store.get(CSIPAusResource.Time)
+    time_resources = resource_store.get_for_type(CSIPAusResource.Time)
     if not time_resources:
         return CheckResult(False, "Couldn't find a discovered Time response.")
 

@@ -1,9 +1,22 @@
 import logging
-from http import HTTPMethod
 import re
+from http import HTTPMethod
 from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
+from envoy_schema.server.schema.sep2.der import (
+    DER,
+    ActivePower,
+    ConnectStatusTypeValue,
+    DERCapability,
+    DERControlType,
+    DERSettings,
+    DERStatus,
+    DERType,
+    DOESupportedMode,
+    OperationalModeStatusType,
+    OperationalModeStatusTypeValue,
+)
 
 from cactus_client.action.server import (
     client_error_request_for_step,
@@ -13,21 +26,7 @@ from cactus_client.action.server import (
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from envoy_schema.server.schema.sep2.der import (
-    DER,
-    DERCapability,
-    DERType,
-    ActivePower,
-    DERSettings,
-    DERStatus,
-    DERControlType,
-    DOESupportedMode,
-    ConnectStatusTypeValue,
-    OperationalModeStatusTypeValue,
-    OperationalModeStatusType,
-)
-
-from cactus_client.schema.validator import to_hex32, to_hex8
+from cactus_client.schema.validator import to_hex8, to_hex32
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,7 @@ async def action_upsert_der_capability(
     doeModesSupported = to_hex8(int(resolved_parameters["doeModesSupported"]))
 
     # Loop through and upsert the resource for EVERY device
-    stored_der = [sr for sr in resource_store.get(CSIPAusResource.DER)]
+    stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
     for der in stored_der:
         dercap_link = cast(DER, der.resource).DERCapabilityLink
 
@@ -87,7 +86,7 @@ async def action_upsert_der_capability(
             DERCapability, step, context, HTTPMethod.PUT, str(dercap_link), dercap_xml, no_location_header=True
         )
 
-        resource_store.upsert_resource(CSIPAusResource.DERCapability, der, inserted_dercap)
+        resource_store.upsert_resource(CSIPAusResource.DERCapability, der.id.parent_id(), inserted_dercap)
 
         # Validate the inserted resource keeps the values we set
         _validate_fields(dercap_request, inserted_dercap, ["type_", "rtgMaxW", "modesSupported", "doeModesSupported"])
@@ -109,7 +108,7 @@ async def action_upsert_der_settings(
     doeModesEnabled = to_hex8(int(resolved_parameters["doeModesEnabled"]))
 
     # Loop through and upsert the resource for EVERY device
-    stored_der = [sr for sr in resource_store.get(CSIPAusResource.DER)]
+    stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
     for der in stored_der:
         der_sett_link = cast(DER, der.resource).DERSettingsLink
 
@@ -133,7 +132,7 @@ async def action_upsert_der_settings(
             DERSettings, step, context, HTTPMethod.PUT, str(der_sett_link), der_settings_xml, no_location_header=True
         )
 
-        resource_store.upsert_resource(CSIPAusResource.DERSettings, der, inserted_der_settings)
+        resource_store.upsert_resource(CSIPAusResource.DERSettings, der.id.parent_id(), inserted_der_settings)
 
         # Validate the inserted resource keeps the values we set
         _validate_fields(
@@ -172,7 +171,7 @@ async def action_upsert_der_status(
     alarmStatus = to_hex8(int(alarm_val)) if alarm_val is not None else None
 
     # Loop through and upsert the resource for EVERY device
-    stored_der = [sr for sr in resource_store.get(CSIPAusResource.DER)]
+    stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
     for der in stored_der:
         der_status_link = cast(DER, der.resource).DERStatusLink
 
@@ -198,7 +197,7 @@ async def action_upsert_der_status(
                 DERStatus, step, context, HTTPMethod.PUT, str(der_status_link), der_status_xml, no_location_header=True
             )
 
-            resource_store.upsert_resource(CSIPAusResource.DERStatus, der, inserted_der_status)
+            resource_store.upsert_resource(CSIPAusResource.DERStatus, der.id.parent_id(), inserted_der_status)
 
             # Validate the inserted resource keeps the values we set
             _validate_fields(
@@ -248,7 +247,7 @@ async def action_send_malformed_der_settings(
         )
 
     # Loop through and upsert the resource for EVERY device
-    stored_der = [sr for sr in resource_store.get(CSIPAusResource.DER)]
+    stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
     for der in stored_der:
         der_sett_link = cast(DER, der.resource).DERSettingsLink
 
