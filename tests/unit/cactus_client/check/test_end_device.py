@@ -6,11 +6,12 @@ from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceListResponse,
     EndDeviceResponse,
     RegistrationResponse,
 )
 
-from cactus_client.check.end_device import check_end_device
+from cactus_client.check.end_device import check_end_device, check_end_device_list
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
@@ -192,3 +193,44 @@ def test_check_end_device(
         assert len(context.warnings.warnings) > 0
     else:
         assert len(context.warnings.warnings) == 0
+
+
+@pytest.mark.parametrize(
+    "existing_edev_lists, matches_poll_rate, expected_result",
+    [
+        ([], 123, False),
+        ([], 0, False),
+        ([generate_class_instance(EndDeviceListResponse, pollRate=123)], 0, False),
+        ([generate_class_instance(EndDeviceListResponse, pollRate=123)], 123, True),
+        ([generate_class_instance(EndDeviceListResponse, pollRate=None)], 123, False),
+        (
+            [
+                generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None),
+                generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0),
+                generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456),
+            ],
+            456,
+            True,
+        ),
+    ],
+)
+def test_check_end_device_list(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    assert_check_result: Callable[[CheckResult, bool], None],
+    existing_edev_lists: list[EndDeviceListResponse],
+    matches_poll_rate: int,
+    expected_result: bool,
+):
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    store = context.discovered_resources(step)
+
+    for edev_list in existing_edev_lists:
+        store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
+
+    # Act
+    result = check_end_device_list({"matches_poll_rate": matches_poll_rate}, step, context)
+
+    # Assert
+    assert_check_result(result, expected_result)
+    assert len(context.warnings.warnings) == 0

@@ -2,6 +2,7 @@ from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceListResponse,
     EndDeviceResponse,
     RegistrationResponse,
 )
@@ -74,3 +75,22 @@ def check_end_device(
         )
 
     return CheckResult(True, None)
+
+
+def check_end_device_list(
+    resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+) -> CheckResult:
+    """Checks whether the specified EndDeviceList's in the resource store match the check criteria"""
+
+    matches_poll_rate: int = resolved_parameters["matches_poll_rate"]
+
+    resource_store = context.discovered_resources(step)
+
+    edev_lists = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
+    for edev_list_sr in edev_lists:
+        if cast(EndDeviceListResponse, edev_list_sr.resource).pollRate == matches_poll_rate:
+            return CheckResult(True, None)
+
+    return CheckResult(
+        False, f"Couldn't find an EndDeviceList with pollRate={matches_poll_rate} from {len(edev_lists)} lists."
+    )
