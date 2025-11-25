@@ -113,21 +113,21 @@ def render_console(  # noqa: C901
 
     if context.responses.responses:
         requests_table = Table(title="Requests", title_justify="left", show_header=False, expand=True)
-        for response in context.responses.responses:
 
+        for response in context.responses.responses:
             if response.body:
                 xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
             else:
                 xsd = ""
 
-        if isinstance(response, ServerResponse):
-            request_time = response.request.created_at
-            url = response.url
-            status = str(response.status)
-        else:
-            request_time = response.received_at
-            url = f"Notification from '{response.remote}'"
-            status = ""
+            if isinstance(response, ServerResponse):
+                request_time = response.request.created_at
+                url = response.url
+                status = str(response.status)
+            else:
+                request_time = response.received_at
+                url = f"Notification from '{response.remote}'"
+                status = ""
 
             requests_table.add_row(
                 context_relative_time(context, request_time),
