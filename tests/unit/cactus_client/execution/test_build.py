@@ -59,7 +59,7 @@ def generate_valid_config(
     return (expected_client_config, user_config, run_config)
 
 
-@pytest.mark.parametrize("notification_uri", [None, "http://notification.uri/path/"])
+@pytest.mark.parametrize("notification_uri", [None, "http://notification.uri/path/", "http://notification.uri/path"])
 @pytest.mark.asyncio
 async def test_build_execution_context_s_all_01(generate_testing_key_cert, notification_uri: str | None):
     with TemporaryDirectory() as tempdirname:
@@ -86,7 +86,7 @@ async def test_build_execution_context_s_all_01(generate_testing_key_cert, notif
 
             if notification_uri:
                 assert client_context.notifications.endpoint_by_sub_alias == {}
-                assert str(client_context.notifications.session._base_url) == notification_uri
+                assert str(client_context.notifications.session._base_url).startswith(notification_uri)
             else:
                 assert client_context.notifications is None
 

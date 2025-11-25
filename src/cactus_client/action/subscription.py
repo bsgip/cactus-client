@@ -292,7 +292,7 @@ async def collect_and_validate_notification(
         await handle_notification_cancellation(step, context, sep2_notification)
 
 
-async def action_notification(
+async def action_notifications(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
     sub_id: str = resolved_parameters["sub_id"]  # Mandatory param

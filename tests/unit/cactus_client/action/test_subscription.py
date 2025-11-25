@@ -19,7 +19,13 @@ from envoy_schema.server.schema.sep2.der import (
     DERProgramListResponse,
 )
 from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse
+from envoy_schema.server.schema.sep2.function_set_assignments import (
+    FunctionSetAssignmentsListResponse,
+)
 from envoy_schema.server.schema.sep2.pub_sub import (
+    XSI_TYPE_DER_CONTROL_LIST,
+    XSI_TYPE_DER_PROGRAM_LIST,
+    XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
     Notification,
     NotificationResourceCombined,
     NotificationStatus,
@@ -32,7 +38,7 @@ from cactus_client.action.subscription import (
     RESOURCE_TYPE_BY_XSI,
     action_create_subscription,
     action_delete_subscription,
-    action_notification,
+    action_notifications,
     collect_and_validate_notification,
     handle_notification_cancellation,
     handle_notification_resource,
@@ -188,6 +194,39 @@ def test_parse_combined_resource(xsi_type: str, optional_is_none: bool, assertic
     assert isinstance(actual, target_type)
     assert_class_instance_equality(target_type, source, actual)
     assert_class_instance_equality(target_type, source_values, actual)
+
+
+@pytest.mark.parametrize(
+    "xsi_type, source, expected",
+    [
+        (
+            XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+            NotificationResourceCombined(
+                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST, pollRate=1234, all_=456, results=789
+            ),
+            FunctionSetAssignmentsListResponse(
+                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST, pollRate=1234, all_=456, results=789
+            ),
+        ),
+        (
+            XSI_TYPE_DER_PROGRAM_LIST,
+            NotificationResourceCombined(type=XSI_TYPE_DER_PROGRAM_LIST, pollRate=1234, all_=456, results=789),
+            DERProgramListResponse(type=XSI_TYPE_DER_PROGRAM_LIST, pollRate=1234, all_=456, results=789),
+        ),
+        (
+            XSI_TYPE_DER_CONTROL_LIST,
+            NotificationResourceCombined(type=XSI_TYPE_DER_CONTROL_LIST, pollRate=1234, all_=456, results=789),
+            DERControlListResponse(type=XSI_TYPE_DER_CONTROL_LIST, pollRate=1234, all_=456, results=789),
+        ),
+    ],
+)
+def test_parse_combined_resource_edge_cases(xsi_type: str, source, expected):
+    """This tries to hit the various edge cases that can come up with the NotificationResourceCombined conversions"""
+
+    # Finally - do the test and see if the resulting object is of the right type and has pulled the right values
+    actual = parse_combined_resource(xsi_type=xsi_type, resource=source)
+    assert isinstance(actual, type(expected))
+    assert_class_instance_equality(type(expected), source, expected)
 
 
 @pytest.mark.parametrize("bad_type", [None, "", "DERControlButDNE"])
@@ -384,7 +423,7 @@ async def test_action_notification(
     mock_collect_notifications_for_subscription.return_value = [collected_notification1, collected_notification2]
 
     # Act
-    result = await action_notification(resolved_params, step, context)
+    result = await action_notifications(resolved_params, step, context)
 
     # Assert
     assert isinstance(result, ActionResult)

@@ -77,7 +77,11 @@ def build_clients_by_alias(
         # web service that may or may not use HTTPS.
         notifications: NotificationsContext | None = None
         if notification_uri:
-            notifications = NotificationsContext(session=ClientSession(notification_uri), endpoint_by_sub_alias={})
+
+            notifications = NotificationsContext(
+                session=ClientSession(notification_uri if notification_uri.endswith("/") else notification_uri + "/"),
+                endpoint_by_sub_alias={},
+            )
 
         # Load the client certs into a SSLContext
         ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5

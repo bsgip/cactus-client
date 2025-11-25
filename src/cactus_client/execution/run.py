@@ -90,6 +90,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
             results = ResultsEvaluation(context, execute_task.result())
         except asyncio.CancelledError as exc:
             logger.error("Aborting test due to cancellation.", exc_info=exc)
+            persist_all_request_data(context, output_manager)
             return False
         logger.info(f"Test passed: {results.has_passed()}")
         logger.debug(f"ResultsEvaluation: {results}")

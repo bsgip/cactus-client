@@ -114,7 +114,7 @@ def print_server(console: Console, config: GlobalConfig) -> None:
         "notification",
         notification if notification else "[b red]null[/b red]",
         "URI to the [b]cactus-client-notifications[/b] server instance that will implement webhooks for"
-        + " subscription/notification tests. eg: https://cactus.cecs.anu.edu.au/api/cactus-client-notifications/",
+        + " subscription/notification tests. eg: https://cactus.cecs.anu.edu.au/api/client-notifications/",
     )
     console.print(table)
 

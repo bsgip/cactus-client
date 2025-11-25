@@ -48,12 +48,12 @@ def persist_server_response(base_dir: Path, idx: int, host: str, response: Serve
     # This is the traditional request/response
     request = response.request
     sanitised_url = sanitise_url_to_filename(request.url)
-    request_file = base_dir / f"{idx:03}-{sanitised_url}.request"
-    response_file = base_dir / f"{idx:03}-{sanitised_url}.response"
+    request_file = base_dir / f"{idx:03}-{request.method}-{sanitised_url}.request"
+    response_file = base_dir / f"{idx:03}-{request.method}-{sanitised_url}.response"
     with open(request_file, "w") as fp:
         fp.write("\n".join(generate_request_file(request.method, request.url, host, request.headers, request.body)))
     with open(response_file, "w") as fp:
-        fp.write("\n".join(generate_response_file(response.status, response.headers, request.body)))
+        fp.write("\n".join(generate_response_file(response.status, response.headers, response.body)))
 
 
 def persist_notification(
@@ -64,12 +64,10 @@ def persist_notification(
         parsed_url = urlparse(webhook_endpoint)
         host = parsed_url.netloc
         path = parsed_url.path
-        sanitised_url = sanitise_url_to_filename(webhook_endpoint)
-        notification_file = base_dir / f"{idx:03}-notification-{sanitised_url}.request"
     else:
         path = ""
         host = None
-        notification_file = base_dir / f"{idx:03}-notification-{notification.sub_id}.request"
+    notification_file = base_dir / f"{idx:03}-NOTIFICATION-{notification.sub_id}.request"
 
     with open(notification_file, "w") as fp:
         fp.write(
