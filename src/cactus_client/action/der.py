@@ -26,7 +26,7 @@ from cactus_client.action.server import (
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_client.schema.validator import to_hex8, to_hex32
+from cactus_client.schema.validator import to_hex_binary
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -62,8 +62,8 @@ async def action_upsert_der_capability(
     # Extract and convert parameters
     type_ = DERType(int(resolved_parameters["type"]))
     rtgMaxW = ActivePower(value=resolved_parameters["rtgMaxW"], multiplier=0)
-    modesSupported = to_hex32(int(resolved_parameters["modesSupported"]))
-    doeModesSupported = to_hex8(int(resolved_parameters["doeModesSupported"]))
+    modesSupported = to_hex_binary(int(resolved_parameters["modesSupported"]))
+    doeModesSupported = to_hex_binary(int(resolved_parameters["doeModesSupported"]))
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -83,7 +83,7 @@ async def action_upsert_der_capability(
 
         # Send request then retreive it from the server and save to resource store
         inserted_dercap = await submit_and_refetch_resource_for_step(
-            DERCapability, step, context, HTTPMethod.PUT, str(dercap_link), dercap_xml, no_location_header=True
+            DERCapability, step, context, HTTPMethod.PUT, dercap_link.href, dercap_xml, no_location_header=True
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERCapability, der.id.parent_id(), inserted_dercap)
@@ -104,8 +104,8 @@ async def action_upsert_der_settings(
     updatedTime = int(utc_now().timestamp())
     setMaxW = ActivePower(value=int(resolved_parameters["setMaxW"]), multiplier=0)
     setGradW = int(resolved_parameters["setGradW"])
-    modesEnabled = to_hex32(int(resolved_parameters["modesEnabled"]))
-    doeModesEnabled = to_hex8(int(resolved_parameters["doeModesEnabled"]))
+    modesEnabled = to_hex_binary(int(resolved_parameters["modesEnabled"]))
+    doeModesEnabled = to_hex_binary(int(resolved_parameters["doeModesEnabled"]))
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -129,7 +129,7 @@ async def action_upsert_der_settings(
 
         # Send request then retrieve it from the server and save to resource store
         inserted_der_settings = await submit_and_refetch_resource_for_step(
-            DERSettings, step, context, HTTPMethod.PUT, str(der_sett_link), der_settings_xml, no_location_header=True
+            DERSettings, step, context, HTTPMethod.PUT, der_sett_link.href, der_settings_xml, no_location_header=True
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERSettings, der.id.parent_id(), inserted_der_settings)
@@ -159,7 +159,7 @@ async def action_upsert_der_status(
 
     # Build status objects
     genConnectStatus = (
-        ConnectStatusTypeValue(value=to_hex8(int(gen_connect_val)), dateTime=current_timestamp)
+        ConnectStatusTypeValue(value=to_hex_binary(int(gen_connect_val)), dateTime=current_timestamp)
         if gen_connect_val is not None
         else None
     )
@@ -168,7 +168,7 @@ async def action_upsert_der_status(
         if op_mode_val is not None
         else None
     )
-    alarmStatus = to_hex8(int(alarm_val)) if alarm_val is not None else None
+    alarmStatus = to_hex_binary(int(alarm_val)) if alarm_val is not None else None
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -191,10 +191,10 @@ async def action_upsert_der_status(
 
         if expect_rejection:
             # If we're expecting rejection - make the request and check for a client error
-            await client_error_request_for_step(step, context, str(der_status_link), HTTPMethod.PUT, der_status_xml)
+            await client_error_request_for_step(step, context, der_status_link.href, HTTPMethod.PUT, der_status_xml)
         else:
             inserted_der_status = await submit_and_refetch_resource_for_step(
-                DERStatus, step, context, HTTPMethod.PUT, str(der_status_link), der_status_xml, no_location_header=True
+                DERStatus, step, context, HTTPMethod.PUT, der_status_link.href, der_status_xml, no_location_header=True
             )
 
             resource_store.upsert_resource(CSIPAusResource.DERStatus, der.id.parent_id(), inserted_der_status)
@@ -229,8 +229,8 @@ async def action_send_malformed_der_settings(
         updatedTime=int(utc_now().timestamp()),
         setMaxW=ActivePower(value=5005, multiplier=0),  # Doesnt matter what values as it should be rejected,
         setGradW=50,
-        modesEnabled=to_hex32(DERControlType.OP_MOD_ENERGIZE),
-        doeModesEnabled=to_hex8(DOESupportedMode.OP_MOD_EXPORT_LIMIT_W),
+        modesEnabled=to_hex_binary(DERControlType.OP_MOD_ENERGIZE),
+        doeModesEnabled=to_hex_binary(DOESupportedMode.OP_MOD_EXPORT_LIMIT_W),
     )
 
     der_settings_xml = resource_to_sep2_xml(der_settings_request)
@@ -257,6 +257,6 @@ async def action_send_malformed_der_settings(
             )
 
         # Send request (expecting rejection) - make the request and check for a client error
-        await client_error_request_for_step(step, context, str(der_sett_link), HTTPMethod.PUT, der_settings_xml)
+        await client_error_request_for_step(step, context, der_sett_link.href, HTTPMethod.PUT, der_settings_xml)
 
     return ActionResult.done()
