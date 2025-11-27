@@ -60,11 +60,12 @@ def validate_xml(xml: str) -> list[str]:
         return [f"{e.line}: {e.message}" for e in schema.error_log]  # type: ignore
 
 
-def to_hex32(v: int) -> str:
-    """Convert to 32-bit hex"""
-    return f"{v:08X}"
+def to_hex_binary(v: int) -> str:
+    """Convert integer to hexBinary string with minimal pairs (even length)"""
 
+    hex_str = f"{v:X}"  # Uppercase hex without padding
+    # Ensure even length by padding with single leading zero if needed
+    if len(hex_str) % 2 == 1:
+        hex_str = "0" + hex_str
 
-def to_hex8(v: int) -> str:
-    """Convert to 8-bit hex"""
-    return f"{v:02X}"
+    return hex_str

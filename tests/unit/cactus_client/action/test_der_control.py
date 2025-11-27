@@ -20,7 +20,7 @@ from cactus_client.action.der_controls import (
 )
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import StepExecution
-from cactus_client.schema.validator import to_hex32
+from cactus_client.schema.validator import to_hex_binary
 from cactus_client.time import utc_now
 
 
@@ -94,15 +94,15 @@ async def test_action_respond_der_controls_with_previous_responses(
 
     # Create EndDevice
     edev = generate_class_instance(EndDeviceResponse, seed=1, generate_relationships=True)
-    edev.lFDI = to_hex32(1000)
+    edev.lFDI = to_hex_binary(1000)
     stored_edev = resource_store.append_resource(CSIPAusResource.EndDevice, None, edev)
 
     # Create DERControl with previous responses tracked in tags
     der_control = generate_class_instance(DERControlResponse, seed=1, generate_relationships=True)
     der_control.replyTo = "/edev/rsp"
-    der_control.responseRequired = to_hex32(1)
+    der_control.responseRequired = to_hex_binary(1)
     der_control.EventStatus_ = generate_class_instance(EventStatus, currentStatus=event_status)
-    der_control.mRID = to_hex32(2000)
+    der_control.mRID = to_hex_binary(2000)
     der_control.interval = DateTimeIntervalType(start=current_timestamp + time_offset, duration=duration)
 
     stored_der_control = resource_store.append_resource(CSIPAusResource.DERControl, stored_edev.id, der_control)
@@ -149,8 +149,8 @@ async def test_action_respond_der_controls_with_previous_responses(
 @pytest.mark.parametrize(
     "mrid_unknown,lfdi_unknown,response_invalid,expected_fake_mrid,expected_fake_lfdi,expected_status",
     [
-        (True, False, False, to_hex32(888888), None, 1),
-        (False, True, False, None, to_hex32(999999), 1),
+        (True, False, False, to_hex_binary(888888), None, 1),
+        (False, True, False, None, to_hex_binary(999999), 1),
         (False, False, True, None, None, 15),
     ],
 )
@@ -172,13 +172,13 @@ async def test_action_send_malformed_response(
 
     # Create DERControl
     edev = generate_class_instance(EndDeviceResponse, seed=1, generate_relationships=True)
-    edev.lFDI = to_hex32(1001)
+    edev.lFDI = to_hex_binary(1001)
     stored_edev = resource_store.append_resource(CSIPAusResource.EndDevice, None, edev)
 
     der_control = generate_class_instance(DERControlResponse, seed=1, generate_relationships=True)
     der_control.replyTo = "/edev/1/rsp"
-    der_control.responseRequired = to_hex32(1)
-    der_control.mRID = to_hex32(2001)
+    der_control.responseRequired = to_hex_binary(1)
+    der_control.mRID = to_hex_binary(2001)
 
     resource_store.append_resource(CSIPAusResource.DERControl, stored_edev.id, der_control)
 

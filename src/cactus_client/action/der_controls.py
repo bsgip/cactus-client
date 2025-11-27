@@ -23,7 +23,7 @@ from cactus_client.model.context import (
 )
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
-from cactus_client.schema.validator import to_hex32
+from cactus_client.schema.validator import to_hex_binary
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -214,7 +214,7 @@ async def action_send_malformed_response(
 
     # Determine the endDeviceLFDI_unknown (either go find it, or set to fake one)
     edev_lfdi = (
-        to_hex32(999999)
+        to_hex_binary(999999)
         if endDeviceLFDI_unknown
         else get_edev_lfdi_for_der_control(step, context, most_recent_der_ctl, der_control.href)
     )
@@ -222,7 +222,7 @@ async def action_send_malformed_response(
         raise CactusClientException(f"Could not find EndDevice lfdi parent for DERControl {der_control.href}")
 
     # Determine the mRID (generate fake if mrd_unknown true)
-    subject_mrid = to_hex32(888888) if mrid_unknown else der_control.mRID
+    subject_mrid = to_hex_binary(888888) if mrid_unknown else der_control.mRID
 
     # Create the malformed response
     current_time = utc_now()

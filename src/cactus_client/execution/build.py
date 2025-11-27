@@ -97,10 +97,10 @@ def build_clients_by_alias(
 
         try:
             ssl_context.load_cert_chain(client_config.certificate_file, client_config.key_file)
-        except Exception:
+        except Exception as exc:
             raise ConfigException(
                 f"Failure loading client certificate chain for {client_config_id} from"
-                + f"cert file {client_config.certificate_file} and key file {client_config.key_file}."
+                + f"cert file {client_config.certificate_file} and key file {client_config.key_file}. {exc}"
             )
 
         clients_by_alias[tp_client_precondition.id] = ClientContext(

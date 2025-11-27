@@ -3,7 +3,7 @@ from random import randint
 import pytest
 from assertical.asserts.type import assert_list_type
 
-from cactus_client.schema.validator import to_hex8, to_hex32, validate_xml
+from cactus_client.schema.validator import to_hex_binary, validate_xml
 
 
 @pytest.mark.parametrize(
@@ -107,34 +107,32 @@ def test_validate_xml_schema_invalid(xml):
 
 
 @pytest.mark.parametrize(
-    "int_value",
+    "value,expected_length",
     [
-        0,  # min
-        1,  # smallest pos
-        2147483647,  # max signed 32-bit
-        4294967295,  # maximum 32-bit
-        randint(0, 4294967295),  # random
+        (0, 2),  # "00"
+        (1, 2),  # "01"
+        (15, 2),  # "0F"
+        (255, 2),  # "FF"
+        (256, 4),  # "0100"
+        (2147483647, 8),  # "7FFFFFFF" - max signed 32-bit (8 chars)
+        (4294967295, 8),  # "FFFFFFFF" - maximum 32-bit (8 chars)
+        (randint(1, 255), 2),  # random small
+        (randint(256, 65535), 4),  # random medium
+        (randint(65536, 16777215), 6),  # random large 3-byte values
+        (randint(16777216, 4294967295), 8),  # random large 4-byte values
     ],
 )
-def test_to_hex32(int_value):
-    result = to_hex32(int_value)
-    assert len(result) == 8
-    assert len(result) % 2 == 0  # Even
+def test_to_hex_binary(value, expected_length):
+    result = to_hex_binary(value)
+
+    # Check it's even
+    assert len(result) % 2 == 0
+
+    # Check length
+    assert len(result) == expected_length
+
+    # Check all characters are valid hex
     assert all(c in "0123456789ABCDEF" for c in result)
 
-
-@pytest.mark.parametrize(
-    "int_value",
-    [
-        0,  # min
-        1,  # smallest pos
-        127,  # max signed 8-bit
-        255,  # maximum 8-bit
-        randint(0, 255),  # random
-    ],
-)
-def test_to_hex8(int_value):
-    result = to_hex8(int_value)
-    assert len(result) == 2
-    assert len(result) % 2 == 0  # Even
-    assert all(c in "0123456789ABCDEF" for c in result)
+    # Verify it converts back to original value
+    assert int(result, 16) == value

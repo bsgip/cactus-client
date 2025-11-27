@@ -27,7 +27,7 @@ from cactus_client.action.der import (
 )
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
-from cactus_client.schema.validator import to_hex8, to_hex32
+from cactus_client.schema.validator import to_hex_binary
 from cactus_client.time import utc_now
 
 
@@ -51,8 +51,8 @@ async def test_action_upsert_der_capability(
     # Mock the response with expected values
     expected_type = DERType.PHOTOVOLTAIC_SYSTEM
     expected_rtgMaxW = ActivePower(value=5000, multiplier=0)
-    expected_modesSupported = to_hex32(1)
-    expected_doeModesSupported = to_hex8(1)
+    expected_modesSupported = to_hex_binary(1)
+    expected_doeModesSupported = to_hex_binary(1)
 
     inserted_dcaps = [
         generate_class_instance(
@@ -116,8 +116,8 @@ async def test_action_upsert_der_settings(
     # Mock the response with expected values
     expected_setMaxW = ActivePower(value=4500, multiplier=0)
     expected_setGradW = 100
-    expected_modesEnabled = to_hex32(1)
-    expected_doeModesEnabled = to_hex8(1)
+    expected_modesEnabled = to_hex_binary(1)
+    expected_doeModesEnabled = to_hex_binary(1)
 
     inserted_settings = [
         generate_class_instance(
@@ -187,12 +187,12 @@ async def test_action_upsert_der_status(
 
     # Build expected objects (matching what the action creates)
     expected_gen_connect_status = ConnectStatusTypeValue(
-        value=to_hex8(expected_gen_connect_val), dateTime=expected_timestamp
+        value=to_hex_binary(expected_gen_connect_val), dateTime=expected_timestamp
     )
     expected_operational_mode_status = OperationalModeStatusTypeValue(
         value=OperationalModeStatusType(expected_op_mode_val), dateTime=expected_timestamp
     )
-    expected_alarm_status = to_hex8(expected_alarm_val)
+    expected_alarm_status = to_hex_binary(expected_alarm_val)
 
     # Mock the response with expected values
     inserted_statuses = [
