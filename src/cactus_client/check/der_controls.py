@@ -180,4 +180,8 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
             False, f"Matched {total_matches} DERControls against criteria. Expected at most {maximum_count}"
         )
 
+    # Otherwise assume at least one control should match
+    if total_matches < 1:
+        return CheckResult(False, f"Matched {total_matches} DERControls against criteria. Expected at least 1")
+
     return CheckResult(True, None)
