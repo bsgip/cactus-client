@@ -118,7 +118,7 @@ async def test_action_create_subscription(
     new_sub_sr = fetched_subs[1]
 
     assert new_sub_sr.id.parent_id() == sub_list_sr.id
-    assert new_sub_sr.annotations.alias == sub_id
+    assert context.resource_annotations(step, new_sub_sr.id).alias == sub_id
     assert new_sub_sr.resource is refetched_subscription
 
     mock_submit_and_refetch_resource_for_step.assert_has_calls(
@@ -144,17 +144,13 @@ async def test_action_delete_subscription(
     sub_id = "MY sub id 2"
 
     sub1_sr = store.append_resource(
-        CSIPAusResource.Subscription,
-        None,
-        generate_class_instance(Subscription, seed=101, href="/othersub1"),
-        alias=sub_id + "mismatch",
+        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=101, href="/othersub1")
     )
+    context.resource_annotations(step, sub1_sr.id).alias = sub_id + "mismatch"
     sub2_sr = store.append_resource(
-        CSIPAusResource.Subscription,
-        None,
-        generate_class_instance(Subscription, seed=202, href="/target"),
-        alias=sub_id,
+        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=202, href="/target")
     )
+    context.resource_annotations(step, sub2_sr.id).alias = sub_id
     sub3_sr = store.append_resource(
         CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=303, href="/othersub2")
     )

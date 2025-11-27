@@ -1,4 +1,5 @@
 import unittest.mock as mock
+from enum import IntEnum
 from http import HTTPMethod
 from typing import Callable
 
@@ -17,7 +18,7 @@ from cactus_client.action.der_controls import (
     action_respond_der_controls,
     action_send_malformed_response,
 )
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.schema.validator import to_hex32
 from cactus_client.time import utc_now
@@ -27,23 +28,23 @@ from cactus_client.time import utc_now
     "event_status,time_offset,duration,previous_tags,expected_status,expected_new_tag,expect_response",
     [
         # Scheduled - send 'EVENT_RECEIVED'
-        (0, 3600, 7200, [], "1", ResponseType.EVENT_RECEIVED.name, True),
+        (0, 3600, 7200, [], "1", ResponseType.EVENT_RECEIVED, True),
         # Cancelled
-        (2, -300, 3600, [], "6", ResponseType.EVENT_CANCELLED.name, True),
+        (2, -300, 3600, [], "6", ResponseType.EVENT_CANCELLED, True),
         # Superseded
-        (4, -300, 3600, [], "7", ResponseType.EVENT_SUPERSEDED.name, True),
+        (4, -300, 3600, [], "7", ResponseType.EVENT_SUPERSEDED, True),
         # Active - no previous tags (send 'EVENT_RECEIVED')
-        (1, -300, 3600, [], "1", ResponseType.EVENT_RECEIVED.name, True),
+        (1, -300, 3600, [], "1", ResponseType.EVENT_RECEIVED, True),
         # Active - started, already sent 'EVENT_RECEIVED' (send 'EVENT_STARTED')
-        (1, -300, 3600, [ResponseType.EVENT_RECEIVED.name], "2", ResponseType.EVENT_STARTED.name, True),
+        (1, -300, 3600, [ResponseType.EVENT_RECEIVED], "2", ResponseType.EVENT_STARTED, True),
         # Active - completed, sent "EVENT_RECEIVED",'EVENT_STARTED' (send 'EVENT_COMPLETED')
         (
             1,
             -3600,
             1800,
-            [ResponseType.EVENT_RECEIVED.name, ResponseType.EVENT_STARTED.name],
+            [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED],
             "3",
-            ResponseType.EVENT_COMPLETED.name,
+            ResponseType.EVENT_COMPLETED,
             True,
         ),
         # Active - completed, sent "EVENT_RECEIVED",'EVENT_STARTED' and 'EVENT_COMPLETED' (no new response)
@@ -51,17 +52,17 @@ from cactus_client.time import utc_now
             1,
             -3600,
             1800,
-            [ResponseType.EVENT_RECEIVED.name, ResponseType.EVENT_STARTED.name, ResponseType.EVENT_COMPLETED.name],
+            [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED, ResponseType.EVENT_COMPLETED],
             None,
             None,
             False,
         ),
         # Active - in progress, already sent "EVENT_RECEIVED",'EVENT_STARTED' (no new response)
-        (1, -1800, 3600, [ResponseType.EVENT_RECEIVED.name, ResponseType.EVENT_STARTED.name], None, None, False),
+        (1, -1800, 3600, [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED], None, None, False),
         # ---------------- ACTIONS WHICH HAVE ALREADY BEEN RESPONDED TO (DONT SEND) ----------------------
-        (4, -300, 3600, [ResponseType.EVENT_SUPERSEDED.name], None, None, False),
-        (2, -300, 3600, [ResponseType.EVENT_CANCELLED.name], None, None, False),
-        (0, 3600, 7200, [ResponseType.EVENT_RECEIVED.name], None, None, False),
+        (4, -300, 3600, [ResponseType.EVENT_SUPERSEDED], None, None, False),
+        (2, -300, 3600, [ResponseType.EVENT_CANCELLED], None, None, False),
+        (0, 3600, 7200, [ResponseType.EVENT_RECEIVED], None, None, False),
     ],
 )
 @freeze_time("2025-11-19 12:00:00")
@@ -73,9 +74,9 @@ async def test_action_respond_der_controls_with_previous_responses(
     event_status: int,
     time_offset: int,
     duration: int,
-    previous_tags: list[str],
+    previous_tags: list[IntEnum],
     expected_status: str | None,
-    expected_new_tag: str | None,
+    expected_new_tag: IntEnum | None,
     expect_response: bool,
 ):
     """Test responding to DERControls including various previous response states.
@@ -107,7 +108,9 @@ async def test_action_respond_der_controls_with_previous_responses(
     stored_der_control = resource_store.append_resource(CSIPAusResource.DERControl, stored_edev.id, der_control)
 
     # Set previous tags to simulate already-sent responses
-    stored_der_control.annotations.tags.extend(previous_tags)
+    annotations = context.resource_annotations(step, stored_der_control.id)
+    for tag in previous_tags:
+        annotations.add_tag(AnnotationNamespace.RESPONSES, tag)
 
     mock_submit_and_refetch.return_value = mock.Mock()
 
@@ -126,9 +129,10 @@ async def test_action_respond_der_controls_with_previous_responses(
         # Verify the new tag was added
         stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))
         assert len(stored_controls) == 1
-        assert expected_new_tag in stored_controls[0].annotations.tags
+        assert annotations.has_tag(AnnotationNamespace.RESPONSES, expected_new_tag)
+
         # Previous tags should still be present
-        assert all(tag in stored_controls[0].annotations.tags for tag in previous_tags)
+        assert all(annotations.has_tag(AnnotationNamespace.RESPONSES, tag) for tag in previous_tags)
     else:
         # Should NOT have sent a response
         assert mock_submit_and_refetch.call_count == 0
@@ -136,7 +140,7 @@ async def test_action_respond_der_controls_with_previous_responses(
         # Tags should remain unchanged
         stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))
         assert len(stored_controls) == 1
-        assert stored_controls[0].annotations.tags == previous_tags
+        assert all(annotations.has_tag(AnnotationNamespace.RESPONSES, tag) for tag in previous_tags)
 
 
 @freeze_time("2025-11-19 12:00:00")

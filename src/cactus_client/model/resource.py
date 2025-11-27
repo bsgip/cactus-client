@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, Optional, TypeVar, cast
 
@@ -177,12 +177,6 @@ class StoredResourceId:
             return StoredResourceId(hrefs=tuple((href, *parent.hrefs)))
 
 
-@dataclass
-class CurrentAnnotations:
-    alias: str | None
-    tags: list[str] = field(default_factory=list)
-
-
 @dataclass(frozen=True)
 class StoredResource:
     id: StoredResourceId  # Uniquely identifies this resource based on what parents discovered it
@@ -192,11 +186,7 @@ class StoredResource:
         CSIPAusResource, str
     ]  # hrefs from Link.href values found in this resource, keyed by the resource type they point to.
     member_of_list: CSIPAusResource | None  # If specified - this resource is a member of a List of this type
-
     resource: Resource  # The common 2030.5 Resource that is being stored. List items "may" have some children populated
-    annotations: CurrentAnnotations = field(
-        compare=False
-    )  # Can be set by the test definition marking specific resources - is NOT used in equality checks.
 
     @staticmethod
     def from_resource(
@@ -204,7 +194,6 @@ class StoredResource:
         type: CSIPAusResource,
         parent: StoredResourceId | None,
         resource: Resource,
-        alias: str | None,
     ) -> "StoredResource":
         parent_type = tree.parent_resource(type)
         if parent_type and is_list_resource(parent_type):
@@ -222,7 +211,6 @@ class StoredResource:
             resource=resource,
             resource_link_hrefs=generate_resource_link_hrefs(type, resource),
             member_of_list=member_of_list,
-            annotations=CurrentAnnotations(alias=alias),
         )
 
 
@@ -253,16 +241,16 @@ class ResourceStore:
             del self.resource_store[type]
 
     def append_resource(
-        self, type: CSIPAusResource, parent: StoredResourceId | None, resource: Resource, alias: str | None = None
+        self, type: CSIPAusResource, parent: StoredResourceId | None, resource: Resource
     ) -> StoredResource:
         """Updates the store so that future calls to get (for type) will return their current value(s) PLUS this new
-        value. Alias can be used to mark this resource for future identification.
+        value.
 
         raises a CactusClientException if resource is missing a href
         raises a CactusClientException if a resource with the same unique ID is already stored.
 
         Returns the StoredResource that was inserted"""
-        new_resource = StoredResource.from_resource(self.tree, type, parent, resource, alias)
+        new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 
         duplicate = self.id_store.get(new_resource.id, None)
         if duplicate is not None:
@@ -278,14 +266,14 @@ class ResourceStore:
         return new_resource
 
     def upsert_resource(
-        self, type: CSIPAusResource, parent: StoredResourceId | None, resource: Resource, alias: str | None = None
+        self, type: CSIPAusResource, parent: StoredResourceId | None, resource: Resource
     ) -> StoredResource:
         """Similar to append_resource but if a resource with the same href+parent already exists, it will be
-        replaced. Alias can be used to mark this resource for future identification.
+        replaced.
 
         raises a CactusClientException if resource is missing a href"""
 
-        new_resource = StoredResource.from_resource(self.tree, type, parent, resource, alias)
+        new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 
         # Update ID store
         self.id_store[new_resource.id] = new_resource

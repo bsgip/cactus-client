@@ -108,6 +108,7 @@ def build_clients_by_alias(
             client_config=client_config,
             discovered_resources=ResourceStore(resource_tree),
             session=ClientSession(base_url=base_uri, connector=TCPConnector(ssl=ssl_context)),
+            annotations={},
             notifications=notifications,
         )
 

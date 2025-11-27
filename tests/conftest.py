@@ -76,6 +76,7 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
             client_config=generate_class_instance(ClientConfig, optional_is_none=True, lfdi="0DEADBEEF0"),
             discovered_resources=ResourceStore(tree),
             session=client_session,
+            annotations={},
             notifications=None if notifications_session is None else NotificationsContext(notifications_session, {}),
         )
 

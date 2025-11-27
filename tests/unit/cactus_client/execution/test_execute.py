@@ -159,7 +159,7 @@ async def test_execute_for_context_success_cases_with_repeats(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock(), None
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
             )
         },
         resource_tree=tree,
@@ -253,7 +253,7 @@ async def test_execute_for_context_failure_stops_early(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock(), None
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
             )
         },
         resource_tree=tree,
@@ -340,7 +340,7 @@ async def test_execute_for_context_action_exception(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock(), None
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
             )
         },
         resource_tree=tree,
@@ -430,7 +430,7 @@ async def test_execute_for_context_check_exception(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock(), None
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
             )
         },
         resource_tree=tree,
@@ -502,7 +502,7 @@ async def test_execute_for_context_success_cases_with_delays(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), mock.Mock(), None
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
             )
         },
         resource_tree=tree,

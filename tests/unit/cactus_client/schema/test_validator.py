@@ -1,8 +1,9 @@
 from random import randint
+
 import pytest
 from assertical.asserts.type import assert_list_type
 
-from cactus_client.schema.validator import to_hex32, to_hex8, validate_xml
+from cactus_client.schema.validator import to_hex8, to_hex32, validate_xml
 
 
 @pytest.mark.parametrize(
@@ -106,7 +107,7 @@ def test_validate_xml_schema_invalid(xml):
 
 
 @pytest.mark.parametrize(
-    "value",
+    "int_value",
     [
         0,  # min
         1,  # smallest pos
@@ -115,15 +116,15 @@ def test_validate_xml_schema_invalid(xml):
         randint(0, 4294967295),  # random
     ],
 )
-def test_to_hex32(value):
-    result = to_hex32(value)
+def test_to_hex32(int_value):
+    result = to_hex32(int_value)
     assert len(result) == 8
     assert len(result) % 2 == 0  # Even
-    assert all(c in "0123456789abcdef" for c in result)
+    assert all(c in "0123456789ABCDEF" for c in result)
 
 
 @pytest.mark.parametrize(
-    "value",
+    "int_value",
     [
         0,  # min
         1,  # smallest pos
@@ -132,8 +133,8 @@ def test_to_hex32(value):
         randint(0, 255),  # random
     ],
 )
-def test_to_hex8(value):
-    result = to_hex8(value)
+def test_to_hex8(int_value):
+    result = to_hex8(int_value)
     assert len(result) == 2
     assert len(result) % 2 == 0  # Even
-    assert all(c in "0123456789abcdef" for c in result)
+    assert all(c in "0123456789ABCDEF" for c in result)

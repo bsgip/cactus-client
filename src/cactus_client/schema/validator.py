@@ -62,9 +62,9 @@ def validate_xml(xml: str) -> list[str]:
 
 def to_hex32(v: int) -> str:
     """Convert to 32-bit hex"""
-    return f"{v:08x}"
+    return f"{v:08X}"
 
 
 def to_hex8(v: int) -> str:
     """Convert to 8-bit hex"""
-    return f"{v:02x}"
+    return f"{v:02X}"

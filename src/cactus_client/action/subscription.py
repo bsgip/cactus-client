@@ -125,7 +125,7 @@ async def action_create_subscription(
             + " indicates support for a non conditional subscription.",
         )
 
-    # Submit the subscription
+    # Submit the subscription - ensure it's annotated correctly
     subscription = Subscription(
         encoding=SubscriptionEncoding.XML,
         level="+S1",
@@ -136,7 +136,8 @@ async def action_create_subscription(
     returned_subscription = await submit_and_refetch_resource_for_step(
         Subscription, step, context, HTTPMethod.POST, subscription_list_href, resource_to_sep2_xml(subscription)
     )
-    store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription, alias=sub_id)
+    sub_sr = store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription)
+    context.resource_annotations(step, sub_sr.id).alias = sub_id
 
     return ActionResult.done()
 
@@ -149,7 +150,11 @@ async def action_delete_subscription(
     store = context.discovered_resources(step)
 
     # Figure out what webhook URI we can use for our subscription alias
-    matching_subs = [r for r in store.get_for_type(CSIPAusResource.Subscription) if r.annotations.alias == sub_id]
+    matching_subs = [
+        r
+        for r in store.get_for_type(CSIPAusResource.Subscription)
+        if context.resource_annotations(step, r.id).alias == sub_id
+    ]
     if len(matching_subs) != 1:
         raise CactusClientException(
             f"Found {len(matching_subs)} Subscription resource(s) with alias {sub_id} but expected 1. Cannot delete."

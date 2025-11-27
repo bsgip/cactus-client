@@ -16,7 +16,11 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.error import CactusClientException
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import (
+    AnnotationNamespace,
+    ExecutionContext,
+    StoredResourceAnnotations,
+)
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
 from cactus_client.schema.validator import to_hex32
@@ -51,7 +55,7 @@ def get_edev_lfdi_for_der_control(
 
 def determine_response_status(
     event_status: EventStatusType,
-    sent_responses: list[str],
+    annotations: StoredResourceAnnotations,
     der_control: DERControlResponse,
     current_time: datetime,
 ) -> ResponseType | None:
@@ -62,7 +66,9 @@ def determine_response_status(
     """
 
     # If we have previously sent a cancelled or superseded response, no further response is necessary
-    if ResponseType.EVENT_CANCELLED.name in sent_responses or ResponseType.EVENT_SUPERSEDED.name in sent_responses:
+    sent_cancelled = annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_CANCELLED)
+    sent_superseded = annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_SUPERSEDED)
+    if sent_cancelled or sent_superseded:
         return None
 
     # Cancelled
@@ -74,12 +80,13 @@ def determine_response_status(
         return ResponseType.EVENT_SUPERSEDED
 
     # For Scheduled - send received
-    if event_status == EventStatusType.Scheduled and ResponseType.EVENT_RECEIVED.name not in sent_responses:
+    sent_received = annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_RECEIVED)
+    if event_status == EventStatusType.Scheduled and not sent_received:
         return ResponseType.EVENT_RECEIVED
 
     # For active - figure out where we are up to
     if event_status == EventStatusType.Active:
-        if ResponseType.EVENT_RECEIVED.name not in sent_responses:
+        if not sent_received:
             return ResponseType.EVENT_RECEIVED
 
         # See if the control is currently in progress
@@ -89,14 +96,14 @@ def determine_response_status(
         current_timestamp = int(current_time.timestamp())
 
         if current_timestamp >= event_start:
-            if ResponseType.EVENT_STARTED.name not in sent_responses:
+            if not annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_STARTED):
                 return ResponseType.EVENT_STARTED
 
         # Check if control should have completed
         # NOTE: Currently the discovery process will remove old controls, so this branch will not ever be accessed
         # A fix is in progress
         if current_timestamp >= event_end:
-            if ResponseType.EVENT_COMPLETED.name not in sent_responses:
+            if not annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_COMPLETED):
                 return ResponseType.EVENT_COMPLETED
 
         return None  # Not yet started, or still ongoing
@@ -108,6 +115,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
     """Enumerates all known DERControls and sends a Response for any that require it."""
 
     resource_store = context.discovered_resources(step)
+
     stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
 
     # Go through all DER controls to see if a response is required
@@ -132,10 +140,10 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
         # Figure out what response to send using event status, and check if we have already sent a response
         status = EventStatusType(der_control.EventStatus_.currentStatus)
-        # Tags contain enum names as strings ("EVENT_RECEIVED")
-        sent_responses: list[str] = der_ctl.annotations.tags
+
+        der_ctl_annotations = context.resource_annotations(step, der_ctl.id)
         current_time = utc_now()
-        response_status = determine_response_status(status, sent_responses, der_control, current_time)
+        response_status = determine_response_status(status, der_ctl_annotations, der_control, current_time)
 
         # If None, we've already sent all applicable responses
         if response_status is None:
@@ -160,9 +168,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         )
 
         # Update tags to track this response was sent
-        response_tag = response_status.name
-        if response_tag not in sent_responses:
-            der_ctl.annotations.tags.append(response_tag)
+        der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
 
     return ActionResult.done()
 
