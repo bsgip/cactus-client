@@ -2,10 +2,40 @@ import unittest.mock as mock
 from typing import Callable
 
 from aiohttp import ClientSession
+from envoy_schema.server.schema.sep2.response import ResponseType
 
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import (
+    AnnotationNamespace,
+    ExecutionContext,
+    StoredResourceAnnotations,
+)
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import StoredResourceId
+
+
+def test_StoredResourceAnnotations_tags():
+    a = StoredResourceAnnotations()
+
+    assert a.has_tag(AnnotationNamespace.RESPONSES, "foo") is False
+    assert a.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_COMPLETED) is False
+
+    a.add_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_COMPLETED)
+    a.add_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_RECEIVED)
+    a.add_tag(AnnotationNamespace.RESPONSES, "foo")
+
+    assert a.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_RECEIVED) is True
+    assert a.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_COMPLETED) is True
+    assert a.has_tag(AnnotationNamespace.RESPONSES, "foo") is True
+    assert a.has_tag(AnnotationNamespace.RESPONSES, "fooextra") is False
+    assert a.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_SUPERSEDED) is False
+
+    assert a.has_tag(AnnotationNamespace.RESPONSES, "EVENT_RECEIVED") is False
+    assert a.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, ResponseType.EVENT_COMPLETED) is False
+
+    a.add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, ResponseType.EVENT_RECEIVED)
+
+    assert a.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, ResponseType.EVENT_RECEIVED) is True
+    assert a.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_RECEIVED) is True
 
 
 def test_ExecutionContext_resource_annotations(
