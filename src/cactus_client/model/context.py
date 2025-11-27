@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import IntEnum, StrEnum
 from pathlib import Path
 
 from aiohttp import ClientSession
@@ -24,6 +25,39 @@ from cactus_client.model.resource import (
     StoredResourceId,
 )
 from cactus_client.time import utc_now
+
+
+class AnnotationNamespace(StrEnum):
+    # Resource has been received via a Subscription Notification
+    # tag values will reference the test definition sub_id
+    SUBSCRIPTION_RECEIVED = "From Subscription"
+
+    # Resource has had a type of Response sent for it.
+    # tag values will reference the response type being sent
+    RESPONSES = "Response Replies"
+
+
+@dataclass
+class StoredResourceAnnotations:
+    """Annotations are extra metadata that is assigned by the cactus-client to a specific resource. It's usually
+    for tracking state / other details associated with a specific resource and are invariant to changes/updates in that
+    resource."""
+
+    alias: str | None = None
+    tag_creations: dict[tuple[AnnotationNamespace, str | StrEnum | IntEnum], datetime] = field(
+        default_factory=dict
+    )  # Tags with a value of the created_at
+
+    def add_tag(self, namespace: AnnotationNamespace, value: str | StrEnum | IntEnum) -> None:
+        """Adds a tag to the store - if it already exists, has no effect"""
+        tag = (namespace, value)
+        if tag not in self.tag_creations:
+            self.tag_creations[tag] = utc_now()
+
+    def has_tag(self, namespace: AnnotationNamespace, value: str | StrEnum | IntEnum) -> bool:
+        """Returns True if the specified tag has been added via add_tag"""
+        tag = (namespace, value)
+        return tag in self.tag_creations
 
 
 @dataclass(frozen=True)
@@ -56,6 +90,7 @@ class ClientContext:
     test_procedure_alias: str  # What will the test procedure YAML be referring to this context as?
     client_config: ClientConfig
     discovered_resources: ResourceStore
+    annotations: dict[StoredResourceId, StoredResourceAnnotations]
     session: ClientSession  # Used for making HTTP requests - will have base_url, timeouts, ssl_context set
     notifications: (
         NotificationsContext | None
@@ -96,6 +131,18 @@ class ExecutionContext:
     def discovered_resources(self, step: StepExecution) -> ResourceStore:
         """Convenience function for accessing the ResourceStore for a specific step (based on client alias)"""
         return self.clients_by_alias[step.client_resources_alias].discovered_resources
+
+    def resource_annotations(self, step: StepExecution, stored_resource: StoredResourceId) -> StoredResourceAnnotations:
+        """Convenience function for accessing the StoredResourceAnnotation for a specific step's resource. If no
+        annotations currently exist, a default (empty) annotations will be created, stored and then returned"""
+        client_annotations = self.clients_by_alias[step.client_alias].annotations
+        annotations = client_annotations.get(stored_resource, None)
+        if annotations is not None:
+            return annotations
+        else:
+            annotations = StoredResourceAnnotations()
+            client_annotations[stored_resource] = annotations
+            return annotations
 
     def notifications_context(self, step: StepExecution) -> NotificationsContext:
         """Convenience function for accessing the NotificationsContext for a specific step (based on client alias)

@@ -147,7 +147,7 @@ async def action_insert_readings(
     mups_with_id = [
         sr
         for sr in resource_store.get_for_type(CSIPAusResource.MirrorUsagePoint)
-        if sr.resource.href and sr.annotations.alias == mup_id
+        if sr.resource.href and context.resource_annotations(step, sr.id).alias == mup_id
     ]
 
     if len(mups_with_id) != 1:
@@ -236,7 +236,8 @@ async def action_upsert_mup(
             MirrorUsagePoint, step, context, HTTPMethod.POST, list_href, mup_xml
         )
 
-        resource_store.upsert_resource(
-            CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup, alias=mup_id
+        upserted_sr = resource_store.upsert_resource(
+            CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup
         )
+        context.resource_annotations(step, upserted_sr.id).alias = mup_id
     return ActionResult.done()

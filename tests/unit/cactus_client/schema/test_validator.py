@@ -1,4 +1,5 @@
 from random import randint
+
 import pytest
 from assertical.asserts.type import assert_list_type
 

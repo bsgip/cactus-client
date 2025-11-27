@@ -187,7 +187,7 @@ async def test_action_upsert_mup(testing_contexts_factory):
         stored_mups = [
             sr
             for sr in resource_store.get_for_type(CSIPAusResource.MirrorUsagePoint)
-            if sr.annotations.alias == "test-mup-1"
+            if context.resource_annotations(step, sr.id).alias == "test-mup-1"
         ]
         assert len(stored_mups) == 1
         assert stored_mups[0].resource.mRID == inserted_mup.mRID
@@ -199,6 +199,7 @@ async def test_action_insert_readings(testing_contexts_factory):
     """Test that action_insert_readings correctly generates and submits reading data"""
 
     # Arrange
+    context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     post_rate = 60
     step.repeat_number = 0
@@ -220,7 +221,8 @@ async def test_action_insert_readings(testing_contexts_factory):
     )
 
     # Store the MUP with alias
-    resource_store.upsert_resource(CSIPAusResource.MirrorUsagePoint, None, upserted_mup, alias="test-mup-1")
+    sr = resource_store.upsert_resource(CSIPAusResource.MirrorUsagePoint, None, upserted_mup)
+    context.resource_annotations(step, sr.id).alias = "test-mup-1"
 
     # Mock the server request
     with mock.patch("cactus_client.action.mup.request_for_step") as mock_request:
