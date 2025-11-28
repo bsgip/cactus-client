@@ -47,6 +47,7 @@ from cactus_client.action.subscription import (
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import (
+    AnnotationNamespace,
     ExecutionContext,
     NotificationEndpoint,
     NotificationsContext,
@@ -287,8 +288,11 @@ async def test_handle_notification_resource(mock_parse_combined_resource: mock.M
     assert len(derc_lists) == 1, "We updated the DERControlList"
     assert derc_lists[0].id == derc_list_sr.id, "No change in ID"
     assert derc_lists[0].resource is notification_derc_list, "The resource should now point to the new DERControlList"
+    assert context.resource_annotations(step, derc_lists[0].id).has_tag(
+        AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id
+    )
 
-    # Check DERControls
+    # Check DERControls - There is an existing DERControl that should've been left alone and two inserted controls
     dercs = store.get_for_type(CSIPAusResource.DERControl)
     assert len(dercs) == 3, "We added two DERControls to the existing store"
     assert dercs[0] is existing_derc_sr
@@ -296,6 +300,11 @@ async def test_handle_notification_resource(mock_parse_combined_resource: mock.M
     assert dercs[2].id.parent_id() == derc_list_sr.id
     assert dercs[1].resource is notification_derc_list.DERControl[0]
     assert dercs[2].resource is notification_derc_list.DERControl[1]
+    assert not context.resource_annotations(step, dercs[0].id).has_tag(
+        AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id
+    )
+    assert context.resource_annotations(step, dercs[1].id).has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
+    assert context.resource_annotations(step, dercs[2].id).has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
 
     mock_parse_combined_resource.assert_called_once_with(notification.resource.type, notification.resource)
 

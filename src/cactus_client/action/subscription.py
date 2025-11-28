@@ -52,7 +52,7 @@ from cactus_client.action.server import (
 )
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import CactusClientException
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.http import NotificationRequest
 
@@ -210,6 +210,7 @@ async def handle_notification_resource(
     upserted_resource = store.upsert_resource(
         endpoint.subscribed_resource_type, endpoint.subscribed_resource_id.parent_id(), parsed_resource
     )
+    context.resource_annotations(step, upserted_resource.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
 
     # The upserted item might also be a list - in which case we will need to insert any included list items to the
     # store as well
@@ -217,7 +218,10 @@ async def handle_notification_resource(
         get_list_items, list_item_type = get_list_item_callback(upserted_resource.resource_type)
         list_items = get_list_items(parsed_resource) or []
         for child_list_item in list_items:
-            store.upsert_resource(list_item_type, upserted_resource.id, child_list_item)
+            child_upserted_resource = store.upsert_resource(list_item_type, upserted_resource.id, child_list_item)
+            context.resource_annotations(step, child_upserted_resource.id).add_tag(
+                AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id
+            )
 
         total_results = cast(Sep2List, upserted_resource.resource).results
         if len(list_items) != cast(Sep2List, upserted_resource.resource).results:
