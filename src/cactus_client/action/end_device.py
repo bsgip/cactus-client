@@ -105,9 +105,13 @@ async def action_upsert_connection_point(
 
     else:
         # Otherwise insert and refetch the returned ConnectionPoint
-        inserted_edev = await submit_and_refetch_resource_for_step(
+        inserted_cp = await submit_and_refetch_resource_for_step(
             ConnectionPointResponse, step, context, HTTPMethod.PUT, href, cp_xml
         )
+        if cp_id != inserted_cp.id:
+            raise CactusClientException(
+                f"Expected connectionPointId for href {href}  to be {cp_id} but got {inserted_cp.id}."
+            )
 
-        resource_store.upsert_resource(CSIPAusResource.ConnectionPoint, parent_edev.id, inserted_edev)
+        resource_store.upsert_resource(CSIPAusResource.ConnectionPoint, parent_edev.id, inserted_cp)
     return ActionResult.done()
