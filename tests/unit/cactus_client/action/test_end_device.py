@@ -20,6 +20,7 @@ from cactus_client.action.end_device import (
     action_insert_end_device,
     action_upsert_connection_point,
 )
+from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
 
@@ -126,3 +127,27 @@ async def test_action_insert_end_device(testing_contexts_factory):
         assert len(stored_edevs) == 1
         assert stored_edevs[0].resource.lFDI == inserted_edev.lFDI
         assert stored_edevs[0].resource.href == inserted_edev.href
+
+
+@pytest.mark.asyncio
+async def test_action_upsert_connection_point_raises_on_upsert_failure(testing_contexts_factory):
+    """Test that action_upsert_connection_point creates a valid ConnectionPoint request"""
+
+    # Arrange
+    context: ExecutionContext
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    client_config = context.client_config(step)
+
+    cp_link = Link(href="/edev/1/cp")
+    end_device = generate_class_instance(EndDeviceResponse, lFDI=client_config.lfdi, ConnectionPointLink=cp_link)
+    resource_store.upsert_resource(CSIPAusResource.EndDevice, None, end_device)
+
+    with mock.patch("cactus_client.action.end_device.submit_and_refetch_resource_for_step") as mock_submit:
+        inserted_cp = generate_class_instance(ConnectionPointResponse, id="DIFFERENT_CP", href="/edev/1/cp/test-cp-1")
+        mock_submit.return_value = inserted_cp
+
+        resolved_params = {"connectionPointId": "test-cp-1"}
+
+        with pytest.raises(CactusClientException):
+            await action_upsert_connection_point(resolved_params, step, context)
