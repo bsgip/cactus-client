@@ -13,7 +13,7 @@ from envoy_schema.server.schema.sep2.end_device import (
 
 from cactus_client.check.end_device import check_end_device, check_end_device_list
 from cactus_client.model.config import ClientConfig
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 
 
@@ -196,20 +196,63 @@ def test_check_end_device(
 
 
 @pytest.mark.parametrize(
-    "existing_edev_lists, matches_poll_rate, expected_result",
+    "existing_edev_lists_with_tags, min_count, max_count, poll_rate, sub_id, expected_result",
     [
-        ([], 123, False),
-        ([], 0, False),
-        ([generate_class_instance(EndDeviceListResponse, pollRate=123)], 0, False),
-        ([generate_class_instance(EndDeviceListResponse, pollRate=123)], 123, True),
-        ([generate_class_instance(EndDeviceListResponse, pollRate=None)], 123, False),
+        ([], None, None, None, None, True),
+        ([], 0, 10, None, None, True),
+        ([], 1, 10, None, None, False),
+        ([(generate_class_instance(EndDeviceListResponse, pollRate=123), [])], 1, 1, 0, None, False),
+        ([(generate_class_instance(EndDeviceListResponse, pollRate=123), [])], 1, 1, 123, None, True),
+        ([(generate_class_instance(EndDeviceListResponse, pollRate=None), [])], 1, 1, 123, None, False),
         (
             [
-                generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None),
-                generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0),
-                generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456),
+                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), []),
+                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), []),
+                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), []),
             ],
+            1,
+            1,
             456,
+            None,
+            True,
+        ),
+        (
+            [
+                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456), []),
+            ],
+            1,
+            1,
+            456,
+            None,
+            False,
+        ),
+        (
+            [
+                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456), []),
+            ],
+            1,
+            1,
+            456,
+            "sub1",
+            True,
+        ),
+        (
+            [
+                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), ["sub1"]),
+                (generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456), []),
+            ],
+            3,
+            3,
+            None,
+            "sub1",
             True,
         ),
     ],
@@ -217,19 +260,34 @@ def test_check_end_device(
 def test_check_end_device_list(
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
-    existing_edev_lists: list[EndDeviceListResponse],
-    matches_poll_rate: int,
+    existing_edev_lists_with_tags: list[tuple[EndDeviceListResponse, list[str]]],
+    min_count: int | None,
+    max_count: int | None,
+    poll_rate: int | None,
+    sub_id: str | None,
     expected_result: bool,
 ):
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     store = context.discovered_resources(step)
 
-    for edev_list in existing_edev_lists:
-        store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
+    for edev_list, tags in existing_edev_lists_with_tags:
+        sr = store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
+        for tag in tags:
+            context.resource_annotations(step, sr.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, tag)
+
+    resolved_params = {}
+    if min_count is not None:
+        resolved_params["minimum_count"] = min_count
+    if max_count is not None:
+        resolved_params["maximum_count"] = max_count
+    if poll_rate is not None:
+        resolved_params["poll_rate"] = poll_rate
+    if sub_id is not None:
+        resolved_params["sub_id"] = sub_id
 
     # Act
-    result = check_end_device_list({"matches_poll_rate": matches_poll_rate}, step, context)
+    result = check_end_device_list(resolved_params, step, context)
 
     # Assert
     assert_check_result(result, expected_result)

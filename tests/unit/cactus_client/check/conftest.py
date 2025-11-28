@@ -7,7 +7,7 @@ from cactus_client.model.execution import CheckResult
 def assert_check_result():
     def _assert_check_result(v: CheckResult, expected: bool):
         assert isinstance(v, CheckResult)
-        assert v.passed is expected
+        assert v.passed is expected, v.description
         if not v.passed:
             assert v.description, "Description must be set on failure"
 

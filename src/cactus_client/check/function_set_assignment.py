@@ -3,7 +3,7 @@ from typing import Any
 from cactus_test_definitions.csipaus import CSIPAusResource
 
 from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 
 
@@ -15,6 +15,7 @@ def check_function_set_assignment(
     minimum_count: int | None = resolved_parameters.get("minimum_count", None)
     maximum_count: int | None = resolved_parameters.get("maximum_count", None)
     matches_client_edev: bool = resolved_parameters.get("matches_client_edev", False)
+    sub_id: str | None = resolved_parameters.get("sub_id", None)
 
     store = context.discovered_resources(step)
     client_config = context.client_config(step)
@@ -33,6 +34,12 @@ def check_function_set_assignment(
         # We might be ONLY looking at FSA's that are a direct descendent of this EndDevice
         if matched_edev is not None:
             if not fsa_sr.id.is_descendent_of(matched_edev.id):
+                continue
+
+        # We might be ONLY looking at FSA's that arrived via a particular subscription n
+        if sub_id is not None:
+            annotations = context.resource_annotations(step, fsa_sr.id)
+            if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
                 continue
 
         matches_found += 1
