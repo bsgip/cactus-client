@@ -67,8 +67,10 @@ from cactus_client.time import utc_now
 )
 @freeze_time("2025-11-19 12:00:00")
 @mock.patch("cactus_client.action.der_controls.submit_and_refetch_resource_for_step")
+@mock.patch("cactus_client.action.der_controls.discover_resource")
 @pytest.mark.asyncio
 async def test_action_respond_der_controls_with_previous_responses(
+    mock_discover_resource: mock.MagicMock,
     mock_submit_and_refetch: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     event_status: int,

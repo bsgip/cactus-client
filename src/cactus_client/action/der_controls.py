@@ -10,6 +10,7 @@ from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.event import EventStatusType
 from envoy_schema.server.schema.sep2.response import Response, ResponseType
 
+from cactus_client.action.discovery import discover_resource
 from cactus_client.action.server import (
     client_error_request_for_step,
     resource_to_sep2_xml,
@@ -114,8 +115,13 @@ def determine_response_status(
 async def action_respond_der_controls(step: StepExecution, context: ExecutionContext) -> ActionResult:
     """Enumerates all known DERControls and sends a Response for any that require it."""
 
-    resource_store = context.discovered_resources(step)
+    # First do a discovery so that the resource store of DERControls is up to date
+    request_resources = context.resource_tree.discover_resource_plan([CSIPAusResource.DERControl])
+    for resource in request_resources:
+        await discover_resource(resource, step, context)
 
+    # Find al discovered controls
+    resource_store = context.discovered_resources(step)
     stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
 
     # Go through all DER controls to see if a response is required

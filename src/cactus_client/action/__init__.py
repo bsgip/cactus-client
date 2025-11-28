@@ -6,6 +6,7 @@ from cactus_client.action.der import (
     action_upsert_der_settings,
     action_upsert_der_status,
 )
+from cactus_client.action.der_controls import action_respond_der_controls, action_send_malformed_response
 from cactus_client.action.discovery import action_discovery
 from cactus_client.action.end_device import (
     action_insert_end_device,
@@ -62,6 +63,10 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_upsert_der_capability(resolved_params, step, context)
         case "upsert-der-settings":
             return await action_upsert_der_settings(resolved_params, step, context)
+        case "respond-der-controls":
+            return await action_respond_der_controls(step, context)
+        case "send-malformed-response":
+            return await action_send_malformed_response(resolved_params, step, context)
         case "upsert-der-status":
             return await action_upsert_der_status(resolved_params, step, context)
         case "send-malformed-der-settings":
