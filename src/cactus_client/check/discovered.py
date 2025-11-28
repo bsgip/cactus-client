@@ -16,7 +16,7 @@ def do_resources_check(
         if not resource_store.get_for_type(resource):
             missing_resources.append(resource)
     if missing_resources:
-        return CheckResult(False, f"Couldn't find resources: {','.join(resources)}")
+        return CheckResult(False, f"Couldn't find resources: {','.join(missing_resources)}")
 
     return None  # Check passed
 
