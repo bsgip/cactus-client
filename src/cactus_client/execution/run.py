@@ -9,6 +9,7 @@ from cactus_client.execution.build import build_execution_context
 from cactus_client.execution.execute import execute_for_context
 from cactus_client.execution.tui import run_tui
 from cactus_client.model.config import GlobalConfig, RunConfig
+from cactus_client.model.execution import ExecutionResult
 from cactus_client.model.output import RunOutputFile, RunOutputManager
 from cactus_client.results.common import ResultsEvaluation
 from cactus_client.results.console import render_console
@@ -89,9 +90,19 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
 
             results = ResultsEvaluation(context, execute_task.result())
         except asyncio.CancelledError as exc:
+            # On cancellation - just log it as a non completion but still allow the results printouts to proceed
             logger.error("Aborting test due to cancellation.", exc_info=exc)
-            persist_all_request_data(context, output_manager)
-            return False
+            results = ResultsEvaluation(context, ExecutionResult(completed=False))
+
+            # Go through all other tasks and force them to cancel and await that cancellation
+            for task in tasks:
+                if not task.done() and not task.cancelled():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass  # This is the expected result - we are awaiting a task we cancelled.
+
         logger.info(f"Test passed: {results.has_passed()}")
         logger.debug(f"ResultsEvaluation: {results}")
 
