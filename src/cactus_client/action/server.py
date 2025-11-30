@@ -229,3 +229,25 @@ async def paginate_list_resource_items(
         )
 
     return all_items
+
+
+async def get_list_resource_items(
+    list_type: type[AnyResourceType],
+    step: StepExecution,
+    context: ExecutionContext,
+    list_href: str,
+    list_limit: int,
+    item_callback: Callable[[AnyResourceType], list[AnyType] | None],
+) -> list[AnyType]:
+    """
+    Fetch a single page of list items with s=0 and l=list_limit.
+    Otherwise behaves just like paginate_list_resource_items
+
+    list_limit: How many items to request (sets l= parameter)
+    """
+    page_href = list_href + build_paging_params(start=0, limit=list_limit)
+    latest_list = await get_resource_for_step(list_type, step, context, page_href)
+    latest_items = item_callback(latest_list)
+    if latest_items is None:
+        latest_items = []
+    return latest_items

@@ -18,6 +18,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointList
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
 from cactus_client.action.server import (
+    get_list_resource_items,
     get_resource_for_step,
     paginate_list_resource_items,
 )
@@ -96,7 +97,9 @@ def get_list_item_callback(
     return (get_list_items, list_item_type)
 
 
-async def discover_resource(resource: CSIPAusResource, step: StepExecution, context: ExecutionContext) -> None:
+async def discover_resource(
+    resource: CSIPAusResource, step: StepExecution, context: ExecutionContext, list_limit: int | None
+) -> None:
     """Performs discovery for the particular resource - it is assumed that all parent resources have been previously
     fetched."""
 
@@ -133,14 +136,25 @@ async def discover_resource(resource: CSIPAusResource, step: StepExecution, cont
             if not list_href:
                 continue
 
-            # Paginate through each of the lists - each of those items are the things we want to store
-            list_items = await paginate_list_resource_items(
-                RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, DISCOVERY_LIST_PAGE_SIZE, get_list_items
-            )
-            for item in list_items:
-                resource_store.append_resource(
-                    resource, parent_sr.id, check_item_for_href(step, context, list_href, item)
+            # If list limit exists, make a single query of this length
+            if list_limit is not None:
+                list_items = await get_list_resource_items(
+                    RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, list_limit, get_list_items
                 )
+            else:
+                # Paginate through each of the lists - each of those items are the things we want to store
+                list_items = await paginate_list_resource_items(
+                    RESOURCE_SEP2_TYPES[parent_resource],
+                    step,
+                    context,
+                    list_href,
+                    DISCOVERY_LIST_PAGE_SIZE,
+                    get_list_items,
+                )
+                for item in list_items:
+                    resource_store.append_resource(
+                        resource, parent_sr.id, check_item_for_href(step, context, list_href, item)
+                    )
     else:
         # Not a list item - look for direct links from parent (eg an EndDevice.ConnectionPointLink -> ConnectionPoint)
         for parent_sr in resource_store.get_for_type(parent_resource):
@@ -163,7 +177,7 @@ async def action_discovery(
 ) -> ActionResult:
     resources: list[CSIPAusResource] = resolved_parameters["resources"]  # Mandatory param
     next_polling_window: bool = resolved_parameters.get("next_polling_window", False)
-    list_limit: int = resolved_parameters.get("list_limit", None)
+    list_limit: int | None = resolved_parameters.get("list_limit", None)
     now = utc_now()
     discovered_resources = context.discovered_resources(step)
 
@@ -175,6 +189,6 @@ async def action_discovery(
 
     # Start making requests for resources
     for resource in context.resource_tree.discover_resource_plan(resources):
-        await discover_resource(resource, step, context)
+        await discover_resource(resource, step, context, list_limit)
 
     return ActionResult.done()
