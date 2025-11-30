@@ -163,6 +163,7 @@ async def action_discovery(
 ) -> ActionResult:
     resources: list[CSIPAusResource] = resolved_parameters["resources"]  # Mandatory param
     next_polling_window: bool = resolved_parameters.get("next_polling_window", False)
+    list_limit: int = resolved_parameters.get("list_limit", None)
     now = utc_now()
     discovered_resources = context.discovered_resources(step)
 
