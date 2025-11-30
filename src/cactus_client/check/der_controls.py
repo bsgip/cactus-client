@@ -1,11 +1,15 @@
 from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
-from envoy_schema.server.schema.sep2.der import DERControlResponse, DERProgramResponse, DefaultDERControl
+from envoy_schema.server.schema.sep2.der import (
+    DefaultDERControl,
+    DERControlResponse,
+    DERProgramResponse,
+)
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower
 
 from cactus_client.error import CactusClientException
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import StoredResource
 from cactus_client.sep2 import hex_binary_equal
@@ -24,10 +28,13 @@ def check_default_der_control(
     """Checks whether there is a DefaultDERControl in the resource store that matches the check criteria"""
 
     # Setup
+    minimum_count: int | None = resolved_parameters.get("minimum_count", None)
+    maximum_count: int | None = resolved_parameters.get("maximum_count", None)
     export_limit_w: float | None = resolved_parameters.get("opModExpLimW", None)
     load_limit_w: float | None = resolved_parameters.get("opModLoadLimW", None)
     generation_limit_w: float | None = resolved_parameters.get("opModGenLimW", None)
     set_grad_w: int | None = resolved_parameters.get("setGradW", None)
+    sub_id: str | None = resolved_parameters.get("sub_id", None)
 
     resource_store = context.discovered_resources(step)
     default_der_controls = resource_store.get_for_type(CSIPAusResource.DefaultDERControl)
@@ -36,6 +43,7 @@ def check_default_der_control(
         return CheckResult(False, "No DefaultDERControl found in resource store")
 
     # Check each DefaultDERControl (typically there should be only one)
+    total_matches = 0
     for dderc_sr in default_der_controls:
         dderc = cast(DefaultDERControl, dderc_sr.resource)
 
@@ -63,18 +71,24 @@ def check_default_der_control(
             if actual_grad_w != set_grad_w:
                 continue
 
-        # All checks pass
-        return CheckResult(True, None)
+        if sub_id is not None:
+            annotations = context.resource_annotations(step, dderc_sr.id)
+            if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                continue
 
-    # If we get here, no ddercs match the criteria
-    return CheckResult(
-        False,
-        (
-            f"""No Default DER Controls were found matching the given criteria: export limit - {export_limit_w},
-             load limit: {load_limit_w}, gen limit - {generation_limit_w}, setGradW - {set_grad_w}.
-             {len(default_der_controls)} DER Controls were found in the database, none matching."""
-        ),
-    )
+        total_matches += 1
+
+    if minimum_count is not None and total_matches < minimum_count:
+        return CheckResult(
+            False, f"Matched {total_matches} DefaultDERControls against criteria. Expected at least {minimum_count}"
+        )
+
+    if maximum_count is not None and total_matches > maximum_count:
+        return CheckResult(
+            False, f"Matched {total_matches} DefaultDERControls against criteria. Expected at most {maximum_count}"
+        )
+
+    return CheckResult(True, None)
 
 
 def get_latest_derc(dercs: list[StoredResource]) -> StoredResource | None:
@@ -109,6 +123,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
     event_status: int | None = resolved_parameters.get("event_status", None)
     response_required: int | None = resolved_parameters.get("responseRequired", None)
     derp_primacy: int | None = resolved_parameters.get("responseRequired", None)
+    sub_id: str | None = resolved_parameters.get("sub_id", None)
 
     resource_store = context.discovered_resources(step)
 
@@ -122,7 +137,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
             all_dercontrols = [latest_derc]
 
     # Perform filtering
-    matching_der_controls: list[StoredResource] = []
+    total_matches = 0
     for derc_sr in all_dercontrols:
         derc = cast(DERControlResponse, derc_sr.resource)
 
@@ -166,10 +181,14 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
             if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
                 continue
 
-        matching_der_controls.append(derc_sr)
+        if sub_id is not None:
+            annotations = context.resource_annotations(step, derc_sr.id)
+            if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                continue
+
+        total_matches += 1
 
     # Figure out our match criteria
-    total_matches = len(matching_der_controls)
     if minimum_count is not None and total_matches < minimum_count:
         return CheckResult(
             False, f"Matched {total_matches} DERControls against criteria. Expected at least {minimum_count}"
@@ -179,9 +198,5 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
         return CheckResult(
             False, f"Matched {total_matches} DERControls against criteria. Expected at most {maximum_count}"
         )
-
-    # Otherwise assume at least one control should match
-    if total_matches < 1:
-        return CheckResult(False, f"Matched {total_matches} DERControls against criteria. Expected at least 1")
 
     return CheckResult(True, None)

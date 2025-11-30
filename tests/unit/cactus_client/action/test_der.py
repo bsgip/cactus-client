@@ -238,7 +238,7 @@ async def test_action_send_malformed_der_settings(
     mock_client_error_request: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
-    """Test sending malformed DERSettings with BOTH updatedTime_missing and modesEnabled_int set"""
+    """Test sending malformed DERSettings with BOTH updatedTime_missing and modesEnabled_as_int set"""
 
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
@@ -250,7 +250,7 @@ async def test_action_send_malformed_der_settings(
         der = generate_class_instance(DER, seed=i, generate_relationships=True)
         resource_store.append_resource(CSIPAusResource.DER, None, der)
 
-    resolved_params = {"updatedTime_missing": True, "modesEnabled_int": True}
+    resolved_params = {"updatedTime_missing": True, "modesEnabled_as_int": True}
 
     # Act
     result = await action_send_malformed_der_settings(resolved_params, step, context)

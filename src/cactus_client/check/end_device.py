@@ -7,7 +7,7 @@ from envoy_schema.server.schema.sep2.end_device import (
     RegistrationResponse,
 )
 
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import ResourceStore, StoredResource
 
@@ -82,15 +82,37 @@ def check_end_device_list(
 ) -> CheckResult:
     """Checks whether the specified EndDeviceList's in the resource store match the check criteria"""
 
-    matches_poll_rate: int = resolved_parameters["matches_poll_rate"]
+    minimum_count: int | None = resolved_parameters.get("minimum_count", None)
+    maximum_count: int | None = resolved_parameters.get("maximum_count", None)
+    matches_poll_rate: int | None = resolved_parameters.get("poll_rate", None)
+    sub_id: str | None = resolved_parameters.get("sub_id", None)
 
     resource_store = context.discovered_resources(step)
 
+    # Count the matches according to our filter criteria
+    matches_found = 0
     edev_lists = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
     for edev_list_sr in edev_lists:
-        if cast(EndDeviceListResponse, edev_list_sr.resource).pollRate == matches_poll_rate:
-            return CheckResult(True, None)
 
-    return CheckResult(
-        False, f"Couldn't find an EndDeviceList with pollRate={matches_poll_rate} from {len(edev_lists)} lists."
-    )
+        if matches_poll_rate is not None:
+            if cast(EndDeviceListResponse, edev_list_sr.resource).pollRate != matches_poll_rate:
+                continue
+
+        if sub_id is not None:
+            annotations = context.resource_annotations(step, edev_list_sr.id)
+            if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                continue
+
+        matches_found += 1
+
+    if minimum_count is not None and matches_found < minimum_count:
+        return CheckResult(
+            False, f"EndDeviceList minimum_count is {minimum_count} but only found {matches_found} matches."
+        )
+
+    if maximum_count is not None and matches_found > maximum_count:
+        return CheckResult(
+            False, f"EndDeviceList maximum_count is {maximum_count} but only found {matches_found} matches."
+        )
+
+    return CheckResult(True, None)

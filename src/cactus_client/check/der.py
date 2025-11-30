@@ -2,9 +2,9 @@ from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERProgramResponse
-from cactus_client.model.context import ExecutionContext
+
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
-from cactus_client.model.resource import StoredResource
 
 
 def check_der_program(
@@ -16,6 +16,7 @@ def check_der_program(
     maximum_count: int | None = resolved_parameters.get("maximum_count", None)
     primacy: int | None = resolved_parameters.get("primacy", None)
     fsa_index: int | None = resolved_parameters.get("fsa_index", None)
+    sub_id: str | None = resolved_parameters.get("sub_id", None)
 
     resource_store = context.discovered_resources(step)
     all_der_programs = resource_store.get_for_type(CSIPAusResource.DERProgram)
@@ -26,7 +27,7 @@ def check_der_program(
         sorted_fsas = sorted(all_fsas, key=lambda sr: sr.resource.href if sr.resource.href else "")
 
     # Perform filtering
-    matching_der_programs: list[StoredResource] = []
+    total_matches = 0
     for derp_sr in all_der_programs:
         derp = cast(DERProgramResponse, derp_sr.resource)
 
@@ -37,26 +38,23 @@ def check_der_program(
         # Filter by FSA index if specified
         if fsa_index is not None:
             # Get the parent FSA
-            fsa = resource_store.get_ancestor_of(CSIPAusResource.FunctionSetAssignments, derp_sr.id)
+            actual_parent_fsa = resource_store.get_ancestor_of(CSIPAusResource.FunctionSetAssignments, derp_sr.id)
 
-            if fsa is None:
+            if actual_parent_fsa is None:
                 continue
 
             # Find the index of this FSA
-            try:
-                actual_index = sorted_fsas.index(fsa)
-                if actual_index != fsa_index:
-                    continue
-
-            # FSA not found in list, shouldn't happen
-            except ValueError:
+            if sorted_fsas[fsa_index].id != actual_parent_fsa.id:
                 continue
 
-        matching_der_programs.append(derp_sr)
+        if sub_id is not None:
+            annotations = context.resource_annotations(step, derp_sr.id)
+            if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                continue
+
+        total_matches += 1
 
     # Check match criteria
-    total_matches = len(matching_der_programs)
-
     if minimum_count is not None and total_matches < minimum_count:
         return CheckResult(
             False, f"Matched {total_matches} DERPrograms against criteria. Expected at least {minimum_count}"
@@ -66,9 +64,5 @@ def check_der_program(
         return CheckResult(
             False, f"Matched {total_matches} DERPrograms against criteria. Expected at most {maximum_count}"
         )
-
-    # If min count is not set assume at least one must match
-    if total_matches < 1:
-        return CheckResult(False, f"Matched {total_matches} DERPrograms against criteria. Expected at least one")
 
     return CheckResult(True, None)
