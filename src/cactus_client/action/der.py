@@ -212,17 +212,10 @@ async def action_upsert_der_status(
 async def action_send_malformed_der_settings(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
-    """Sends a malformed DERSettings - expects a failure and that the server will NOT change anything"""
+    """Sends a malformed DERSettings - missing updatedTime"""
 
     resource_store = context.discovered_resources(step)
-
-    # Extract and convert parameters
     updatedTime_missing: bool = resolved_parameters["updatedTime_missing"]
-    modesEnabled_as_int: bool = resolved_parameters["modesEnabled_as_int"]
-
-    # Quick sanity check
-    if not updatedTime_missing and not modesEnabled_as_int:
-        raise CactusClientException("""Expected either updatedTime_missing or modesEnabled_as_int to be true.""")
 
     # Create a compliant DERSettings first
     der_settings_request = DERSettings(
@@ -239,12 +232,6 @@ async def action_send_malformed_der_settings(
     if updatedTime_missing:
         # Remove the entire <updatedTime>...</updatedTime> element
         der_settings_xml = re.sub(r"<updatedTime>.*?</updatedTime>", "", der_settings_xml)
-
-    if modesEnabled_as_int:
-        # Replace the modesEnabled hex bitmap with an integer
-        der_settings_xml = re.sub(
-            r"<modesEnabled>.*?</modesEnabled>", r"<modesEnabled>8</modesEnabled>", der_settings_xml
-        )
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]

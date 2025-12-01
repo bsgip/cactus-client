@@ -7,10 +7,7 @@ from envoy_schema.server.schema.csip_aus.connection_point import (
     ConnectionPointRequest,
     ConnectionPointResponse,
 )
-from envoy_schema.server.schema.sep2.end_device import (
-    EndDeviceRequest,
-    EndDeviceResponse,
-)
+from envoy_schema.server.schema.sep2.end_device import EndDeviceRequest, EndDeviceResponse
 from envoy_schema.server.schema.sep2.types import DeviceCategory, ReasonCodeType
 
 from cactus_client.action.server import (
