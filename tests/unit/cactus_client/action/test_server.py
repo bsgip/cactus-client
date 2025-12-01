@@ -9,11 +9,7 @@ from aiohttp.test_utils import TestClient
 from assertical.asserts.type import assert_list_type
 from assertical.fake.generator import generate_class_instance
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
-from envoy_schema.server.schema.sep2.end_device import (
-    EndDeviceListResponse,
-    EndDeviceRequest,
-    EndDeviceResponse,
-)
+from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse, EndDeviceRequest, EndDeviceResponse
 
 from cactus_client.action.server import (
     delete_and_check_resource_for_step,
