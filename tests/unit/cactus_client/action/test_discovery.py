@@ -392,24 +392,26 @@ async def test_action_discovery_with_polling_window(
     assert result.done()
 
 
-@mock.patch("cactus_client.action.discovery.get_list_resource_items")
+@mock.patch("cactus_client.action.discovery.fetch_list_page")
 @mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
 @pytest.mark.asyncio
 async def test_discover_resource_with_list_limit(
     mock_get_resource_for_step: mock.MagicMock,
     mock_paginate_list_resource_items: mock.MagicMock,
-    mock_get_list_resource_items: mock.MagicMock,
+    fetch_list_page: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
-    """Test that discover_resource uses get_list_resource_items when list_limit is provided."""
+    """Test that discover_resource uses fetch_list_page when list_limit is provided."""
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
     list_limit = 5
 
+    parent_resource = CSIPAusResource.EndDeviceList
+
     stored_parent = resource_store.append_resource(
-        CSIPAusResource.EndDeviceList,
+        parent_resource,
         None,
         generate_class_instance(EndDeviceListResponse, seed=1, href="/edev", generate_relationships=True),
     )
@@ -418,22 +420,23 @@ async def test_discover_resource_with_list_limit(
     limited_items = [
         generate_class_instance(EndDeviceResponse, seed=idx, href=f"/edev/{idx}") for idx in range(list_limit)
     ]
-    mock_get_list_resource_items.return_value = limited_items
+    fetch_list_page.return_value = (limited_items, list_limit)  # Return tuple: (items, all_attribute)
 
     # Act
     await discover_resource(CSIPAusResource.EndDevice, step, context, list_limit)
 
-    # Assert - should call get_list_resource_items, NOT paginate_list_resource_items
-    mock_get_list_resource_items.assert_called_once()
+    # Assert - should call fetch_list_page, NOT paginate_list_resource_items
+    fetch_list_page.assert_called_once()
     mock_paginate_list_resource_items.assert_not_called()
 
-    call_args = mock_get_list_resource_items.call_args
+    call_args = fetch_list_page.call_args
     assert call_args[0][0] == EndDeviceListResponse
     assert call_args[0][1] == step
     assert call_args[0][2] == context
     assert call_args[0][3] == stored_parent.resource.href
-    assert call_args[0][4] == list_limit
-    assert callable(call_args[0][5])
+    assert call_args[0][4] == 0  # start (should be 0)
+    assert call_args[0][5] == list_limit
+    assert callable(call_args[0][6])
 
     # Verify items were stored
     stored_children = resource_store.get_for_type(CSIPAusResource.EndDevice)

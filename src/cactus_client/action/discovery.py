@@ -17,11 +17,7 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
-from cactus_client.action.server import (
-    get_list_resource_items,
-    get_resource_for_step,
-    paginate_list_resource_items,
-)
+from cactus_client.action.server import fetch_list_page, get_resource_for_step, paginate_list_resource_items
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -138,8 +134,8 @@ async def discover_resource(
 
             # If list limit exists, make a single query of this length
             if list_limit is not None:
-                list_items = await get_list_resource_items(
-                    RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, list_limit, get_list_items
+                list_items, _ = await fetch_list_page(
+                    RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, 0, list_limit, get_list_items
                 )
             else:
                 # Paginate through each of the lists - each of those items are the things we want to store
