@@ -28,6 +28,7 @@ class ServerConfig:
 
     device_capability_uri: str
     verify_ssl: bool  # All connections will use the system default SSL validation for the server cert.
+    verify_host_name: bool = True  # All connections will validate the host name on the server's cert
     serca_pem_file: str | None = None  # The file path to the SERCA PEM that the server will be using as a trust anchor
     notification_uri: str | None = None  # The base URI of the cactus-client-notifications that will be used for pub/sub
 

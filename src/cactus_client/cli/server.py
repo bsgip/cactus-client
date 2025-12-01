@@ -7,7 +7,11 @@ from urllib.parse import urlparse
 from rich.console import Console
 from rich.table import Table
 
-from cactus_client.cli.common import is_certificate_file_invalid, rich_cert_file_value
+from cactus_client.cli.common import (
+    is_certificate_file_invalid,
+    parse_bool,
+    rich_cert_file_value,
+)
 from cactus_client.error import ConfigException
 from cactus_client.model.config import (
     CONFIG_CWD,
@@ -23,6 +27,7 @@ COMMAND_NAME = "server"
 class ServerConfigKey(StrEnum):
     DCAP = auto()
     VERIFY = auto()
+    VERIFY_HOST = auto()
     SERCA = auto()
     NOTIFICATION = auto()
 
@@ -59,11 +64,9 @@ def update_server_key(
                     raise ValueError(f"{new_value} doesn't appear to be a valid URI. Got: {parsed}")
                 return replace(server, device_capability_uri=new_value)
             case ServerConfigKey.VERIFY:
-                if new_value.lower() in {"true", "t", "1", "y", "yes"}:
-                    return replace(server, verify_ssl=True)
-                elif new_value.lower() in {"false", "f", "0", "n", "no"}:
-                    return replace(server, verify_ssl=False)
-                raise ValueError(f"{new_value} can't be mapped to a boolean.")
+                return replace(server, verify_ssl=parse_bool(new_value))
+            case ServerConfigKey.VERIFY_HOST:
+                return replace(server, verify_host_name=parse_bool(new_value))
             case ServerConfigKey.SERCA:
                 cert_error = is_certificate_file_invalid(new_value)
                 if cert_error:
@@ -92,6 +95,7 @@ def print_server(console: Console, config: GlobalConfig) -> None:
 
     dcap = config.server.device_capability_uri if config.server else None
     verify = config.server.verify_ssl if config.server else None
+    verify_host = config.server.verify_host_name if config.server else None
     serca_pem_file = config.server.serca_pem_file if config.server else None
     notification = config.server.notification_uri if config.server else None
 
@@ -104,6 +108,11 @@ def print_server(console: Console, config: GlobalConfig) -> None:
         "verify",
         str(verify) if verify is not None else "[b red]null[/b red]",
         "Set to False to disable SSL/TLS validation.",
+    )
+    table.add_row(
+        "verify_host",
+        str(verify_host) if verify_host is not None else "[b red]null[/b red]",
+        "Set to False to disable SSL/TLS checking the host name of the server certificate.",
     )
     table.add_row(
         "serca",

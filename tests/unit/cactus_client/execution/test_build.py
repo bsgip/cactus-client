@@ -39,6 +39,7 @@ def generate_valid_config(
         server=ServerConfig(
             device_capability_uri="https://my.test.server:1234/my/path",
             verify_ssl=True,
+            verify_host_name=True,
             serca_pem_file=serca_file,
             notification_uri=notification_uri,
         ),
