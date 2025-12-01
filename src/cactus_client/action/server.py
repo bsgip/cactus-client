@@ -113,17 +113,19 @@ async def submit_and_refetch_resource_for_step(
     context: ExecutionContext,
     method: HTTPMethod,
     href: str,
-    sep2_xml_body: str,
+    submitted_resource: AnyResourceType,
     no_location_header: bool = False,
 ) -> AnyResourceType:
-    """Makes a method request to a particular href, submitting sep2_xml_body and expecting a success response. Then
+    """Makes a method request to a particular href, submitting submitted_resource and expecting a success response. Then
     parse the resulting response for a Location header and then GET that URI, returning the resulting resource.
 
     if no_location_header is set - the initial response will not be checked for a Location header and instead href
     will be used as the GET (use this for when updating a resource insitu, not creating a new resource)"""
 
     # Make the submit request
-    response = await request_for_step(step, context, href, method, sep2_xml_body=sep2_xml_body)
+    response = await request_for_step(
+        step, context, href, method, sep2_xml_body=resource_to_sep2_xml(submitted_resource)
+    )
     if not response.is_success():
         raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
 

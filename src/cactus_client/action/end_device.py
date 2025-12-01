@@ -5,9 +5,11 @@ from typing import Any, cast
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.csip_aus.connection_point import (
     ConnectionPointRequest,
-    ConnectionPointResponse,
 )
-from envoy_schema.server.schema.sep2.end_device import EndDeviceRequest, EndDeviceResponse
+from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceRequest,
+    EndDeviceResponse,
+)
 from envoy_schema.server.schema.sep2.types import DeviceCategory, ReasonCodeType
 
 from cactus_client.action.server import (
@@ -57,14 +59,17 @@ async def action_insert_end_device(
         )
 
     list_href = cast(str, list_edevs[0].resource.href)  # This will be set due to the earlier filter
-    edev_xml = resource_to_sep2_xml(generate_end_device_request(step, context, force_lfdi))
+    edev_request = generate_end_device_request(step, context, force_lfdi)
+
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
-        await client_error_request_for_step(step, context, list_href, HTTPMethod.POST, edev_xml)
+        await client_error_request_for_step(
+            step, context, list_href, HTTPMethod.POST, resource_to_sep2_xml(edev_request)
+        )
     else:
         # Otherwise insert and refetch the returned EndDevice
         inserted_edev = await submit_and_refetch_resource_for_step(
-            EndDeviceResponse, step, context, HTTPMethod.POST, list_href, edev_xml
+            EndDeviceResponse, step, context, HTTPMethod.POST, list_href, edev_request
         )
 
         resource_store.upsert_resource(CSIPAusResource.EndDevice, list_edevs[0].id, inserted_edev)
@@ -91,10 +96,12 @@ async def action_upsert_connection_point(
         )
 
     href = cp_link.href
-    cp_xml = resource_to_sep2_xml(ConnectionPointRequest(id=cp_id))
+    cp_request = ConnectionPointRequest(id=cp_id)
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
-        error = await client_error_request_for_step(step, context, href, HTTPMethod.PUT, cp_xml)
+        error = await client_error_request_for_step(
+            step, context, href, HTTPMethod.PUT, resource_to_sep2_xml(cp_request)
+        )
 
         # This is a requirement of CSIP-Aus
         if error.reasonCode != ReasonCodeType.invalid_request_values:
@@ -105,7 +112,7 @@ async def action_upsert_connection_point(
     else:
         # Otherwise insert and refetch the returned ConnectionPoint
         inserted_cp = await submit_and_refetch_resource_for_step(
-            ConnectionPointResponse, step, context, HTTPMethod.PUT, href, cp_xml
+            ConnectionPointRequest, step, context, HTTPMethod.PUT, href, cp_request
         )
         if cp_id != inserted_cp.id:
             raise CactusClientException(

@@ -9,7 +9,11 @@ from aiohttp.test_utils import TestClient
 from assertical.asserts.type import assert_list_type
 from assertical.fake.generator import generate_class_instance
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
-from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse, EndDeviceRequest, EndDeviceResponse
+from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceListResponse,
+    EndDeviceRequest,
+    EndDeviceResponse,
+)
 
 from cactus_client.action.server import (
     delete_and_check_resource_for_step,
@@ -214,7 +218,12 @@ async def test_submit_and_refetch_resource_for_step_success(aiohttp_client, test
     ) as session:
         (execution_context, step_execution) = testing_contexts_factory(session)
         result = await submit_and_refetch_resource_for_step(
-            DeviceCapabilityResponse, step_execution, execution_context, HTTPMethod.PUT, "/baz", "my fake xml body"
+            DeviceCapabilityResponse,
+            step_execution,
+            execution_context,
+            HTTPMethod.PUT,
+            "/baz",
+            generate_class_instance(DeviceCapabilityResponse),
         )
 
     # Assert - contents of response
@@ -246,7 +255,7 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
             execution_context,
             HTTPMethod.PUT,
             "/foo",
-            "my fake xml body",
+            generate_class_instance(DeviceCapabilityResponse),
             no_location_header=True,
         )
 
@@ -281,7 +290,7 @@ async def test_submit_and_refetch_resource_for_step_failure_no_location_header(
                 execution_context,
                 HTTPMethod.PUT,
                 "/foo",
-                "my fake xml body",
+                generate_class_instance(DeviceCapabilityResponse),
             )
 
 
@@ -303,7 +312,7 @@ async def test_submit_and_refetch_resource_for_step_failure_initial_request(aioh
                 execution_context,
                 HTTPMethod.POST,
                 "/foo",
-                "my fake xml body",
+                generate_class_instance(DeviceCapabilityResponse),
                 no_location_header=True,
             )
 
@@ -329,7 +338,7 @@ async def test_submit_and_refetch_resource_for_step_failure_refetch_request(aioh
                 execution_context,
                 HTTPMethod.DELETE,
                 "/foo",
-                "my fake xml body",
+                generate_class_instance(DeviceCapabilityResponse),
             )
 
 

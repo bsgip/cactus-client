@@ -224,16 +224,16 @@ async def action_upsert_mup(
         )
 
     list_href = cast(str, mup_list_resources[0].resource.href)  # This will be set due to the earlier filter
-    mup_xml = resource_to_sep2_xml(
-        generate_upsert_mup_request(step, context, location, reading_types, mmr_mrids, pow10_multiplier)
-    )
+    request_mup = generate_upsert_mup_request(step, context, location, reading_types, mmr_mrids, pow10_multiplier)
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
-        await client_error_request_for_step(step, context, list_href, HTTPMethod.POST, mup_xml)
+        await client_error_request_for_step(
+            step, context, list_href, HTTPMethod.POST, resource_to_sep2_xml(request_mup)
+        )
     else:
         # Otherwise insert and refetch the returned EndDevice
         inserted_mup = await submit_and_refetch_resource_for_step(
-            MirrorUsagePoint, step, context, HTTPMethod.POST, list_href, mup_xml
+            MirrorUsagePoint, step, context, HTTPMethod.POST, list_href, request_mup
         )
 
         upserted_sr = resource_store.upsert_resource(

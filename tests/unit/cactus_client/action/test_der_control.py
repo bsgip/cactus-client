@@ -25,25 +25,24 @@ from cactus_client.time import utc_now
 
 
 @pytest.mark.parametrize(
-    "event_status,time_offset,duration,previous_tags,expected_status,expected_new_tag,expect_response",
+    "event_status,time_offset,duration,previous_tags,expected_status,expect_response",
     [
         # Scheduled - send 'EVENT_RECEIVED'
-        (0, 3600, 7200, [], "1", ResponseType.EVENT_RECEIVED, True),
+        (0, 3600, 7200, [], ResponseType.EVENT_RECEIVED, True),
         # Cancelled
-        (2, -300, 3600, [], "6", ResponseType.EVENT_CANCELLED, True),
+        (2, -300, 3600, [], ResponseType.EVENT_CANCELLED, True),
         # Superseded
-        (4, -300, 3600, [], "7", ResponseType.EVENT_SUPERSEDED, True),
+        (4, -300, 3600, [], ResponseType.EVENT_SUPERSEDED, True),
         # Active - no previous tags (send 'EVENT_RECEIVED')
-        (1, -300, 3600, [], "1", ResponseType.EVENT_RECEIVED, True),
+        (1, -300, 3600, [], ResponseType.EVENT_RECEIVED, True),
         # Active - started, already sent 'EVENT_RECEIVED' (send 'EVENT_STARTED')
-        (1, -300, 3600, [ResponseType.EVENT_RECEIVED], "2", ResponseType.EVENT_STARTED, True),
+        (1, -300, 3600, [ResponseType.EVENT_RECEIVED], ResponseType.EVENT_STARTED, True),
         # Active - completed, sent "EVENT_RECEIVED",'EVENT_STARTED' (send 'EVENT_COMPLETED')
         (
             1,
             -3600,
             1800,
             [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED],
-            "3",
             ResponseType.EVENT_COMPLETED,
             True,
         ),
@@ -54,15 +53,14 @@ from cactus_client.time import utc_now
             1800,
             [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED, ResponseType.EVENT_COMPLETED],
             None,
-            None,
             False,
         ),
         # Active - in progress, already sent "EVENT_RECEIVED",'EVENT_STARTED' (no new response)
-        (1, -1800, 3600, [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED], None, None, False),
+        (1, -1800, 3600, [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED], None, False),
         # ---------------- ACTIONS WHICH HAVE ALREADY BEEN RESPONDED TO (DONT SEND) ----------------------
-        (4, -300, 3600, [ResponseType.EVENT_SUPERSEDED], None, None, False),
-        (2, -300, 3600, [ResponseType.EVENT_CANCELLED], None, None, False),
-        (0, 3600, 7200, [ResponseType.EVENT_RECEIVED], None, None, False),
+        (4, -300, 3600, [ResponseType.EVENT_SUPERSEDED], None, False),
+        (2, -300, 3600, [ResponseType.EVENT_CANCELLED], None, False),
+        (0, 3600, 7200, [ResponseType.EVENT_RECEIVED], None, False),
     ],
 )
 @freeze_time("2025-11-19 12:00:00")
@@ -75,8 +73,7 @@ async def test_action_respond_der_controls_with_previous_responses(
     time_offset: int,
     duration: int,
     previous_tags: list[IntEnum],
-    expected_status: str | None,
-    expected_new_tag: IntEnum | None,
+    expected_status: ResponseType | None,
     expect_response: bool,
 ):
     """Test responding to DERControls including various previous response states.
@@ -124,12 +121,12 @@ async def test_action_respond_der_controls_with_previous_responses(
         assert mock_submit_and_refetch.call_count == 1
 
         call = mock_submit_and_refetch.call_args_list[0]
-        assert f"status>{expected_status}<" in call[0][5]
+        assert call[0][5].status == expected_status
 
         # Verify the new tag was added
         stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))
         assert len(stored_controls) == 1
-        assert annotations.has_tag(AnnotationNamespace.RESPONSES, expected_new_tag)
+        assert annotations.has_tag(AnnotationNamespace.RESPONSES, expected_status)
 
         # Previous tags should still be present
         assert all(annotations.has_tag(AnnotationNamespace.RESPONSES, tag) for tag in previous_tags)
