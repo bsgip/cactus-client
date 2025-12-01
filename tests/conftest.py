@@ -1,3 +1,4 @@
+import warnings
 from datetime import timedelta
 from pathlib import Path
 from typing import Callable
@@ -35,6 +36,13 @@ from cactus_client.model.progress import (
 )
 from cactus_client.model.resource import CSIPAusResourceTree
 from cactus_client.time import utc_now
+
+
+@pytest.fixture
+def no_deprecation_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        yield
 
 
 @pytest.fixture

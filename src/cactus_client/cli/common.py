@@ -4,6 +4,17 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
 
+def parse_bool(val: str) -> bool:
+    """Attempts to parse a boolean variable from val - accepts a variety of yes/no options. Raises ValueError if
+    a boolean value cannot be ascertained"""
+    lower_val = val.lower()
+    if lower_val in {"true", "t", "1", "y", "yes"}:
+        return True
+    elif lower_val in {"false", "f", "0", "n", "no"}:
+        return False
+    raise ValueError(f"{val} can't be mapped to a boolean.")
+
+
 def is_certificate_file_invalid(cert_path: str | None) -> str | None:
     """Rudimentary check that the supplied path points to an x509 PEM encoded certificate
 

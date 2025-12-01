@@ -43,6 +43,7 @@ def build_clients_by_alias(
     base_uri: str,
     configured_clients: list[ClientConfig] | None,
     verify_ssl: bool,
+    verify_host_name: bool,
     serca_pem_path: str | None,
     notification_uri: str | None,
     run_client_ids: list[str],
@@ -85,7 +86,7 @@ def build_clients_by_alias(
 
         # Load the client certs into a SSLContext
         ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
-        ssl_context.check_hostname = verify_ssl
+        ssl_context.check_hostname = verify_host_name
         ssl_context.verify_mode = ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE
         if verify_ssl and serca_pem_path:
             try:
@@ -216,6 +217,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         base_uri,
         user_config.clients,
         user_config.server.verify_ssl,
+        user_config.server.verify_host_name,
         user_config.server.serca_pem_file,
         user_config.server.notification_uri,
         run_config.client_ids,
