@@ -62,7 +62,9 @@ def generate_valid_config(
 
 @pytest.mark.parametrize("notification_uri", [None, "http://notification.uri/path/", "http://notification.uri/path"])
 @pytest.mark.asyncio
-async def test_build_execution_context_s_all_01(generate_testing_key_cert, notification_uri: str | None):
+async def test_build_execution_context_s_all_01(
+    generate_testing_key_cert, notification_uri: str | None, no_deprecation_warnings
+):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"
@@ -93,7 +95,7 @@ async def test_build_execution_context_s_all_01(generate_testing_key_cert, notif
 
 
 @pytest.mark.asyncio
-async def test_build_execution_context_junk_certs(generate_testing_key_cert):
+async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"
@@ -111,7 +113,7 @@ async def test_build_execution_context_junk_certs(generate_testing_key_cert):
 
 
 @pytest.mark.asyncio
-async def test_build_execution_context_missing_certs():
+async def test_build_execution_context_missing_certs(no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
 
         key_file = Path(tempdirname) / "my.key"
