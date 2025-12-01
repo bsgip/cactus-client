@@ -7,7 +7,6 @@ from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
-
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
     action_discovery,
@@ -68,10 +67,10 @@ async def test_discover_resource_dcap(
 
     # Act
     if has_href:
-        await discover_resource(CSIPAusResource.DeviceCapability, step, context)
+        await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
     else:
         with pytest.raises(CactusClientException):
-            await discover_resource(CSIPAusResource.DeviceCapability, step, context)
+            await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
 
     # Assert
     stored_resources = context.discovered_resources(step).get_for_type(CSIPAusResource.DeviceCapability)
@@ -141,10 +140,10 @@ async def test_discover_resource_list_containers(
 
     # Act
     if has_href or matched_parents == 0:
-        await discover_resource(resource, step, context)
+        await discover_resource(resource, step, context, None)
     else:
         with pytest.raises(CactusClientException):
-            await discover_resource(resource, step, context)
+            await discover_resource(resource, step, context, None)
 
     # Assert
     added_resources = resource_store.get_for_type(resource)
@@ -216,10 +215,10 @@ async def test_discover_resource_singular_resources(
 
     # Act
     if has_href or matched_parents == 0:
-        await discover_resource(resource, step, context)
+        await discover_resource(resource, step, context, None)
     else:
         with pytest.raises(CactusClientException):
-            await discover_resource(resource, step, context)
+            await discover_resource(resource, step, context, None)
 
     # Assert
     added_resources = resource_store.get_for_type(resource)
@@ -305,7 +304,7 @@ async def test_discover_resource_paginated_items(
     mock_paginate_list_resource_items.side_effect = child_items_by_parent
 
     # Act
-    await discover_resource(child_resource, step, context)
+    await discover_resource(child_resource, step, context, None)
 
     # Assert
     assert mock_paginate_list_resource_items.call_count == num_parents
