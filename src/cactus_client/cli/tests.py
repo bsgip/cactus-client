@@ -76,6 +76,7 @@ def print_test(console: Console, tp_id: str) -> None:
     steps_table.add_column("Action")
     steps_table.add_column("Checks")
     steps_table.add_column("Repeat till Pass")
+    steps_table.add_column("Instructions")
 
     for step in tp.steps:
         client_id = step.client if step.client else tp.preconditions.required_clients[0].id
@@ -88,6 +89,7 @@ def print_test(console: Console, tp_id: str) -> None:
             step.action.type,
             ", ".join(checks) if checks else "[b]None[b]",
             str(step.repeat_until_pass),
+            "\n".join(step.instructions) if step.instructions else "",
         )
 
     console.print(steps_table)
