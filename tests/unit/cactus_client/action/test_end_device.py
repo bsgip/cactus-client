@@ -22,6 +22,7 @@ from cactus_client.action.end_device import (
 )
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
+from cactus_client.time import utc_now
 
 
 @pytest.mark.asyncio
@@ -94,6 +95,7 @@ async def test_action_insert_end_device(testing_contexts_factory):
             sFDI=client_config.sfdi,
             href="/edev/1",
             postRate=60,
+            changedTime=int(utc_now().timestamp()),
             deviceCategory=f"{DeviceCategory.PHOTOVOLTAIC_SYSTEM.value:02X}",
         )
         mock_submit.return_value = inserted_edev
