@@ -20,6 +20,7 @@ from cactus_client.action.subscription import (
     action_delete_subscription,
     action_notifications,
 )
+from cactus_client.action.wait import action_wait
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -77,6 +78,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_create_subscription(resolved_params, step, context)
         case "delete-subscription":
             return await action_delete_subscription(resolved_params, step, context)
+        case "wait":
+            return await action_wait(resolved_params)
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
             raise CactusClientException(

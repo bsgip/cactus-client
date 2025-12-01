@@ -7,7 +7,6 @@ from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
-
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
     action_discovery,
@@ -18,6 +17,7 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
+from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse, EndDeviceListResponse
 
 
 def setup_discovery_test(testing_contexts_factory, resource: CSIPAusResource, matched_parents: int):
@@ -68,10 +68,10 @@ async def test_discover_resource_dcap(
 
     # Act
     if has_href:
-        await discover_resource(CSIPAusResource.DeviceCapability, step, context)
+        await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
     else:
         with pytest.raises(CactusClientException):
-            await discover_resource(CSIPAusResource.DeviceCapability, step, context)
+            await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
 
     # Assert
     stored_resources = context.discovered_resources(step).get_for_type(CSIPAusResource.DeviceCapability)
@@ -141,10 +141,10 @@ async def test_discover_resource_list_containers(
 
     # Act
     if has_href or matched_parents == 0:
-        await discover_resource(resource, step, context)
+        await discover_resource(resource, step, context, None)
     else:
         with pytest.raises(CactusClientException):
-            await discover_resource(resource, step, context)
+            await discover_resource(resource, step, context, None)
 
     # Assert
     added_resources = resource_store.get_for_type(resource)
@@ -216,10 +216,10 @@ async def test_discover_resource_singular_resources(
 
     # Act
     if has_href or matched_parents == 0:
-        await discover_resource(resource, step, context)
+        await discover_resource(resource, step, context, None)
     else:
         with pytest.raises(CactusClientException):
-            await discover_resource(resource, step, context)
+            await discover_resource(resource, step, context, None)
 
     # Assert
     added_resources = resource_store.get_for_type(resource)
@@ -305,7 +305,7 @@ async def test_discover_resource_paginated_items(
     mock_paginate_list_resource_items.side_effect = child_items_by_parent
 
     # Act
-    await discover_resource(child_resource, step, context)
+    await discover_resource(child_resource, step, context, None)
 
     # Assert
     assert mock_paginate_list_resource_items.call_count == num_parents
@@ -390,3 +390,55 @@ async def test_action_discovery_with_polling_window(
     # Assert
     mock_sleep.assert_called_once_with(90)
     assert result.done()
+
+
+@mock.patch("cactus_client.action.discovery.fetch_list_page")
+@mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
+@mock.patch("cactus_client.action.discovery.get_resource_for_step")
+@pytest.mark.asyncio
+async def test_discover_resource_with_list_limit(
+    mock_get_resource_for_step: mock.MagicMock,
+    mock_paginate_list_resource_items: mock.MagicMock,
+    fetch_list_page: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """Test that discover_resource uses fetch_list_page when list_limit is provided."""
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    list_limit = 5
+
+    parent_resource = CSIPAusResource.EndDeviceList
+
+    stored_parent = resource_store.append_resource(
+        parent_resource,
+        None,
+        generate_class_instance(EndDeviceListResponse, seed=1, href="/edev", generate_relationships=True),
+    )
+
+    # Mock the limited response
+    limited_items = [
+        generate_class_instance(EndDeviceResponse, seed=idx, href=f"/edev/{idx}") for idx in range(list_limit)
+    ]
+    fetch_list_page.return_value = (limited_items, list_limit)  # Return tuple: (items, all_attribute)
+
+    # Act
+    await discover_resource(CSIPAusResource.EndDevice, step, context, list_limit)
+
+    # Assert - should call fetch_list_page, NOT paginate_list_resource_items
+    fetch_list_page.assert_called_once()
+    mock_paginate_list_resource_items.assert_not_called()
+
+    call_args = fetch_list_page.call_args
+    assert call_args[0][0] == EndDeviceListResponse
+    assert call_args[0][1] == step
+    assert call_args[0][2] == context
+    assert call_args[0][3] == stored_parent.resource.href
+    assert call_args[0][4] == 0  # start (should be 0)
+    assert call_args[0][5] == list_limit
+    assert callable(call_args[0][6])
+
+    # Verify items were stored
+    stored_children = resource_store.get_for_type(CSIPAusResource.EndDevice)
+    assert len(stored_children) == list_limit
+    assert all(sr.resource_type == CSIPAusResource.EndDevice for sr in stored_children)

@@ -17,6 +17,7 @@ from envoy_schema.server.schema.sep2.end_device import (
 
 from cactus_client.action.server import (
     delete_and_check_resource_for_step,
+    fetch_list_page,
     get_resource_for_step,
     paginate_list_resource_items,
     resource_to_sep2_xml,
@@ -531,3 +532,35 @@ def test_resource_to_sep2_xml():
     assert xml1 != xml2
 
     assert "</EndDevice>" in xml1
+
+
+@pytest.mark.asyncio
+async def test_fetch_list_page(aiohttp_client, testing_contexts_factory):
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "edev-list-1.xml")])],
+    ) as session:
+        (execution_context, step_execution) = testing_contexts_factory(session)
+
+        start = 5
+        limit = 10
+
+        items, all_attribute = await fetch_list_page(
+            EndDeviceListResponse,
+            step_execution,
+            execution_context,
+            "/foo/bar",
+            start,
+            limit,
+            lambda list_response: cast(EndDeviceListResponse, list_response).EndDevice,
+        )
+
+    # Assert - contents of response
+    assert_list_type(EndDeviceResponse, items, count=2)
+    assert items[0].href == "/envoy-svc-static-36/edev/0"
+    assert items[1].href == "/envoy-svc-static-36/edev/1"
+
+    # Assert - only made a single request with correct params
+    assert len(execution_context.responses.responses) == 1, "should only request 1 page"
+    requested_url = execution_context.responses.responses[0].url
+    assert f"?s={start}&l={limit}" in requested_url, f"Expected params s={start}&l={limit} in URL"

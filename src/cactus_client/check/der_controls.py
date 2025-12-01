@@ -22,7 +22,7 @@ def sep2_to_value(ap: ActivePower | None) -> float | None:
     return ap.value * pow(10, ap.multiplier)
 
 
-def check_default_der_control(
+def check_default_der_control(  # noqa: C901 # This complexity is from the long line of filtering - can't do much about it
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> CheckResult:
     """Checks whether there is a DefaultDERControl in the resource store that matches the check criteria"""
@@ -35,6 +35,7 @@ def check_default_der_control(
     generation_limit_w: float | None = resolved_parameters.get("opModGenLimW", None)
     set_grad_w: int | None = resolved_parameters.get("setGradW", None)
     sub_id: str | None = resolved_parameters.get("sub_id", None)
+    derp_primacy: int | None = resolved_parameters.get("derp_primacy", None)
 
     resource_store = context.discovered_resources(step)
     default_der_controls = resource_store.get_for_type(CSIPAusResource.DefaultDERControl)
@@ -47,25 +48,21 @@ def check_default_der_control(
     for dderc_sr in default_der_controls:
         dderc = cast(DefaultDERControl, dderc_sr.resource)
 
-        # Check export limit if specified
         if export_limit_w is not None:
             actual_export = sep2_to_value(dderc.DERControlBase_.opModExpLimW)
             if actual_export != export_limit_w:
                 continue
 
-        # Check load limit if specified
         if load_limit_w is not None:
             actual_load = sep2_to_value(dderc.DERControlBase_.opModLoadLimW)
             if actual_load != load_limit_w:
                 continue
 
-        # Check generation limit if specified
         if generation_limit_w is not None:
             actual_gen = sep2_to_value(dderc.DERControlBase_.opModGenLimW)
             if actual_gen != generation_limit_w:
                 continue
 
-        # Check setGradW if specified
         if set_grad_w is not None:
             actual_grad_w = dderc.setGradW
             if actual_grad_w != set_grad_w:
@@ -74,6 +71,13 @@ def check_default_der_control(
         if sub_id is not None:
             annotations = context.resource_annotations(step, dderc_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                continue
+
+        if derp_primacy is not None:
+            parent_derp_sr = resource_store.get_ancestor_of(CSIPAusResource.DERProgram, dderc_sr.id)
+            if parent_derp_sr is None:
+                raise CactusClientException(f"DERControl {dderc.href} {dderc.mRID} has no link to a parent DERProgram")
+            if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
                 continue
 
         total_matches += 1
@@ -122,8 +126,9 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
     randomize_start: int | None = resolved_parameters.get("randomizeStart", None)
     event_status: int | None = resolved_parameters.get("event_status", None)
     response_required: int | None = resolved_parameters.get("responseRequired", None)
-    derp_primacy: int | None = resolved_parameters.get("responseRequired", None)
+    derp_primacy: int | None = resolved_parameters.get("derp_primacy", None)
     sub_id: str | None = resolved_parameters.get("sub_id", None)
+    duration: int | None = resolved_parameters.get("duration", None)
 
     resource_store = context.discovered_resources(step)
 
@@ -185,6 +190,9 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
             annotations = context.resource_annotations(step, derc_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
                 continue
+
+        if duration is not None and duration != derc.interval.duration:
+            continue
 
         total_matches += 1
 

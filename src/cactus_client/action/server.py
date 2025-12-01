@@ -170,38 +170,24 @@ async def paginate_list_resource_items(
 
     list_type: The type to parse the responses as (eg EndDeviceList)
     step: The step this request is being made for
-    context: The execution context tha this request is being made under
+    context: The execution context that this request is being made under
     list_href: The href to the list (no query params included). Eg /sep2/edev
     page_size: How many items to request on each page
     item_callback: Will be called on each page object to extract the items
     max_pages_requested: A safety valve to prevent infinite pagination
     """
-
     pages_requested = 0
     start = 0
     every_all_value: list[int] = []
     all_items: list[AnyType] = []
+
     while True:
-        page_href = list_href + build_paging_params(start=start, limit=page_size)
-        latest_list = await get_resource_for_step(list_type, step, context, page_href)
-        latest_items = item_callback(latest_list)
-        if latest_items is None:
-            latest_items = []  # pydantic-xml  can parse a missing/empty list as None - we need to compensate
+        latest_items, received_all = await fetch_list_page(
+            list_type, step, context, list_href, start, page_size, item_callback
+        )
         all_items.extend(latest_items)
 
-        # Start pulling apart the response and doing some cursory checks
-        received_all: int | None = getattr(latest_list, "all_", None)
-        received_results: int | None = getattr(latest_list, "results", None)
-        if received_results is None:
-            context.warnings.log_step_warning(step, f"Missing 'results' attribute at {page_href}")
-        elif received_results != len(latest_items):
-            context.warnings.log_step_warning(
-                step, f"'results' attribute shows {received_results} but got {len(latest_items)} items"
-            )
-
-        if received_all is None:
-            context.warnings.log_step_warning(step, f"Missing 'all' attribute at {page_href}")
-        else:
+        if received_all is not None:
             every_all_value.append(received_all)
 
         # Prepare next page
@@ -209,7 +195,7 @@ async def paginate_list_resource_items(
         if len(latest_items) == 0:  # When we receive an empty page - we know we are done
             break
 
-        # This is a safety valve in case a server misbehaves and keeps sending us more data
+        # Safety valve in case a server misbehaves and keeps sending us more data
         pages_requested += 1
         if pages_requested >= max_pages_requested:
             raise RequestException(
@@ -229,3 +215,41 @@ async def paginate_list_resource_items(
         )
 
     return all_items
+
+
+async def fetch_list_page(
+    list_type: type[AnyResourceType],
+    step: StepExecution,
+    context: ExecutionContext,
+    list_href: str,
+    start: int,
+    limit: int,
+    item_callback: Callable[[AnyResourceType], list[AnyType] | None],
+) -> tuple[list[AnyType], int | None]:
+    """
+    Fetch a single page of a list resource and extract items with validation.
+
+    Returns:
+        tuple of (items, all_attribute)
+    """
+    page_href = list_href + build_paging_params(start=start, limit=limit)
+    latest_list = await get_resource_for_step(list_type, step, context, page_href)
+    latest_items = item_callback(latest_list)
+    if latest_items is None:
+        latest_items = []  # pydantic-xml can parse a missing/empty list as None
+
+    # Extract and validate metadata
+    received_all: int | None = getattr(latest_list, "all_", None)
+    received_results: int | None = getattr(latest_list, "results", None)
+
+    if received_results is None:
+        context.warnings.log_step_warning(step, f"Missing 'results' attribute at {page_href}")
+    elif received_results != len(latest_items):
+        context.warnings.log_step_warning(
+            step, f"'results' attribute shows {received_results} but got {len(latest_items)} items"
+        )
+
+    if received_all is None:
+        context.warnings.log_step_warning(step, f"Missing 'all' attribute at {page_href}")
+
+    return latest_items, received_all
