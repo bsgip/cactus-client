@@ -151,10 +151,11 @@ async def discover_resource(
                     DISCOVERY_LIST_PAGE_SIZE,
                     get_list_items,
                 )
-                for item in list_items:
-                    resource_store.append_resource(
-                        resource, parent_sr.id, check_item_for_href(step, context, list_href, item)
-                    )
+
+            for item in list_items:
+                resource_store.append_resource(
+                    resource, parent_sr.id, check_item_for_href(step, context, list_href, item)
+                )
     else:
         # Not a list item - look for direct links from parent (eg an EndDevice.ConnectionPointLink -> ConnectionPoint)
         for parent_sr in resource_store.get_for_type(parent_resource):
