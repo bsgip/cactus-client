@@ -2,6 +2,7 @@ from http import HTTPMethod
 from unittest import mock
 
 import pytest
+from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.csip_aus.connection_point import (
@@ -116,6 +117,7 @@ async def test_action_insert_end_device(testing_contexts_factory):
         sent_xml = call_args[0][5]
         sent_request = EndDeviceRequest.from_xml(sent_xml)
 
+        assert_nowish(sent_request.changedTime)
         assert sent_request.lFDI == client_config.lfdi
         assert sent_request.sFDI == client_config.sfdi
         assert sent_request.postRate == 60
