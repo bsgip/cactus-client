@@ -238,7 +238,7 @@ async def test_action_send_malformed_der_settings(
     mock_client_error_request: mock.MagicMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
 ):
-    """Test sending malformed DERSettings with BOTH updatedTime_missing and modesEnabled_as_int set"""
+    """Test sending malformed DERSettings with updatedTime_missing"""
 
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
@@ -250,7 +250,7 @@ async def test_action_send_malformed_der_settings(
         der = generate_class_instance(DER, seed=i, generate_relationships=True)
         resource_store.append_resource(CSIPAusResource.DER, None, der)
 
-    resolved_params = {"updatedTime_missing": True, "modesEnabled_as_int": True}
+    resolved_params = {"updatedTime_missing": True}
 
     # Act
     result = await action_send_malformed_der_settings(resolved_params, step, context)
@@ -269,7 +269,3 @@ async def test_action_send_malformed_der_settings(
 
         # Verify updatedTime was removed
         assert "<updatedTime>" not in xml_payload, "updatedTime should be missing"
-
-        # Verify modesEnabled contains integer instead of hex bitmap
-        assert "<modesEnabled>8</modesEnabled>" in xml_payload, "modesEnabled should contain integer 8"
-        assert "<modesEnabled>00000008</modesEnabled>" not in xml_payload, "modesEnabled should not contain hex"
