@@ -116,13 +116,47 @@ def test_validate_xml_schema_invalid(xml):
         (256, 4),  # "0100"
         (2147483647, 8),  # "7FFFFFFF" - max signed 32-bit (8 chars)
         (4294967295, 8),  # "FFFFFFFF" - maximum 32-bit (8 chars)
-        (randint(1, 255), 2),  # random small
-        (randint(256, 65535), 4),  # random medium
-        (randint(65536, 16777215), 6),  # random large 3-byte values
-        (randint(16777216, 4294967295), 8),  # random large 4-byte values
+        pytest.param(randint(1, 255), 2, id="random small"),
+        pytest.param(randint(256, 65535), 4, id="random medium"),
+        pytest.param(randint(65536, 16777215), 6, id="random large 3-byte values"),
+        pytest.param(randint(16777216, 4294967295), 8, id="random large 4-byte values"),
     ],
 )
 def test_to_hex_binary(value, expected_length):
+    result = to_hex_binary(value)
+
+    # Check it's even
+    assert len(result) % 2 == 0
+
+    # Check length
+    assert len(result) == expected_length
+
+    # Check all characters are valid hex
+    assert all(c in "0123456789ABCDEF" for c in result)
+
+    # Verify it converts back to original value
+    assert int(result, 16) == value
+
+
+@pytest.mark.parametrize(
+    "value,expected_length",
+    [
+        (0, 2),  # "00"
+        (1, 2),  # "01"
+        (15, 2),  # "0F"
+        (255, 2),  # "FF"
+        (256, 4),  # "0100"
+        (2147483647, 8),  # "7FFFFFFF" - max signed 32-bit (8 chars)
+        (4294967295, 8),  # "FFFFFFFF" - maximum 32-bit (8 chars)
+    ],
+)
+def test_to_hex_binary_randoms(value, expected_length):
+
+    test_to_hex_binary(randint(1, 255), 2)
+    test_to_hex_binary(randint(256, 65535), 4)
+    test_to_hex_binary(randint(65536, 16777215), 6),  # random large 3-byte values
+    test_to_hex_binary(randint(16777216, 4294967295), 8),  # random large 4-byte values
+
     result = to_hex_binary(value)
 
     # Check it's even
