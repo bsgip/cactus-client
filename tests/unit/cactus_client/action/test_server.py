@@ -1,3 +1,4 @@
+import unittest.mock as mock
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from http import HTTPMethod, HTTPStatus
@@ -204,9 +205,17 @@ async def test_get_resource_for_step_xml_failure(aiohttp_client, testing_context
         assert len(execution_context.responses.responses) == 1, "We still log errors"
 
 
+@pytest.mark.parametrize("has_property_changes", [True, False])
+@mock.patch("cactus_client.action.server.get_property_changes")
 @pytest.mark.asyncio
-async def test_submit_and_refetch_resource_for_step_success(aiohttp_client, testing_contexts_factory):
+async def test_submit_and_refetch_resource_for_step_success(
+    mock_get_property_changes: mock.MagicMock, has_property_changes: bool, aiohttp_client, testing_contexts_factory
+):
     """Does submit_and_refetch_resource_for_step handle parsing the XML and returning the correct data"""
+    if has_property_changes:
+        mock_get_property_changes.return_value = "Some form of property error"
+    else:
+        mock_get_property_changes.return_value = None
     async with create_test_session(
         aiohttp_client,
         [
@@ -232,15 +241,25 @@ async def test_submit_and_refetch_resource_for_step_success(aiohttp_client, test
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
     # Assert - contents of trackers
-    assert len(execution_context.warnings.warnings) == 0
+    if has_property_changes:
+        assert len(execution_context.warnings.warnings) == 1
+    else:
+        assert len(execution_context.warnings.warnings) == 0
     assert len(execution_context.responses.responses) == 2
 
 
+@pytest.mark.parametrize("has_property_changes", [True, False])
+@mock.patch("cactus_client.action.server.get_property_changes")
 @pytest.mark.asyncio
 async def test_submit_and_refetch_resource_for_step_success_no_location_header(
-    aiohttp_client, testing_contexts_factory
+    mock_get_property_changes: mock.Mock, has_property_changes: bool, aiohttp_client, testing_contexts_factory
 ):
     """Does submit_and_refetch_resource_for_step handle parsing the XML and returning the correct data"""
+    if has_property_changes:
+        mock_get_property_changes.return_value = "Some form of property error"
+    else:
+        mock_get_property_changes.return_value = None
+
     async with create_test_session(
         aiohttp_client,
         [
@@ -265,7 +284,10 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
     # Assert - contents of trackers
-    assert len(execution_context.warnings.warnings) == 0
+    if has_property_changes:
+        assert len(execution_context.warnings.warnings) == 1
+    else:
+        assert len(execution_context.warnings.warnings) == 0
     assert len(execution_context.responses.responses) == 2
 
 

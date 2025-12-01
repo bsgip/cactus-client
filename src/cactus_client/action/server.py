@@ -11,6 +11,7 @@ from cactus_client.error import RequestException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
+from cactus_client.sep2 import get_property_changes
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +139,15 @@ async def submit_and_refetch_resource_for_step(
             )
         refetch_href = response.location
 
-    return await get_resource_for_step(t, step, context, refetch_href)
+    # Check the returned resource matches the submitted resource
+    returned_resource = await get_resource_for_step(t, step, context, refetch_href)
+    changes = get_property_changes(submitted_resource, returned_resource)
+    if changes:
+        context.warnings.log_step_warning(
+            step, f"GET {refetch_href} didn't match the values submitted to {method} {href}: {changes}"
+        )
+
+    return returned_resource
 
 
 def build_paging_params(
