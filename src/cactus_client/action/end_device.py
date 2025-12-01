@@ -22,6 +22,7 @@ from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
+from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ def generate_end_device_request(
     deviceCategory = f"{DeviceCategory.PHOTOVOLTAIC_SYSTEM.value:02X}"
 
     return EndDeviceRequest(
+        changedTime=int(utc_now().timestamp()),
         postRate=60,
         lFDI=force_lfdi if force_lfdi else client_config.lfdi,
         sFDI=client_config.sfdi,
