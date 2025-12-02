@@ -1,7 +1,9 @@
 import hashlib
+from typing import TypeVar
 
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from envoy_schema.server.schema.sep2.identification import Resource
 
 
 def sum_digits(n: int) -> int:
@@ -62,3 +64,35 @@ def hex_binary_equal(a: int | str | None, b: int | str | None) -> bool:
     if isinstance(b, str):
         b = int(b, 16)
     return a == b
+
+
+AnyResource = TypeVar("AnyResource", bound=Resource)
+
+
+def get_property_changes(source: AnyResource, returned: AnyResource) -> str | None:
+    """Compares source to returned, all properties in source MUST exist in returned and MUST be the same value.
+
+    A change from None to any other non None value will NOT be considered. Extra values in returned will NOT be
+    considered.
+
+    Returns a string with the human readable differences or None if they match.
+    """
+    differences: list[str] = []
+
+    for key, source_val in source.__dict__.items():
+        returned_val = getattr(returned, key, None)
+        if source_val is not None and source_val != returned_val:
+
+            if isinstance(source_val, list):
+                continue  # We don't descend into list types for comparisons
+            if isinstance(source_val, str) and returned_val is not None and isinstance(returned_val, str):
+                # Comparisons on strings have to be done carefully as a hexbinary "0003" is equivalent to "03"
+                if returned_val.endswith(source_val) or source_val.endswith(returned_val):
+                    continue
+
+            differences.append(f"{key} had {source_val} changed to {returned_val}")
+
+    if differences:
+        return ", ".join(differences)
+    else:
+        return None

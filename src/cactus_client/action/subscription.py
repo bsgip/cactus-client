@@ -47,7 +47,6 @@ from cactus_client.action.notifications import (
 )
 from cactus_client.action.server import (
     delete_and_check_resource_for_step,
-    resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
@@ -134,7 +133,7 @@ async def action_create_subscription(
         subscribedResource=target.resource.href,
     )
     returned_subscription = await submit_and_refetch_resource_for_step(
-        Subscription, step, context, HTTPMethod.POST, subscription_list_href, resource_to_sep2_xml(subscription)
+        Subscription, step, context, HTTPMethod.POST, subscription_list_href, subscription
     )
     sub_sr = store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription)
     context.resource_annotations(step, sub_sr.id).alias = sub_id

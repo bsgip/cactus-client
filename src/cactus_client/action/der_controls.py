@@ -161,11 +161,8 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
             createdDateTime=int(current_time.timestamp()),
             subject=der_control.mRID,
         )
-        response_xml = resource_to_sep2_xml(response)
 
-        await submit_and_refetch_resource_for_step(
-            Response, step, context, HTTPMethod.POST, reply_to, response_xml, no_location_header=True
-        )
+        await submit_and_refetch_resource_for_step(Response, step, context, HTTPMethod.POST, reply_to, response)
 
         # Update tags to track this response was sent
         der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
