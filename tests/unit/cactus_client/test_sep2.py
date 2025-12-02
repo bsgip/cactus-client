@@ -10,6 +10,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
 )
 from envoy_schema.server.schema.sep2.types import RoleFlagsType
 
+from cactus_client.constants import MAX_TIME_DRIFT_SECONDS
 from cactus_client.sep2 import (
     convert_lfdi_to_sfdi,
     get_property_changes,
@@ -117,6 +118,31 @@ def test_hex_binary_equal(a, b, expected):
             EndDeviceResponse(changedTime=1, sFDI=2),
             EndDeviceResponse(changedTime=1, sFDI=2, lFDI="abc"),
             True,
+        ),
+        (
+            EndDeviceResponse(changedTime=123, sFDI=2),
+            EndDeviceResponse(changedTime=123, sFDI=2),
+            True,
+        ),
+        (
+            EndDeviceResponse(sFDI=2, changedTime=123),
+            EndDeviceResponse(sFDI=2, changedTime=123 - MAX_TIME_DRIFT_SECONDS),
+            True,
+        ),
+        (
+            EndDeviceResponse(sFDI=2, changedTime=123),
+            EndDeviceResponse(sFDI=2, changedTime=123 + MAX_TIME_DRIFT_SECONDS),
+            True,
+        ),
+        (
+            EndDeviceResponse(sFDI=2, changedTime=123),
+            EndDeviceResponse(sFDI=2, changedTime=123 + MAX_TIME_DRIFT_SECONDS + 1),
+            False,
+        ),
+        (
+            EndDeviceResponse(sFDI=2, changedTime=123),
+            EndDeviceResponse(sFDI=2, changedTime=123 - MAX_TIME_DRIFT_SECONDS - 1),
+            False,
         ),
         (
             generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, generate_relationships=True),

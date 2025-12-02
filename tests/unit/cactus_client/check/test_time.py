@@ -9,7 +9,8 @@ from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from freezegun import freeze_time
 
-from cactus_client.check.time import MAX_TIME_DRIFT_SECONDS, check_poll_rate, check_time_synced
+from cactus_client.check.time import check_poll_rate, check_time_synced
+from cactus_client.constants import MAX_TIME_DRIFT_SECONDS
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 

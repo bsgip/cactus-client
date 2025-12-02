@@ -1,15 +1,11 @@
-from typing import cast
+from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
+from cactus_client.constants import MAX_TIME_DRIFT_SECONDS
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
-from typing import Any
-
-# We will accept a "desync" in time up to this value
-# This will need to compensate for transmission / processing time delays so we are being pretty generous
-MAX_TIME_DRIFT_SECONDS = 5
 
 
 def check_time_synced(step: StepExecution, context: ExecutionContext) -> CheckResult:
