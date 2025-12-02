@@ -47,6 +47,7 @@ class ClientConfig:
     pen: int  # Private Enterprise Number that this client will utilise
     pin: int  # Registration PIN that this client will treat as "valid"
     max_watts: int  # How many watts will be registered by this client (eg setMaxW rtgMaxW) with the utility server
+    user_agent: str | None = None  # What User-Agent header should be sent by this client (if any)
 
 
 @dataclass(frozen=True)

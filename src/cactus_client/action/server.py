@@ -41,6 +41,10 @@ async def request_for_step(
     if sep2_xml_body is not None:
         headers["Content-Type"] = MIME_TYPE_SEP2
 
+    user_agent = context.client_config(step).user_agent
+    if user_agent:
+        headers["User-Agent"] = user_agent
+
     server_request = await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
     async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
         try:
