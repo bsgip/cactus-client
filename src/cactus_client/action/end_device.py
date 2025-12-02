@@ -3,13 +3,8 @@ from http import HTTPMethod
 from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
-from envoy_schema.server.schema.csip_aus.connection_point import (
-    ConnectionPointRequest,
-)
-from envoy_schema.server.schema.sep2.end_device import (
-    EndDeviceRequest,
-    EndDeviceResponse,
-)
+from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointRequest
+from envoy_schema.server.schema.sep2.end_device import EndDeviceRequest, EndDeviceResponse
 from envoy_schema.server.schema.sep2.types import DeviceCategory, ReasonCodeType
 
 from cactus_client.action.server import (
