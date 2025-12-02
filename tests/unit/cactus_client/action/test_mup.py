@@ -141,8 +141,7 @@ async def test_action_upsert_mup(testing_contexts_factory):
         assert call_args[0][4] == "/mup"
 
         # Check the actual MUP request body that was sent
-        sent_xml = call_args[0][5]
-        sent_request = MirrorUsagePointRequest.from_xml(sent_xml)
+        sent_request: MirrorUsagePointRequest = call_args[0][5]
 
         assert sent_request.deviceLFDI == client_config.lfdi
         assert sent_request.status == 1

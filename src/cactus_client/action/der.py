@@ -79,11 +79,10 @@ async def action_upsert_der_capability(
         dercap_request = DERCapability(
             type_=type_, rtgMaxW=rtgMaxW, modesSupported=modesSupported, doeModesSupported=doeModesSupported
         )
-        dercap_xml = resource_to_sep2_xml(dercap_request)
 
         # Send request then retreive it from the server and save to resource store
         inserted_dercap = await submit_and_refetch_resource_for_step(
-            DERCapability, step, context, HTTPMethod.PUT, dercap_link.href, dercap_xml, no_location_header=True
+            DERCapability, step, context, HTTPMethod.PUT, dercap_link.href, dercap_request, no_location_header=True
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERCapability, der.id.parent_id(), inserted_dercap)
@@ -125,11 +124,16 @@ async def action_upsert_der_settings(
             modesEnabled=modesEnabled,
             doeModesEnabled=doeModesEnabled,
         )
-        der_settings_xml = resource_to_sep2_xml(der_settings_request)
 
         # Send request then retrieve it from the server and save to resource store
         inserted_der_settings = await submit_and_refetch_resource_for_step(
-            DERSettings, step, context, HTTPMethod.PUT, der_sett_link.href, der_settings_xml, no_location_header=True
+            DERSettings,
+            step,
+            context,
+            HTTPMethod.PUT,
+            der_sett_link.href,
+            der_settings_request,
+            no_location_header=True,
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERSettings, der.id.parent_id(), inserted_der_settings)
@@ -187,14 +191,21 @@ async def action_upsert_der_status(
             operationalModeStatus=operationalModeStatus,
             alarmStatus=alarmStatus,
         )
-        der_status_xml = resource_to_sep2_xml(der_status_request)
 
         if expect_rejection:
             # If we're expecting rejection - make the request and check for a client error
-            await client_error_request_for_step(step, context, der_status_link.href, HTTPMethod.PUT, der_status_xml)
+            await client_error_request_for_step(
+                step, context, der_status_link.href, HTTPMethod.PUT, resource_to_sep2_xml(der_status_request)
+            )
         else:
             inserted_der_status = await submit_and_refetch_resource_for_step(
-                DERStatus, step, context, HTTPMethod.PUT, der_status_link.href, der_status_xml, no_location_header=True
+                DERStatus,
+                step,
+                context,
+                HTTPMethod.PUT,
+                der_status_link.href,
+                der_status_request,
+                no_location_header=True,
             )
 
             resource_store.upsert_resource(CSIPAusResource.DERStatus, der.id.parent_id(), inserted_der_status)

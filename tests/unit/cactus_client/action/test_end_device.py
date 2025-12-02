@@ -57,13 +57,12 @@ async def test_action_upsert_connection_point(testing_contexts_factory):
         # Verify submit_and_refetch_resource_for_step was called correctly
         mock_submit.assert_called_once()
         call_args = mock_submit.call_args
-        assert call_args[0][0] == ConnectionPointResponse
+        assert call_args[0][0] == ConnectionPointRequest
         assert call_args[0][3] == HTTPMethod.PUT
         assert call_args[0][4] == cp_link.href
 
         # Check the actual ConnectionPoint request body
-        sent_xml = call_args[0][5]
-        sent_request = ConnectionPointRequest.from_xml(sent_xml)
+        sent_request: ConnectionPointRequest = call_args[0][5]
 
         assert sent_request.id == cp_id
 
@@ -116,8 +115,7 @@ async def test_action_insert_end_device(testing_contexts_factory):
         assert call_args[0][4] == "/edev"
 
         # Check the actual EndDevice request body that was sent
-        sent_xml = call_args[0][5]
-        sent_request = EndDeviceRequest.from_xml(sent_xml)
+        sent_request: EndDeviceRequest = call_args[0][5]
 
         assert_nowish(sent_request.changedTime)
         assert sent_request.lFDI == client_config.lfdi

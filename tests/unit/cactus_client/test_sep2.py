@@ -2,10 +2,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from assertical.fake.generator import generate_class_instance
+from envoy_schema.server.schema.sep2.der import DERControlResponse
+from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
+from envoy_schema.server.schema.sep2.metering_mirror import (
+    MirrorUsagePoint,
+)
 from envoy_schema.server.schema.sep2.types import RoleFlagsType
 
 from cactus_client.sep2 import (
     convert_lfdi_to_sfdi,
+    get_property_changes,
     hex_binary_equal,
     lfdi_from_cert_file,
     sum_digits,
@@ -96,3 +103,68 @@ def test_hex_binary_equal(a, b, expected):
     assert hex_binary_equal(None, a) is False
 
     assert hex_binary_equal(None, None) is True
+
+
+@pytest.mark.parametrize(
+    "source, returned, expected_match",
+    [
+        (
+            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=True),
+            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=True),
+            True,
+        ),
+        (
+            EndDeviceResponse(changedTime=1, sFDI=2),
+            EndDeviceResponse(changedTime=1, sFDI=2, lFDI="abc"),
+            True,
+        ),
+        (
+            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, generate_relationships=True),
+            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, generate_relationships=True),
+            True,
+        ),
+        (
+            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, lFDI="abc"),
+            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, lFDI="def"),
+            False,
+        ),
+        (
+            generate_class_instance(EndDeviceResponse, seed=1),
+            generate_class_instance(EndDeviceResponse, seed=2),
+            False,
+        ),
+        (
+            generate_class_instance(DERControlResponse, seed=1, optional_is_none=True),
+            generate_class_instance(DERControlResponse, seed=1, optional_is_none=True),
+            True,
+        ),
+        (
+            generate_class_instance(DERControlResponse, seed=1, optional_is_none=True),
+            generate_class_instance(DERControlResponse, seed=2, optional_is_none=True),
+            False,
+        ),
+        (
+            generate_class_instance(MirrorUsagePoint, seed=1, optional_is_none=True, mirrorMeterReadings=[]),
+            generate_class_instance(MirrorUsagePoint, seed=1, optional_is_none=False, generate_relationships=True),
+            True,
+        ),  # Don't compare lists
+        (
+            generate_class_instance(MirrorUsagePoint, seed=1, roleFlags="0003"),
+            generate_class_instance(MirrorUsagePoint, seed=1, roleFlags="03"),
+            True,
+        ),  # various hex binary comparisons can be a mismatch on leading zeroes
+        (
+            generate_class_instance(MirrorUsagePoint, seed=1, roleFlags="03"),
+            generate_class_instance(MirrorUsagePoint, seed=1, roleFlags="0003"),
+            True,
+        ),  # various hex binary comparisons can be a mismatch on leading zeroes
+    ],
+)
+def test_get_property_changes(source, returned, expected_match: bool):
+
+    result = get_property_changes(source, returned)
+    if expected_match:
+        assert result is None
+    else:
+        assert isinstance(result, str)
+        assert len(result) > 0
