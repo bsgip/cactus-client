@@ -5,6 +5,8 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from envoy_schema.server.schema.sep2.identification import Resource
 
+from cactus_client.constants import MAX_TIME_DRIFT_SECONDS
+
 
 def sum_digits(n: int) -> int:
     """Sums all base10 digits in n and returns the results.
@@ -83,11 +85,22 @@ def get_property_changes(source: AnyResource, returned: AnyResource) -> str | No
         returned_val = getattr(returned, key, None)
         if source_val is not None and source_val != returned_val:
 
+            # We are trying to avoid a series of Resource specific checks - so this is our attempt
+            # to stay general
             if isinstance(source_val, list):
                 continue  # We don't descend into list types for comparisons
             if isinstance(source_val, str) and returned_val is not None and isinstance(returned_val, str):
                 # Comparisons on strings have to be done carefully as a hexbinary "0003" is equivalent to "03"
                 if returned_val.endswith(source_val) or source_val.endswith(returned_val):
+                    continue
+            if (
+                "time" in key.lower()
+                and isinstance(source_val, int)
+                and returned_val is not None
+                and isinstance(returned_val, int)
+            ):
+                # We bake in a small amount of fat on time comparisons
+                if abs(source_val - returned_val) <= MAX_TIME_DRIFT_SECONDS:
                     continue
 
             differences.append(f"{key} had {source_val} changed to {returned_val}")
