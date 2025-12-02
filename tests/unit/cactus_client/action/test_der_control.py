@@ -146,7 +146,7 @@ async def test_action_respond_der_controls_with_previous_responses(
 @pytest.mark.parametrize(
     "mrid_unknown,lfdi_unknown,response_invalid,expected_fake_mrid,expected_fake_lfdi,expected_status",
     [
-        (True, False, False, to_hex_binary(888888), None, 1),
+        (True, False, False, "0xFFFFFFFF", None, 1),
         (False, True, False, None, to_hex_binary(999999), 1),
         (False, False, True, None, None, 15),
     ],
