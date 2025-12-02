@@ -37,6 +37,7 @@ class ClientConfigKey(StrEnum):
     PEN = auto()
     PIN = auto()
     MAXW = auto()
+    USER_AGENT = auto()
 
 
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
@@ -90,6 +91,8 @@ def print_client_value(console: Console, client: ClientConfig | None, config_key
             value = client.pen
         case ClientConfigKey.PIN:
             value = client.pin
+        case ClientConfigKey.USER_AGENT:
+            value = client.user_agent
         case _:
             console.print(f"[b]{config_key}[/b] can't be fetched", style="red")
             sys.exit(1)
@@ -131,6 +134,8 @@ def update_client_value(
                 return replace(client, pen=int(new_value))
             case ClientConfigKey.PIN:
                 return replace(client, pin=int(new_value))
+            case ClientConfigKey.USER_AGENT:
+                return replace(client, user_agent=new_value)
             case _:
                 console.print(f"[b]{config_key}[/b] can't be updated", style="red")
                 sys.exit(1)
@@ -152,6 +157,7 @@ def print_client(console: Console, client: ClientConfig) -> None:
     table.add_row("max_watts", str(client.max_watts))
     table.add_row("pen", str(client.pen))
     table.add_row("pin", str(client.pin))
+    table.add_row("user_agent", client.user_agent if client.user_agent else "[b red]null[/b red]")
 
     console.print(table)
 
