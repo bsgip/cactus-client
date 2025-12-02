@@ -176,7 +176,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
         if event_status is not None and event_status != derc.EventStatus_.currentStatus:
             continue
 
-        if response_required is not None and not hex_binary_equal(event_status, derc.responseRequired):
+        if response_required is not None and not hex_binary_equal(response_required, derc.responseRequired):
             continue
 
         if derp_primacy is not None:

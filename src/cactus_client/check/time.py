@@ -72,7 +72,7 @@ def check_poll_rate(resolved_parameters: dict[str, Any], step: StepExecution, co
         if not hasattr(sr.resource, "pollRate"):
             return CheckResult(
                 False,
-                f"{resource_type.value} resource at {sr.resource.href} does not have a pollRate attribute",
+                f"{resource_type} resource at {sr.resource.href} does not have a pollRate attribute",
             )
 
         actual_poll_rate = sr.resource.pollRate
@@ -80,7 +80,7 @@ def check_poll_rate(resolved_parameters: dict[str, Any], step: StepExecution, co
         if actual_poll_rate != poll_rate_seconds:
             return CheckResult(
                 False,
-                f"{resource_type.value} pollRate mismatch: expected {poll_rate_seconds}s, got {actual_poll_rate}s",
+                f"{resource_type} pollRate mismatch: expected {poll_rate_seconds}s, got {actual_poll_rate}s",
             )
 
     # All checks passed

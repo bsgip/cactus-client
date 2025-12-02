@@ -222,7 +222,7 @@ async def action_send_malformed_response(
         raise CactusClientException(f"Could not find EndDevice lfdi parent for DERControl {der_control.href}")
 
     # Determine the mRID (generate fake if mrd_unknown true)
-    subject_mrid = to_hex_binary(888888) if mrid_unknown else der_control.mRID
+    subject_mrid = "0xFFFFFFFF" if mrid_unknown else der_control.mRID
 
     # Create the malformed response
     current_time = utc_now()
