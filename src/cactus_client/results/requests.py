@@ -62,16 +62,14 @@ def persist_notification(
 
     if webhook_endpoint:
         parsed_url = urlparse(webhook_endpoint)
-        host = parsed_url.netloc
         path = parsed_url.path
     else:
         path = ""
-        host = None
     notification_file = base_dir / f"{idx:03}-NOTIFICATION-{notification.sub_id}.request"
 
     with open(notification_file, "w") as fp:
         fp.write(
-            "\n".join(generate_request_file(notification.method, path, host, notification.headers, notification.body))
+            "\n".join(generate_request_file(notification.method, path, None, notification.headers, notification.body))
         )
 
 
