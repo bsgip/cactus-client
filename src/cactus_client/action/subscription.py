@@ -54,10 +54,9 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import (
     AnnotationNamespace,
     ExecutionContext,
-    NotificationEndpoint,
 )
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_client.model.http import NotificationRequest
+from cactus_client.model.http import NotificationEndpoint, NotificationRequest
 
 logger = logging.getLogger(__name__)
 
@@ -211,13 +210,10 @@ async def handle_notification_resource(
     parsed_resource = parse_combined_resource(xsi_type, notification.resource)
 
     store = context.discovered_resources(step)
-    endpoint = context.notifications_context(step).get_resource_notification_endpoint()
-    if endpoint is None:
-        raise CactusClientException(f"There is no subscription endpoint for {sub_id}. Has a subscription been created?")
 
     # Add this new notification contents to the store - this can be done via direct upsert
     upserted_resource = store.upsert_resource(
-        endpoint.subscribed_resource_type, endpoint.subscribed_resource_id.parent_id(), parsed_resource
+        source.subscribed_resource_type, source.subscribed_resource_id.parent_id(), parsed_resource
     )
     context.resource_annotations(step, upserted_resource.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
 
@@ -266,15 +262,7 @@ async def collect_and_validate_notification(
     """Takes a CollectedNotification and parses into a NotificationRequest (for logging) and decomposes a Notification
     from it in order to add things to the Resource store"""
 
-    notification_context = context.notifications_context(step)
-    endpoint = notification_context.get_resource_notification_endpoint(sub_id, source.subscribed_resource_id)
-    if endpoint is None:
-        raise CactusClientException(
-            f"There is no subscription endpoint for {sub_id} and {source.subscribed_resource_id}."
-            + " Has a subscription been created?"
-        )
-
-    notification = NotificationRequest.from_collected_notification(collected_notification, sub_id)
+    notification = NotificationRequest.from_collected_notification(source, collected_notification, sub_id)
     await context.responses.log_notification_body(notification)
 
     if notification.method != "POST":
@@ -304,15 +292,15 @@ async def collect_and_validate_notification(
         )
 
     # Now start inspecting the returned Notification
-    if sep2_notification.subscribedResource != endpoint.subscribed_resource_id.href():
+    if sep2_notification.subscribedResource != source.subscribed_resource_id.href():
         context.warnings.log_step_warning(
             step,
             f"Notification <subscribedResource> has value {sep2_notification.subscribedResource}"
-            + f" but expected {endpoint.subscribed_resource_id.href()} as per initial Subscription.",
+            + f" but expected {source.subscribed_resource_id.href()} as per initial Subscription.",
         )
 
     if sep2_notification.status == NotificationStatus.DEFAULT:
-        await handle_notification_resource(step, context, sep2_notification, sub_id)
+        await handle_notification_resource(step, context, sep2_notification, sub_id, source)
     else:
         await handle_notification_cancellation(step, context, sep2_notification)
 

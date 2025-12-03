@@ -17,7 +17,11 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
-from cactus_client.action.server import fetch_list_page, get_resource_for_step, paginate_list_resource_items
+from cactus_client.action.server import (
+    fetch_list_page,
+    get_resource_for_step,
+    paginate_list_resource_items,
+)
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -172,7 +176,7 @@ async def discover_resource(
 async def action_discovery(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
-    resources: list[CSIPAusResource] = resolved_parameters["resources"]  # Mandatory param
+    resources: list[str] = resolved_parameters["resources"]  # Mandatory param
     next_polling_window: bool = resolved_parameters.get("next_polling_window", False)
     list_limit: int | None = resolved_parameters.get("list_limit", None)
     now = utc_now()
@@ -185,7 +189,7 @@ async def action_discovery(
         await asyncio.sleep(delay_seconds)
 
     # Start making requests for resources
-    for resource in context.resource_tree.discover_resource_plan(resources):
+    for resource in context.resource_tree.discover_resource_plan([CSIPAusResource(r) for r in resources]):
         await discover_resource(resource, step, context, list_limit)
 
     return ActionResult.done()

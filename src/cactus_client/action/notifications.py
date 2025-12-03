@@ -6,7 +6,6 @@ from aiohttp import ClientSession
 from cactus_client_notifications.schema import (
     URI_MANAGE_ENDPOINT,
     URI_MANAGE_ENDPOINT_LIST,
-    CollectedNotification,
     CollectEndpointResponse,
     ConfigureEndpointRequest,
     CreateEndpointResponse,
@@ -16,10 +15,10 @@ from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_client.error import NotificationException
 from cactus_client.model.context import (
     ExecutionContext,
-    NotificationEndpoint,
     NotificationsContext,
 )
 from cactus_client.model.execution import StepExecution
+from cactus_client.model.http import SubscriptionNotification
 from cactus_client.model.resource import StoredResourceId
 
 logger = logging.getLogger(__name__)
@@ -34,12 +33,6 @@ class NotificationApiResponse:
 
     def is_success(self) -> bool:
         return self.status >= 200 and self.status <= 299
-
-
-@dataclass
-class SubscriptionNotification:
-    notification: CollectedNotification
-    source: NotificationEndpoint
 
 
 async def notifications_server_request(

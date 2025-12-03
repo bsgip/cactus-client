@@ -18,7 +18,6 @@ from cactus_client_notifications.schema import (
 from cactus_test_definitions.csipaus import CSIPAusResource
 
 from cactus_client.action.notifications import (
-    SubscriptionNotification,
     collect_notifications_for_subscription,
     fetch_notification_webhook_for_subscription,
     safely_delete_all_notification_webhooks,
@@ -27,9 +26,9 @@ from cactus_client.action.notifications import (
 from cactus_client.error import NotificationException
 from cactus_client.model.context import (
     ExecutionContext,
-    NotificationEndpoint,
     NotificationsContext,
 )
+from cactus_client.model.http import NotificationEndpoint, SubscriptionNotification
 from cactus_client.model.resource import StoredResourceId
 
 
@@ -112,7 +111,7 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
             execution_context,
             "sub123",
             CSIPAusResource.DERCapability,
-            StoredResourceId.from_parent(None, "/hrefb"),
+            StoredResourceId.from_parent(None, "/hrefa"),
         )
         result3 = await fetch_notification_webhook_for_subscription(
             step_execution,
@@ -129,14 +128,14 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
     assert result3 == "https://my.other.example:456/path"
 
     # Assert the notifications context is populated with what we expect
-    assert execution_context.notifications_context(step_execution).endpoints_by_sub_alias[
-        "sub123"
-    ] == NotificationEndpoint(create_endpoint_1, CSIPAusResource.DER, StoredResourceId.from_parent(None, "/hrefa"))
-    assert execution_context.notifications_context(step_execution).endpoints_by_sub_alias[
-        "sub1234"
-    ] == NotificationEndpoint(
-        create_endpoint_2, CSIPAusResource.DERControl, StoredResourceId.from_parent(None, "/hrefc")
-    )
+    assert execution_context.notifications_context(step_execution).endpoints_by_sub_alias["sub123"] == [
+        NotificationEndpoint(create_endpoint_1, CSIPAusResource.DER, StoredResourceId.from_parent(None, "/hrefa"))
+    ]
+    assert execution_context.notifications_context(step_execution).endpoints_by_sub_alias["sub1234"] == [
+        NotificationEndpoint(
+            create_endpoint_2, CSIPAusResource.DERControl, StoredResourceId.from_parent(None, "/hrefc")
+        )
+    ]
 
 
 @pytest.mark.asyncio

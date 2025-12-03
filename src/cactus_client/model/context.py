@@ -4,7 +4,9 @@ from enum import IntEnum, StrEnum
 from pathlib import Path
 
 from aiohttp import ClientSession
-from cactus_client_notifications.schema import CreateEndpointResponse
+from cactus_client_notifications.schema import (
+    CreateEndpointResponse,
+)
 from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
@@ -14,6 +16,7 @@ from cactus_test_definitions.server.test_procedures import (
 from cactus_client.error import NotificationException
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
+from cactus_client.model.http import NotificationEndpoint
 from cactus_client.model.progress import (
     ProgressTracker,
     ResponseTracker,
@@ -58,15 +61,6 @@ class StoredResourceAnnotations:
         """Returns True if the specified tag has been added via add_tag"""
         tag = (namespace, value)
         return tag in self.tag_creations
-
-
-@dataclass(frozen=True)
-class NotificationEndpoint:
-    """Metadata about a single notification endpoint"""
-
-    created_endpoint: CreateEndpointResponse  # Raw metadata from the cactus-client-notifications instance
-    subscribed_resource_type: CSIPAusResource  # The resource type of the subscribed resource
-    subscribed_resource_id: StoredResourceId  # The StoredResource.id that this subscription is for
 
 
 @dataclass(frozen=True)
