@@ -106,7 +106,7 @@ def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
             request_time = response.received_at
             url = f"Notification from '{response.remote}'"
             status = ""
-            success = bool(response.xsd_errors)
+            success = not bool(response.xsd_errors)
 
         table.add_row(
             context_relative_time(context, request_time),
