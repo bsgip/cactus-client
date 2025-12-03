@@ -81,7 +81,7 @@ def build_clients_by_alias(
 
             notifications = NotificationsContext(
                 session=ClientSession(notification_uri if notification_uri.endswith("/") else notification_uri + "/"),
-                endpoint_by_sub_alias={},
+                endpoints_by_sub_alias={},
             )
 
         # Load the client certs into a SSLContext

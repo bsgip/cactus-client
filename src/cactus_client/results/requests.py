@@ -8,6 +8,7 @@ from multidict import CIMultiDict
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.http import NotificationRequest, ServerResponse
 from cactus_client.model.output import RunOutputFile, RunOutputManager
+from cactus_client.model.resource import StoredResourceId
 
 
 def sanitise_url_to_filename(url: str) -> str:
@@ -81,11 +82,14 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
 
     # There are probably multiple subscription aliases and associated webhook URIs
     # parse them into an easily accessible form
-    webhook_by_sub_id: dict[str, str] = {}
+    webhook_by_sub_id: dict[tuple[str, StoredResourceId], str] = {}
     for client in context.clients_by_alias.values():
         if client.notifications:
-            for sub_id, endpoint in client.notifications.endpoint_by_sub_alias.items():
-                webhook_by_sub_id[sub_id] = endpoint.created_endpoint.fully_qualified_endpoint
+            for sub_id, endpoints in client.notifications.endpoints_by_sub_alias.items():
+                for endpoint in endpoints:
+                    webhook_by_sub_id[(sub_id, endpoint.subscribed_resource_id)] = (
+                        endpoint.created_endpoint.fully_qualified_endpoint
+                    )
 
     for idx, comms in enumerate(context.responses.responses):
 
@@ -96,4 +100,6 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
             persist_server_response(base_dir, idx, host, comms)
         else:
             # This is a request that landed at our webhook (typically a pub/sub Notification)
-            persist_notification(base_dir, idx, webhook_by_sub_id.get(comms.sub_id, None), comms)
+            persist_notification(
+                base_dir, idx, webhook_by_sub_id.get((comms.sub_id, comms.source.subscribed_resource_id), None), comms
+            )

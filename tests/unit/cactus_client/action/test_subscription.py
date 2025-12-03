@@ -49,10 +49,9 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import (
     AnnotationNamespace,
     ExecutionContext,
-    NotificationEndpoint,
-    NotificationsContext,
 )
 from cactus_client.model.execution import ActionResult, StepExecution
+from cactus_client.model.http import NotificationEndpoint, SubscriptionNotification
 
 
 @pytest.fixture
@@ -63,12 +62,14 @@ def assertical_all_hexbinary8():
         yield
 
 
+@pytest.mark.parametrize("total_parent_lists", [1, 3])
 @mock.patch("cactus_client.action.subscription.fetch_notification_webhook_for_subscription")
 @mock.patch("cactus_client.action.subscription.submit_and_refetch_resource_for_step")
 @pytest.mark.asyncio
 async def test_action_create_subscription(
     mock_submit_and_refetch_resource_for_step: mock.MagicMock,
     mock_fetch_notification_webhook_for_subscription: mock.MagicMock,
+    total_parent_lists: int,
     testing_contexts_factory,
 ):
     """Tests the happy path of creation - ensures that the resource store is properly updated"""
@@ -84,16 +85,21 @@ async def test_action_create_subscription(
         None,
         generate_class_instance(SubscriptionListResponse, seed=101, href="/sublist"),
     )
-    target_sr = store.append_resource(
-        CSIPAusResource.DERProgramList,
-        None,
-        generate_class_instance(
-            DERProgramListResponse,
-            seed=202,
-            href="/derplist",
-            subscribable=SubscribableType.resource_supports_both_conditional_and_non_conditional_subscriptions,
-        ),
-    )
+    targets = []
+    for i in range(total_parent_lists):
+        targets.append(
+            store.append_resource(
+                CSIPAusResource.DERProgramList,
+                None,
+                generate_class_instance(
+                    DERProgramListResponse,
+                    seed=(i + 1) * 101,
+                    href=f"/derplist{i}",
+                    subscribable=SubscribableType.resource_supports_both_conditional_and_non_conditional_subscriptions,
+                ),
+            )
+        )
+
     # Add an unrelated subscription - should be left alone
     other_sub_sr = store.append_resource(
         CSIPAusResource.Subscription,
@@ -123,11 +129,12 @@ async def test_action_create_subscription(
     assert new_sub_sr.resource is refetched_subscription
 
     mock_submit_and_refetch_resource_for_step.assert_has_calls(
-        [mock.call(Subscription, step, context, HTTPMethod.POST, sub_list_sr.id.href(), mock.ANY)]
+        [mock.call(Subscription, step, context, HTTPMethod.POST, sub_list_sr.id.href(), mock.ANY)] * len(targets)
     )
-    mock_fetch_notification_webhook_for_subscription.assert_has_calls(
-        [mock.call(step, context, sub_id, resource, target_sr.id)]
-    )
+    for target in targets:
+        mock_fetch_notification_webhook_for_subscription.assert_has_calls(
+            [mock.call(step, context, sub_id, resource, target.id)]
+        )
 
     assert len(context.warnings.warnings) == 0
 
@@ -250,15 +257,10 @@ async def test_handle_notification_resource(mock_parse_combined_resource: mock.M
         None,
         generate_class_instance(DERControlListResponse, seed=101, href="/derclist"),
     )
-    context.clients_by_alias[step.client_alias].notifications = NotificationsContext(
-        mock.Mock(),  # We won't be using the session
-        {
-            sub_id: NotificationEndpoint(
-                CreateEndpointResponse(endpoint_id="abc", fully_qualified_endpoint="https://fake.webhook/abc"),
-                resource,
-                derc_list_sr.id,
-            )
-        },
+    source = NotificationEndpoint(
+        CreateEndpointResponse(endpoint_id="abc", fully_qualified_endpoint="https://fake.webhook/abc"),
+        resource,
+        derc_list_sr.id,
     )
     existing_derc_sr = store.append_resource(
         CSIPAusResource.DERControl,
@@ -279,7 +281,7 @@ async def test_handle_notification_resource(mock_parse_combined_resource: mock.M
     mock_parse_combined_resource.return_value = notification_derc_list
 
     # Act
-    await handle_notification_resource(step, context, notification, sub_id)
+    await handle_notification_resource(step, context, notification, sub_id, source)
 
     # Assert
 
@@ -357,15 +359,10 @@ async def test_collect_and_validate_notification(
         None,
         generate_class_instance(EndDeviceListResponse, seed=101, href="/edev"),
     )
-    context.clients_by_alias[step.client_alias].notifications = NotificationsContext(
-        mock.Mock(),  # We won't be using the session
-        {
-            sub_id: NotificationEndpoint(
-                CreateEndpointResponse(endpoint_id="abc", fully_qualified_endpoint="https://fake.webhook/abc"),
-                CSIPAusResource.EndDeviceList,
-                edev_list_sr.id,
-            )
-        },
+    source = NotificationEndpoint(
+        CreateEndpointResponse(endpoint_id="abc", fully_qualified_endpoint="https://fake.webhook/abc"),
+        CSIPAusResource.EndDeviceList,
+        edev_list_sr.id,
     )
 
     notification = generate_class_instance(
@@ -387,7 +384,7 @@ async def test_collect_and_validate_notification(
     )
 
     # Act
-    await collect_and_validate_notification(step, context, collected_notification, sub_id)
+    await collect_and_validate_notification(step, context, source, collected_notification, sub_id)
 
     # Assert
     assert len(context.warnings.warnings) == 0
@@ -396,7 +393,7 @@ async def test_collect_and_validate_notification(
         mock_handle_notification_resource.assert_not_called()
     else:
         mock_handle_notification_cancellation.assert_not_called()
-        mock_handle_notification_resource.assert_called_once_with(step, context, notification, sub_id)
+        mock_handle_notification_resource.assert_called_once_with(step, context, notification, sub_id, source)
 
 
 @pytest.mark.parametrize("collect, disable", product([True, False], [True, False, None]))
@@ -425,7 +422,13 @@ async def test_action_notification(
 
     collected_notification1 = generate_class_instance(CollectedNotification, seed=101)
     collected_notification2 = generate_class_instance(CollectedNotification, seed=202)
-    mock_collect_notifications_for_subscription.return_value = [collected_notification1, collected_notification2]
+    notification_endpoint1 = generate_class_instance(NotificationEndpoint, seed=303)
+    notification_endpoint2 = generate_class_instance(NotificationEndpoint, seed=404)
+
+    mock_collect_notifications_for_subscription.return_value = [
+        SubscriptionNotification(collected_notification1, notification_endpoint1),
+        SubscriptionNotification(collected_notification2, notification_endpoint2),
+    ]
 
     # Act
     result = await action_notifications(resolved_params, step, context)
@@ -438,8 +441,8 @@ async def test_action_notification(
         mock_collect_notifications_for_subscription.assert_called_once_with(step, context, sub_id)
         mock_collect_and_validate_notification.assert_has_calls(
             [
-                mock.call(step, context, collected_notification1, sub_id),
-                mock.call(step, context, collected_notification2, sub_id),
+                mock.call(step, context, notification_endpoint1, collected_notification1, sub_id),
+                mock.call(step, context, notification_endpoint2, collected_notification2, sub_id),
             ]
         )
     else:

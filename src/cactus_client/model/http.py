@@ -2,11 +2,35 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from aiohttp import ClientResponse
-from cactus_client_notifications.schema import CollectedNotification
+from cactus_client_notifications.schema import (
+    CollectedNotification,
+    CreateEndpointResponse,
+)
+from cactus_test_definitions.csipaus import CSIPAusResource
 from multidict import CIMultiDict
 
+from cactus_client.model.resource import (
+    StoredResourceId,
+)
 from cactus_client.schema.validator import validate_xml
 from cactus_client.time import utc_now
+
+
+@dataclass(frozen=True)
+class NotificationEndpoint:
+    """Metadata about a single notification endpoint"""
+
+    created_endpoint: CreateEndpointResponse  # Raw metadata from the cactus-client-notifications instance
+    subscribed_resource_type: CSIPAusResource  # The resource type of the subscribed resource
+    subscribed_resource_id: StoredResourceId  # The StoredResource.id that this subscription is for
+
+
+@dataclass
+class SubscriptionNotification:
+    """Combination of a collected Notification and the source endpoint that collected the notification"""
+
+    notification: CollectedNotification  # Details on the notification
+    source: NotificationEndpoint  # Which endpoint generated this notification
 
 
 @dataclass
@@ -80,10 +104,13 @@ class NotificationRequest:
     received_at: datetime  # When did this arrive at the notification webhook
     remote: str | None  # What IP address (or network address) sent this request?
     sub_id: str  # What subscription ID was this Notification sent to?
+    source: NotificationEndpoint
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     @staticmethod
-    def from_collected_notification(notification: CollectedNotification, sub_id: str) -> "NotificationRequest":
+    def from_collected_notification(
+        source: NotificationEndpoint, notification: CollectedNotification, sub_id: str
+    ) -> "NotificationRequest":
         body_xml = notification.body
         headers = CIMultiDict(((h.name, h.value) for h in notification.headers))
         content_type = headers.getone("Content-Type", None)
@@ -101,4 +128,5 @@ class NotificationRequest:
             received_at=notification.received_at,
             remote=notification.remote,
             sub_id=sub_id,
+            source=source,
         )

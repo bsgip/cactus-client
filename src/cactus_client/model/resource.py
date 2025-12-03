@@ -191,25 +191,26 @@ class StoredResource:
     @staticmethod
     def from_resource(
         tree: CSIPAusResourceTree,
-        type: CSIPAusResource,
+        resource_type: CSIPAusResource,
         parent: StoredResourceId | None,
         resource: Resource,
     ) -> "StoredResource":
-        parent_type = tree.parent_resource(type)
+
+        parent_type = tree.parent_resource(resource_type)
         if parent_type and is_list_resource(parent_type):
             member_of_list = parent_type
         else:
             member_of_list = None
 
         if not resource.href:
-            raise CactusClientException(f"Received a {type} under {parent} with no href.")
+            raise CactusClientException(f"Received a {resource_type} under {parent} with no href.")
 
         return StoredResource(
             id=StoredResourceId.from_parent(parent, resource.href),
             created_at=utc_now(),
-            resource_type=type,
+            resource_type=resource_type,
             resource=resource,
-            resource_link_hrefs=generate_resource_link_hrefs(type, resource),
+            resource_link_hrefs=generate_resource_link_hrefs(resource_type, resource),
             member_of_list=member_of_list,
         )
 

@@ -88,7 +88,7 @@ async def test_build_execution_context_s_all_01(
             assert str(client_context.session._base_url) == "https://my.test.server:1234/"
 
             if notification_uri:
-                assert client_context.notifications.endpoint_by_sub_alias == {}
+                assert client_context.notifications.endpoints_by_sub_alias == {}
                 assert str(client_context.notifications.session._base_url).startswith(notification_uri)
             else:
                 assert client_context.notifications is None

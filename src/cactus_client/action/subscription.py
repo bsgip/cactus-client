@@ -51,9 +51,12 @@ from cactus_client.action.server import (
 )
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import CactusClientException
-from cactus_client.model.context import AnnotationNamespace, ExecutionContext
+from cactus_client.model.context import (
+    AnnotationNamespace,
+    ExecutionContext,
+)
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_client.model.http import NotificationRequest
+from cactus_client.model.http import NotificationEndpoint, NotificationRequest
 
 logger = logging.getLogger(__name__)
 
@@ -101,42 +104,43 @@ async def action_create_subscription(
         )
 
     subscription_targets = store.get_for_type(resource)
-    if len(subscription_targets) != 1:
+    if len(subscription_targets) == 0:
         raise CactusClientException(
-            f"Found {len(subscription_targets)} {resource} resource(s) but expected 1. Cannot create subscription."
-        )
-    target = subscription_targets[0]
-
-    if target.resource.href is None:
-        raise CactusClientException(f"Found {resource} with no href attribute encoded. Cannot subscribe to this.")
-
-    # Figure out what webhook URI we can use for our subscription alias
-    webhook_uri = await fetch_notification_webhook_for_subscription(
-        step, context, sub_id, target.resource_type, target.id
-    )
-
-    # Check that the element is marked as subscribable
-    subscribable: SubscribableType | None = getattr(target.resource, "subscribable", None)
-    if subscribable not in VALID_SUBSCRIBABLE_VALUES:
-        context.warnings.log_step_warning(
-            step,
-            f"{resource} {target.resource.href} does not have the 'subscribable' attribute set to a value that"
-            + " indicates support for a non conditional subscription.",
+            f"Found no {resource} resource(s) but expected at least 1. Cannot create subscription."
         )
 
-    # Submit the subscription - ensure it's annotated correctly
-    subscription = Subscription(
-        encoding=SubscriptionEncoding.XML,
-        level="+S1",
-        limit=SUBSCRIPTION_LIMIT,
-        notificationURI=webhook_uri,
-        subscribedResource=target.resource.href,
-    )
-    returned_subscription = await submit_and_refetch_resource_for_step(
-        Subscription, step, context, HTTPMethod.POST, subscription_list_href, subscription
-    )
-    sub_sr = store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription)
-    context.resource_annotations(step, sub_sr.id).alias = sub_id
+    # Create a subscription
+    for target in subscription_targets:
+        if target.resource.href is None:
+            raise CactusClientException(f"Found {resource} with no href attribute encoded. Cannot subscribe to this.")
+
+        # Figure out what webhook URI we can use for our subscription alias
+        webhook_uri = await fetch_notification_webhook_for_subscription(
+            step, context, sub_id, target.resource_type, target.id
+        )
+
+        # Check that the element is marked as subscribable
+        subscribable: SubscribableType | None = getattr(target.resource, "subscribable", None)
+        if subscribable not in VALID_SUBSCRIBABLE_VALUES:
+            context.warnings.log_step_warning(
+                step,
+                f"{resource} {target.resource.href} does not have the 'subscribable' attribute set to a value that"
+                + " indicates support for a non conditional subscription.",
+            )
+
+        # Submit the subscription - ensure it's annotated correctly
+        subscription = Subscription(
+            encoding=SubscriptionEncoding.XML,
+            level="+S1",
+            limit=SUBSCRIPTION_LIMIT,
+            notificationURI=webhook_uri,
+            subscribedResource=target.resource.href,
+        )
+        returned_subscription = await submit_and_refetch_resource_for_step(
+            Subscription, step, context, HTTPMethod.POST, subscription_list_href, subscription
+        )
+        sub_sr = store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription)
+        context.resource_annotations(step, sub_sr.id).alias = sub_id
 
     return ActionResult.done()
 
@@ -154,16 +158,17 @@ async def action_delete_subscription(
         for r in store.get_for_type(CSIPAusResource.Subscription)
         if context.resource_annotations(step, r.id).alias == sub_id
     ]
-    if len(matching_subs) != 1:
+    if len(matching_subs) == 0:
         raise CactusClientException(
-            f"Found {len(matching_subs)} Subscription resource(s) with alias {sub_id} but expected 1. Cannot delete."
+            f"Found no Subscription resource(s) with alias {sub_id} but expected at least 1. Cannot delete."
         )
-    target = matching_subs[0]
-    if target.resource.href is None:
-        raise CactusClientException("Found Subscription with no href attribute encoded. Cannot delete this.")
 
-    await delete_and_check_resource_for_step(step, context, target.resource.href)
-    store.delete_resource(target.id)
+    for target in matching_subs:
+        if target.resource.href is None:
+            raise CactusClientException("Found Subscription with no href attribute encoded. Cannot delete this.")
+
+        await delete_and_check_resource_for_step(step, context, target.resource.href)
+        store.delete_resource(target.id)
 
     return ActionResult.done()
 
@@ -180,7 +185,11 @@ def parse_combined_resource(xsi_type: str, resource: NotificationResourceCombine
 
 
 async def handle_notification_resource(
-    step: StepExecution, context: ExecutionContext, notification: Notification, sub_id: str
+    step: StepExecution,
+    context: ExecutionContext,
+    notification: Notification,
+    sub_id: str,
+    source: NotificationEndpoint,
 ) -> None:
     """Takes a raw sep2 Notification and extracts any contents before injecting it into the current context's
     resource store."""
@@ -201,13 +210,10 @@ async def handle_notification_resource(
     parsed_resource = parse_combined_resource(xsi_type, notification.resource)
 
     store = context.discovered_resources(step)
-    endpoint = context.notifications_context(step).endpoint_by_sub_alias.get(sub_id)
-    if endpoint is None:
-        raise CactusClientException(f"There is no subscription endpoint for {sub_id}. Has a subscription been created?")
 
     # Add this new notification contents to the store - this can be done via direct upsert
     upserted_resource = store.upsert_resource(
-        endpoint.subscribed_resource_type, endpoint.subscribed_resource_id.parent_id(), parsed_resource
+        source.subscribed_resource_type, source.subscribed_resource_id.parent_id(), parsed_resource
     )
     context.resource_annotations(step, upserted_resource.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
 
@@ -247,17 +253,16 @@ async def handle_notification_cancellation(
 
 
 async def collect_and_validate_notification(
-    step: StepExecution, context: ExecutionContext, collected_notification: CollectedNotification, sub_id: str
+    step: StepExecution,
+    context: ExecutionContext,
+    source: NotificationEndpoint,
+    collected_notification: CollectedNotification,
+    sub_id: str,
 ) -> None:
     """Takes a CollectedNotification and parses into a NotificationRequest (for logging) and decomposes a Notification
     from it in order to add things to the Resource store"""
 
-    notification_context = context.notifications_context(step)
-    endpoint = notification_context.endpoint_by_sub_alias.get(sub_id)
-    if endpoint is None:
-        raise CactusClientException(f"There is no subscription endpoint for {sub_id}. Has a subscription been created?")
-
-    notification = NotificationRequest.from_collected_notification(collected_notification, sub_id)
+    notification = NotificationRequest.from_collected_notification(source, collected_notification, sub_id)
     await context.responses.log_notification_body(notification)
 
     if notification.method != "POST":
@@ -287,15 +292,15 @@ async def collect_and_validate_notification(
         )
 
     # Now start inspecting the returned Notification
-    if sep2_notification.subscribedResource != endpoint.subscribed_resource_id.href():
+    if sep2_notification.subscribedResource != source.subscribed_resource_id.href():
         context.warnings.log_step_warning(
             step,
             f"Notification <subscribedResource> has value {sep2_notification.subscribedResource}"
-            + f" but expected {endpoint.subscribed_resource_id.href()} as per initial Subscription.",
+            + f" but expected {source.subscribed_resource_id.href()} as per initial Subscription.",
         )
 
     if sep2_notification.status == NotificationStatus.DEFAULT:
-        await handle_notification_resource(step, context, sep2_notification, sub_id)
+        await handle_notification_resource(step, context, sep2_notification, sub_id, source)
     else:
         await handle_notification_cancellation(step, context, sep2_notification)
 
@@ -308,8 +313,8 @@ async def action_notifications(
     disable: bool | None = resolved_parameters.get("disable", None)
 
     if collect:
-        for collected_notification in await collect_notifications_for_subscription(step, context, sub_id):
-            await collect_and_validate_notification(step, context, collected_notification, sub_id)
+        for n in await collect_notifications_for_subscription(step, context, sub_id):
+            await collect_and_validate_notification(step, context, n.source, n.notification, sub_id)
 
     if disable is not None:
         await update_notification_webhook_for_subscription(step, context, sub_id, enabled=not disable)

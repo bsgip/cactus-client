@@ -19,7 +19,12 @@ from cactus_client.model.execution import (
     StepExecution,
     StepExecutionList,
 )
-from cactus_client.model.http import NotificationRequest, ServerRequest, ServerResponse
+from cactus_client.model.http import (
+    NotificationEndpoint,
+    NotificationRequest,
+    ServerRequest,
+    ServerResponse,
+)
 from cactus_client.model.progress import (
     ProgressTracker,
     ResponseTracker,
@@ -55,6 +60,7 @@ def generate_notification(seed: int, xsd_errors: list[str] | None) -> Notificati
         remote=generate_value(str, seed + 5),
         sub_id=generate_value(str, seed + 6),
         xsd_errors=xsd_errors,
+        source=generate_class_instance(NotificationEndpoint, seed + 7),
     )
 
 
