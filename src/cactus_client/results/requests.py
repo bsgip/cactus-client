@@ -84,7 +84,7 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
     webhook_by_sub_id: dict[str, str] = {}
     for client in context.clients_by_alias.values():
         if client.notifications:
-            for sub_id, endpoint in client.notifications.endpoint_by_sub_alias.items():
+            for sub_id, endpoint in client.notifications.endpoints_by_sub_alias.items():
                 webhook_by_sub_id[sub_id] = endpoint.created_endpoint.fully_qualified_endpoint
 
     for idx, comms in enumerate(context.responses.responses):

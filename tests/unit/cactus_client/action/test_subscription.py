@@ -63,12 +63,14 @@ def assertical_all_hexbinary8():
         yield
 
 
+@pytest.mark.parametrize("total_parent_lists", [1, 3])
 @mock.patch("cactus_client.action.subscription.fetch_notification_webhook_for_subscription")
 @mock.patch("cactus_client.action.subscription.submit_and_refetch_resource_for_step")
 @pytest.mark.asyncio
 async def test_action_create_subscription(
     mock_submit_and_refetch_resource_for_step: mock.MagicMock,
     mock_fetch_notification_webhook_for_subscription: mock.MagicMock,
+    total_parent_lists: int,
     testing_contexts_factory,
 ):
     """Tests the happy path of creation - ensures that the resource store is properly updated"""
@@ -84,16 +86,21 @@ async def test_action_create_subscription(
         None,
         generate_class_instance(SubscriptionListResponse, seed=101, href="/sublist"),
     )
-    target_sr = store.append_resource(
-        CSIPAusResource.DERProgramList,
-        None,
-        generate_class_instance(
-            DERProgramListResponse,
-            seed=202,
-            href="/derplist",
-            subscribable=SubscribableType.resource_supports_both_conditional_and_non_conditional_subscriptions,
-        ),
-    )
+    targets = []
+    for i in range(total_parent_lists):
+        targets.append(
+            store.append_resource(
+                CSIPAusResource.DERProgramList,
+                None,
+                generate_class_instance(
+                    DERProgramListResponse,
+                    seed=(i + 1) * 101,
+                    href=f"/derplist{i}",
+                    subscribable=SubscribableType.resource_supports_both_conditional_and_non_conditional_subscriptions,
+                ),
+            )
+        )
+
     # Add an unrelated subscription - should be left alone
     other_sub_sr = store.append_resource(
         CSIPAusResource.Subscription,
@@ -123,11 +130,12 @@ async def test_action_create_subscription(
     assert new_sub_sr.resource is refetched_subscription
 
     mock_submit_and_refetch_resource_for_step.assert_has_calls(
-        [mock.call(Subscription, step, context, HTTPMethod.POST, sub_list_sr.id.href(), mock.ANY)]
+        [mock.call(Subscription, step, context, HTTPMethod.POST, sub_list_sr.id.href(), mock.ANY)] * len(targets)
     )
-    mock_fetch_notification_webhook_for_subscription.assert_has_calls(
-        [mock.call(step, context, sub_id, resource, target_sr.id)]
-    )
+    for target in targets:
+        mock_fetch_notification_webhook_for_subscription.assert_has_calls(
+            [mock.call(step, context, sub_id, resource, target.id)]
+        )
 
     assert len(context.warnings.warnings) == 0
 

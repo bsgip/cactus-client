@@ -77,9 +77,46 @@ class NotificationsContext:
     # will have base_url, timeouts, ssl_context set
     session: ClientSession
 
-    endpoint_by_sub_alias: dict[
-        str, NotificationEndpoint
-    ]  # notification server endpoint, keyed by the subscription alias that it corresponds to
+    endpoints_by_sub_alias: dict[
+        str, list[NotificationEndpoint]
+    ]  # notification server endpoints, keyed by the subscription alias that they corresponds to
+
+    def get_resource_notification_endpoint(
+        self, sub_id: str, subscribed_resource_id: StoredResourceId
+    ) -> NotificationEndpoint | None:
+        """Convenience function for accessing endpoints_by_sub_alias and looking for a NotificationEndpoint that
+        exists under sub_id AND has the specified subscribed_resource_id"""
+        endpoints = self.endpoints_by_sub_alias.get(sub_id, None)
+        if not endpoints:
+            return None
+
+        for e in endpoints:
+            if e.subscribed_resource_id == subscribed_resource_id:
+                return e
+        return None
+
+    def add_resource_notification_endpoint(
+        self,
+        sub_id: str,
+        created_endpoint: CreateEndpointResponse,
+        subscribed_resource_type: CSIPAusResource,
+        subscribed_resource_id: StoredResourceId,
+    ) -> NotificationEndpoint:
+        """Creates a new instance of NotificationEndpoint (with the supplied values) and appends it to the internal
+        endpoints_by_sub_alias structure. Performs no duplication checks"""
+        new_endpoint = NotificationEndpoint(
+            created_endpoint=created_endpoint,
+            subscribed_resource_type=subscribed_resource_type,
+            subscribed_resource_id=subscribed_resource_id,
+        )
+
+        endpoints = self.endpoints_by_sub_alias.get(sub_id, None)
+        if not endpoints:
+            self.endpoints_by_sub_alias[sub_id] = [new_endpoint]
+        else:
+            endpoints.append(new_endpoint)
+
+        return new_endpoint
 
 
 @dataclass
