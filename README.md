@@ -59,6 +59,9 @@ Setup the server connections details (dcap refers to your DeviceCapability URI)
 1. `cactus server dcap https://your.server/dcap`
 2. `cactus server verify true`
 3. `cactus server serca path/to/serca.pem`
+4. `cactus server notification https://cactus.cecs.anu.edu.au/client-notifications/`
+    * Please note - this will utilise the shared, ANU hosted [client-notifications](https://github.com/bsgip/cactus-client-notifications) service
+    * If you wish to self host - please see [client-notifications](https://github.com/bsgip/cactus-client-notifications)
 
 
 Setup your first client - You will be prompted to populate each field (like below)
@@ -89,8 +92,13 @@ The DERSetting.setMaxW and DERCapability.rtgMaxW value to use (in Watts): 5000
 │ max_watts        │ 5000                                          │
 │ pen              │ 12345                                         │
 │ pin              │ 111115                                        │
+│ user_agent       │ null                                          │
 └──────────────────┴───────────────────────────────────────────────┘
 ```
+
+To update individual client settings (eg to add a User-Agent header to requests) just specify the parameter to update and new value:
+
+`cactus client myclient1 user_agent "cactus client myclient1"`
 
 ### Discovering available tests
 
