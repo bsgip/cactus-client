@@ -31,6 +31,7 @@ def check_default_der_control(  # noqa: C901 # This complexity is from the long 
     minimum_count: int | None = resolved_parameters.get("minimum_count", None)
     maximum_count: int | None = resolved_parameters.get("maximum_count", None)
     export_limit_w: float | None = resolved_parameters.get("opModExpLimW", None)
+    import_limit_w: float | None = resolved_parameters.get("opModImpLimW", None)
     load_limit_w: float | None = resolved_parameters.get("opModLoadLimW", None)
     generation_limit_w: float | None = resolved_parameters.get("opModGenLimW", None)
     set_grad_w: int | None = resolved_parameters.get("setGradW", None)
@@ -47,6 +48,11 @@ def check_default_der_control(  # noqa: C901 # This complexity is from the long 
     total_matches = 0
     for dderc_sr in default_der_controls:
         dderc = cast(DefaultDERControl, dderc_sr.resource)
+
+        if import_limit_w is not None:
+            actual_import = sep2_to_value(dderc.DERControlBase_.opModImpLimW)
+            if actual_import != import_limit_w:
+                continue
 
         if export_limit_w is not None:
             actual_export = sep2_to_value(dderc.DERControlBase_.opModExpLimW)
