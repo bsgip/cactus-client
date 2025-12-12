@@ -53,10 +53,11 @@ def generate_upsert_mup_request(
     reading_types: list[CSIPAusReadingType],
     mmr_mrids: list[str] | None,
     pow10_multiplier: int,
+    set_mup_mrid: str | None,
 ) -> MirrorUsagePointRequest:
 
     client_config = context.client_config(step)
-    mrids = generate_mup_mrids(location, reading_types, mmr_mrids, client_config)
+    mrids = generate_mup_mrids(location, reading_types, mmr_mrids, client_config, set_mup_mrid)
     role_flags = generate_role_flags(location)
 
     mmrs: list[MirrorMeterReading] = []
@@ -210,6 +211,7 @@ async def action_upsert_mup(
     location: CSIPAusReadingLocation = resolved_parameters["location"]  # mandatory param
     reading_types: list[CSIPAusReadingType] = resolved_parameters["reading_types"]  # mandatory param
     expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
+    set_mup_mrid: str | None = resolved_parameters.get("set_mup_mrid", None)  # If we need to upsert on same MUP mrid
     mmr_mrids: list[str] | None = resolved_parameters.get("mmr_mrids", None)
     pow10_multiplier: int = resolved_parameters.get("pow10_multiplier", 0)
 
@@ -224,7 +226,9 @@ async def action_upsert_mup(
         )
 
     list_href = cast(str, mup_list_resources[0].resource.href)  # This will be set due to the earlier filter
-    request_mup = generate_upsert_mup_request(step, context, location, reading_types, mmr_mrids, pow10_multiplier)
+    request_mup = generate_upsert_mup_request(
+        step, context, location, reading_types, mmr_mrids, pow10_multiplier, set_mup_mrid
+    )
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
         await client_error_request_for_step(

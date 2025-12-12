@@ -48,10 +48,15 @@ def generate_mup_mrids(
     reading_types: list[CSIPAusReadingType],
     mmr_mrids: list[str] | None,
     client: ClientConfig,
+    set_mup_mrid: str | None = None,
 ) -> MirrorUsagePointMrids:
     """A deterministic set of calculations that always yields the same MRIDs for the same inputs but also varies
-    all values for any variance (basically hash derived)"""
-    mup_mrid = generate_hashed_mrid(str(location) + client.id + "|".join(sorted(reading_types)), client.pen)
+    all values for any variance (basically hash derived). MUP mrid can be set explicitly by set_mup_mrid."""
+    mup_mrid = (
+        set_mup_mrid
+        if set_mup_mrid is not None
+        else generate_hashed_mrid(str(location) + client.id + "|".join(sorted(reading_types)), client.pen)
+    )
 
     # If we have defined mrids for the MirrorMeterReadings - just apply them (with the client pen encoded)
     if mmr_mrids:
