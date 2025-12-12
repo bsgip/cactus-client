@@ -32,7 +32,7 @@ name = "cactus_client"
 dynamic = ["version", "readme"]
 description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
 dependencies = [
-    "cactus-test-definitions==1.7.1",
+    "cactus-test-definitions==1.8.2",
     "cactus-client-notifications==0.0.5",
     "envoy-schema>=0.30.0",
     "rich>=14.1.0,<15",
