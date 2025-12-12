@@ -80,8 +80,8 @@ from cactus_client.model.execution import CheckResult, StepExecution
             456,
             789,
             True,
-            True,
-        ),  # Case mismatch
+            False,
+        ),  # Case mismatch on LFDI is OK
         (
             {"matches_client": False, "matches_pin": True},
             [

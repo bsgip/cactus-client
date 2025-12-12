@@ -66,8 +66,6 @@ def check_end_device(
                 )
 
     # Check for more specifics
-    if edev.lFDI is not None and (edev.lFDI.upper() != edev.lFDI):
-        context.warnings.log_step_warning(step, f"Expected an uppercase LFDI - received {edev.lFDI}")
     if edev.sFDI != client_config.sfdi:
         context.warnings.log_step_warning(
             step,
