@@ -5,10 +5,10 @@ from http import HTTPMethod
 from typing import Any, Optional, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
-from envoy_schema.server.schema.sep2.der import DERControlResponse
+from envoy_schema.server.schema.sep2.der import DERControlResponse as DERControl
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.event import EventStatusType
-from envoy_schema.server.schema.sep2.response import Response, ResponseType
+from envoy_schema.server.schema.sep2.response import ResponseType, DERControlResponse
 
 from cactus_client.action.server import (
     client_error_request_for_step,
@@ -16,11 +16,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.error import CactusClientException
-from cactus_client.model.context import (
-    AnnotationNamespace,
-    ExecutionContext,
-    StoredResourceAnnotations,
-)
+from cactus_client.model.context import AnnotationNamespace, ExecutionContext, StoredResourceAnnotations
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
 from cactus_client.schema.validator import to_hex_binary
@@ -56,7 +52,7 @@ def get_edev_lfdi_for_der_control(
 def determine_response_status(
     event_status: EventStatusType,
     annotations: StoredResourceAnnotations,
-    der_control: DERControlResponse,
+    der_control: DERControl,
     current_time: datetime,
 ) -> ResponseType | None:
     """
@@ -120,7 +116,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
     # Go through all DER controls to see if a response is required
     for der_ctl in stored_der_controls:
-        der_control = cast(DERControlResponse, der_ctl.resource)
+        der_control = cast(DERControl, der_ctl.resource)
 
         # Filter for DERControls that require a response
         # Both reply to and response required must be set. If neither, pass silently, if only one, add warning)
@@ -155,14 +151,16 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
             continue  # Already a warning set in the function, just dont sent a response
 
         # Send the response
-        response = Response(
+        response = DERControlResponse(
             endDeviceLFDI=edev_lfdi,
             status=response_status,
             createdDateTime=int(current_time.timestamp()),
             subject=der_control.mRID,
         )
 
-        await submit_and_refetch_resource_for_step(Response, step, context, HTTPMethod.POST, reply_to, response)
+        await submit_and_refetch_resource_for_step(
+            DERControlResponse, step, context, HTTPMethod.POST, reply_to, response
+        )
 
         # Update tags to track this response was sent
         der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
@@ -197,16 +195,14 @@ async def action_send_malformed_response(
 
     # Find for DERControls that have replyTo set
     stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
-    der_controls_with_reply = [
-        sr for sr in stored_der_controls if cast(DERControlResponse, sr.resource).replyTo is not None
-    ]
+    der_controls_with_reply = [sr for sr in stored_der_controls if cast(DERControl, sr.resource).replyTo is not None]
 
     if not der_controls_with_reply:
         raise CactusClientException("No DERControls found with replyTo set. Cannot send malformed response.")
 
     # Get the most recent one
     most_recent_der_ctl = der_controls_with_reply[-1]
-    der_control = cast(DERControlResponse, most_recent_der_ctl.resource)
+    der_control = cast(DERControl, most_recent_der_ctl.resource)
     reply_to = der_control.replyTo
 
     # Determine the endDeviceLFDI_unknown (either go find it, or set to fake one)
@@ -223,7 +219,7 @@ async def action_send_malformed_response(
 
     # Create the malformed response
     current_time = utc_now()
-    response = Response(
+    response = DERControlResponse(
         endDeviceLFDI=edev_lfdi,
         status=ResponseType.EVENT_RECEIVED,  # Will edit XML if needed
         createdDateTime=int(current_time.timestamp()),
