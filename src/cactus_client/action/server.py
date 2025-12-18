@@ -206,6 +206,7 @@ async def paginate_list_resource_items(
             every_all_value.append(received_all)
 
         # Prepare next page
+        # This is deliberately over paginating in order to catch any odd server behaviour
         start += page_size
         if len(latest_items) == 0:  # When we receive an empty page - we know we are done
             break

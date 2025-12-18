@@ -145,7 +145,7 @@ def find_mrids_matching(
         resource = cast(MirrorUsagePoint, mup.resource)
 
         # Look to disqualify mups as matches by checking things one by one
-        if post_rate_seconds is not None and post_rate_seconds != resource.postRate:
+        if post_rate_seconds is not None and resource.postRate is not None and post_rate_seconds != resource.postRate:
             continue
 
         if role_flags is not None and not hex_binary_equal(resource.roleFlags, role_flags):
