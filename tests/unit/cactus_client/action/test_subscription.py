@@ -7,7 +7,7 @@ import pytest
 from assertical.asserts.generator import assert_class_instance_equality
 from assertical.fake.generator import generate_class_instance, register_value_generator
 from assertical.fixtures.generator import generator_registry_snapshot
-from cactus_client_notifications.schema import (
+from cactus_schema.notification import (
     CollectedHeader,
     CollectedNotification,
     CreateEndpointResponse,

@@ -8,12 +8,11 @@ from aiohttp import ClientSession, web
 from aiohttp.test_utils import TestClient
 from assertical.asserts.type import assert_list_type
 from assertical.fake.generator import generate_class_instance
-from cactus_client_notifications.schema import (
-    URI_MANAGE_ENDPOINT,
-    URI_MANAGE_ENDPOINT_LIST,
+from cactus_schema.notification import (
     CollectedNotification,
     CollectEndpointResponse,
     CreateEndpointResponse,
+    uri,
 )
 from cactus_test_definitions.csipaus import CSIPAusResource
 
@@ -89,7 +88,7 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
         [
             TestingAppRoute(
                 HTTPMethod.POST,
-                URI_MANAGE_ENDPOINT_LIST,
+                uri.URI_MANAGE_ENDPOINT_LIST,
                 [
                     RouteBehaviour(HTTPStatus.OK, create_endpoint_1.to_json()),
                     RouteBehaviour(HTTPStatus.OK, create_endpoint_2.to_json()),
@@ -146,7 +145,7 @@ async def test_notifications_server_request_status_error(aiohttp_client, testing
         [
             TestingAppRoute(
                 HTTPMethod.POST,
-                URI_MANAGE_ENDPOINT_LIST,
+                uri.URI_MANAGE_ENDPOINT_LIST,
                 [
                     RouteBehaviour(
                         HTTPStatus.BAD_REQUEST, CreateEndpointResponse("abc123", "https://my.example:123/uri").to_json()
@@ -174,7 +173,7 @@ async def test_notifications_server_request_parsing_error(aiohttp_client, testin
         [
             TestingAppRoute(
                 HTTPMethod.POST,
-                URI_MANAGE_ENDPOINT_LIST,
+                uri.URI_MANAGE_ENDPOINT_LIST,
                 [RouteBehaviour(HTTPStatus.OK, "{ }")],
             )
         ],
@@ -209,7 +208,7 @@ async def test_collect_notifications_for_subscription(aiohttp_client, testing_co
         [
             TestingAppRoute(
                 HTTPMethod.GET,
-                URI_MANAGE_ENDPOINT.format(endpoint_id="abc-123"),
+                uri.URI_MANAGE_ENDPOINT.format(endpoint_id="abc-123"),
                 [
                     RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse(expected).to_json()),
                 ],
@@ -244,35 +243,35 @@ async def test_collect_notifications_for_subscription_multi(aiohttp_client, test
 
     route1 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r1"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r1"),
         [
             RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse([]).to_json()),
         ],
     )
     route2 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r2"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r2"),
         [
             RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse([n1]).to_json()),
         ],
     )
     route3 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r3"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r3"),
         [
             RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse([n2, n3]).to_json()),
         ],
     )
     route4 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r4"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r4"),
         [
             RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse([]).to_json()),
         ],
     )
     route5 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r5"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r5"),
         [
             RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse([n4]).to_json()),
         ],
@@ -332,7 +331,7 @@ async def test_collect_notifications_for_subscription_not_configured(aiohttp_cli
         [
             TestingAppRoute(
                 HTTPMethod.GET,
-                URI_MANAGE_ENDPOINT.format(endpoint_id="abc-123"),
+                uri.URI_MANAGE_ENDPOINT.format(endpoint_id="abc-123"),
                 [
                     RouteBehaviour(HTTPStatus.OK, CollectEndpointResponse([n1, n2]).to_json()),
                 ],
@@ -351,7 +350,7 @@ async def test_collect_notifications_for_subscription_status_error(aiohttp_clien
 
     route1 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r1"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r1"),
         [
             RouteBehaviour(
                 HTTPStatus.OK,
@@ -363,7 +362,7 @@ async def test_collect_notifications_for_subscription_status_error(aiohttp_clien
     )
     route2 = TestingAppRoute(
         HTTPMethod.GET,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="r2"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="r2"),
         [
             RouteBehaviour(HTTPStatus.BAD_REQUEST, CollectEndpointResponse([]).to_json()),
         ],
@@ -402,7 +401,7 @@ async def test_collect_notifications_for_subscription_bad_response(aiohttp_clien
         [
             TestingAppRoute(
                 HTTPMethod.GET,
-                URI_MANAGE_ENDPOINT.format(endpoint_id="abc-123"),
+                uri.URI_MANAGE_ENDPOINT.format(endpoint_id="abc-123"),
                 [
                     RouteBehaviour(HTTPStatus.OK, "{ ]"),
                 ],
@@ -431,12 +430,12 @@ async def test_update_notification_webhook_for_subscription(aiohttp_client, test
 
     route1 = TestingAppRoute(
         HTTPMethod.PUT,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="ABC123"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="ABC123"),
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     route2 = TestingAppRoute(
         HTTPMethod.PUT,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="DEF456"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="DEF456"),
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     async with create_test_session(aiohttp_client, [route1, route2]) as session:
@@ -474,7 +473,7 @@ async def test_update_notification_webhook_for_subscription_not_configured(aioht
         [
             TestingAppRoute(
                 HTTPMethod.PUT,
-                URI_MANAGE_ENDPOINT.format(endpoint_id="ABC123"),
+                uri.URI_MANAGE_ENDPOINT.format(endpoint_id="ABC123"),
                 [RouteBehaviour(HTTPStatus.OK, "")],
             )
         ],
@@ -490,12 +489,12 @@ async def test_update_notification_webhook_for_subscription_status_error(aiohttp
 
     route1 = TestingAppRoute(
         HTTPMethod.PUT,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="ABC123"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="ABC123"),
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     route2 = TestingAppRoute(
         HTTPMethod.PUT,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="DEF456"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="DEF456"),
         [RouteBehaviour(HTTPStatus.BAD_REQUEST, "")],
     )
     async with create_test_session(
@@ -528,21 +527,23 @@ async def test_update_notification_webhook_for_subscription_status_error(aiohttp
 async def test_safely_delete_all_notification_webhooks(aiohttp_client, testing_contexts_factory):
     """Does safely_delete_all_notification_webhooks continue to perform deletes until all routes have been attempted"""
     route1 = TestingAppRoute(
-        HTTPMethod.DELETE, URI_MANAGE_ENDPOINT.format(endpoint_id="abc123"), [RouteBehaviour(HTTPStatus.NOT_FOUND, "")]
+        HTTPMethod.DELETE,
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="abc123"),
+        [RouteBehaviour(HTTPStatus.NOT_FOUND, "")],
     )
     route2 = TestingAppRoute(
         HTTPMethod.DELETE,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="def456"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="def456"),
         [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, "")],
     )
     route3 = TestingAppRoute(
         HTTPMethod.DELETE,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="ghi789"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="ghi789"),
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     route4 = TestingAppRoute(
         HTTPMethod.DELETE,
-        URI_MANAGE_ENDPOINT.format(endpoint_id="jkl111"),
+        uri.URI_MANAGE_ENDPOINT.format(endpoint_id="jkl111"),
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     async with create_test_session(aiohttp_client, [route1, route2, route3, route4]) as session:

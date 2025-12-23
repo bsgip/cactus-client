@@ -4,9 +4,7 @@ from enum import IntEnum, StrEnum
 from pathlib import Path
 
 from aiohttp import ClientSession
-from cactus_client_notifications.schema import (
-    CreateEndpointResponse,
-)
+from cactus_schema.notification import CreateEndpointResponse
 from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
