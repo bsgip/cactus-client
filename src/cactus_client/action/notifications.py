@@ -3,12 +3,11 @@ from dataclasses import dataclass
 from http import HTTPMethod
 
 from aiohttp import ClientSession
-from cactus_client_notifications.schema import (
-    URI_MANAGE_ENDPOINT,
-    URI_MANAGE_ENDPOINT_LIST,
+from cactus_schema.notification import (
     CollectEndpointResponse,
     ConfigureEndpointRequest,
     CreateEndpointResponse,
+    uri,
 )
 from cactus_test_definitions.csipaus import CSIPAusResource
 
@@ -89,7 +88,7 @@ async def fetch_notification_webhook_for_subscription(
     # otherwise we need to make an outgoing request for a new endpoint
 
     response = await notifications_server_request(
-        notification_context.session, step, context, URI_MANAGE_ENDPOINT_LIST[1:], HTTPMethod.POST, json_body=None
+        notification_context.session, step, context, uri.URI_MANAGE_ENDPOINT_LIST[1:], HTTPMethod.POST, json_body=None
     )
     if not response.is_success():
         raise NotificationException(
@@ -135,7 +134,7 @@ async def update_notification_webhook_for_subscription(
             notification_context.session,
             step,
             context,
-            URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id)[1:],
+            uri.URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id)[1:],
             HTTPMethod.PUT,
             json_body=ConfigureEndpointRequest(enabled=enabled).to_json(),
         )
@@ -170,7 +169,7 @@ async def collect_notifications_for_subscription(
             notification_context.session,
             step,
             context,
-            URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id)[1:],
+            uri.URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id)[1:],
             HTTPMethod.GET,
             json_body=None,
         )
@@ -209,7 +208,7 @@ async def safely_delete_all_notification_webhooks(notification_context: Notifica
             try:
                 async with notification_context.session.request(
                     method=HTTPMethod.DELETE,
-                    url=URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id)[1:],
+                    url=uri.URI_MANAGE_ENDPOINT.format(endpoint_id=endpoint.created_endpoint.endpoint_id)[1:],
                 ) as raw_response:
                     logger.info(
                         f"Deleting notification endpoint: {endpoint.created_endpoint.endpoint_id}"

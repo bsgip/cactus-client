@@ -3,7 +3,7 @@ from typing import Callable
 
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
-from cactus_client_notifications.schema import CreateEndpointResponse
+from cactus_schema.notification import CreateEndpointResponse
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.response import ResponseType
 

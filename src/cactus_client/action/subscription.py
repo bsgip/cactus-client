@@ -2,7 +2,7 @@ import logging
 from http import HTTPMethod
 from typing import Any, cast
 
-from cactus_client_notifications.schema import CollectedNotification
+from cactus_schema.notification import CollectedNotification
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
 from envoy_schema.server.schema.sep2.der import (
     DefaultDERControl,

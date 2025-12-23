@@ -2,10 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from aiohttp import ClientResponse
-from cactus_client_notifications.schema import (
-    CollectedNotification,
-    CreateEndpointResponse,
-)
+from cactus_schema.notification import CollectedNotification, CreateEndpointResponse
 from cactus_test_definitions.csipaus import CSIPAusResource
 from multidict import CIMultiDict
 
