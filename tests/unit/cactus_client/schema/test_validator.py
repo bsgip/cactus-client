@@ -12,7 +12,7 @@ from cactus_client.schema.validator import to_hex_binary, validate_xml
         """
 <DERControlList
     xmlns="urn:ieee:std:2030.5:ns"
-    xmlns:csipaus="https://csipaus.org/ns" all="2" href="/derp/0/derc" results="1">
+    xmlns:csipaus="https://csipaus.org/ns/v1.3-beta/storage" all="2" href="/derp/0/derc" results="1">
     <DERControl replyTo="/rsp" responseRequired="03">
         <mRID>ABCDEF0123456789</mRID>
         <description>Example DERControl 1</description>
@@ -47,11 +47,11 @@ from cactus_client.schema.validator import to_hex_binary, validate_xml
     </DERControl>
 </DERControlList>""",
         """
-<ConnectionPoint xmlns="https://csipaus.org/ns">
+<ConnectionPoint xmlns="https://csipaus.org/ns/v1.3-beta/storage">
     <connectionPointId>1234567890</connectionPointId>
 </ConnectionPoint>""",
         """
-<DERControlBase xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns">
+<DERControlBase xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns/v1.3-beta/storage">
     <csipaus:opModImpLimW>
         <multiplier>0</multiplier>
         <value>20000</value>
@@ -72,7 +72,7 @@ def test_validate_xml_valid_xml(xml):
         "",
         "123451",
         '{"foo": 123}',
-        '<ConnectionPoint xmlns="https://csipaus.org/ns"><c',
+        '<ConnectionPoint xmlns="https://csipaus.org/ns/v1.3-beta/storage"><c',
     ],
 )
 def test_validate_xml_not_xml(xml):
@@ -85,13 +85,13 @@ def test_validate_xml_not_xml(xml):
     "xml",
     [
         """
-<ConnectionPoint xmlns="https://csipaus.org/ns">
+<ConnectionPoint xmlns="https://csipaus.org/ns/v1.3-beta/storage">
     <connectionPointId>1234567890</connectionPointId>
     <extraElement/>
 </ConnectionPoint>
 """,  # Extra elements
         """
-<DERControlBase xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns">
+<DERControlBase xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns/v1.3-beta/storage">
     <csipaus:opModImpLimW>
         <value>20000</value>
         <multiplier>0</multiplier>

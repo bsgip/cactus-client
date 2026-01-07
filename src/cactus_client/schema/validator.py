@@ -5,10 +5,12 @@ from pathlib import Path
 from lxml import etree
 
 import cactus_client.schema.csipaus12 as csipaus12
+import cactus_client.schema.csipaus13 as csipaus13
 
 logger = logging.getLogger(__name__)
 
 CSIP_AUS_12_DIR = Path(csipaus12.__file__).parent
+CSIP_AUS_13_DIR = Path(csipaus13.__file__).parent
 
 
 class LocalXsdResolver(etree.Resolver):
@@ -16,11 +18,11 @@ class LocalXsdResolver(etree.Resolver):
 
     def resolve(self, url, id, context):  # type: ignore
         if url == "sep.xsd":
-            return self.resolve_filename(str(CSIP_AUS_12_DIR / "sep.xsd"), context)  # type: ignore
+            return self.resolve_filename(str(CSIP_AUS_13_DIR / "sep.xsd"), context)  # type: ignore
         elif url == "csipaus-core.xsd":
-            return self.resolve_filename(str(CSIP_AUS_12_DIR / "csipaus-core.xsd"), context)  # type: ignore
+            return self.resolve_filename(str(CSIP_AUS_13_DIR / "csipaus-core.xsd"), context)  # type: ignore
         elif url == "csipaus-ext.xsd":
-            return self.resolve_filename(str(CSIP_AUS_12_DIR / "csipaus-ext.xsd"), context)  # type: ignore
+            return self.resolve_filename(str(CSIP_AUS_13_DIR / "csipaus-ext.xsd"), context)  # type: ignore
         return None
 
 
@@ -33,15 +35,15 @@ def csip_aus_schema() -> etree.XMLSchema:
     parser.resolvers.add(LocalXsdResolver())
 
     # Load schema
-    with open(CSIP_AUS_12_DIR / "csipaus-core.xsd", "r") as fp:
+    with open(CSIP_AUS_13_DIR / "csipaus-core.xsd", "r") as fp:
         xsd_content = fp.read()
     schema_root = etree.XML(xsd_content, parser)
     return etree.XMLSchema(schema_root)
 
 
 def validate_xml(xml: str) -> list[str]:
-    """Validates an xml document / snippet as a valid CSIP Aus 1.2 XML snippet. Returns a list of any human
-    readable schema validation errors. Empty list means that xml is schema valid"""
+    """Validates an xml document / snippet as a valid CSIP Aus 1.3 storage extension XML snippet.
+    Returns a list of any human readable schema validation errors. Empty list means that xml is schema valid"""
 
     try:
         xml_doc = etree.fromstring(xml)

@@ -34,7 +34,7 @@ description = "Tools for evaluating a CSIP Aus server implementation via a virtu
 dependencies = [
     "cactus-test-definitions==1.8.3",
     "cactus-schema>=0.0.4",
-    "envoy-schema>=0.30.0",
+    "envoy_schema @ git+https://github.com/synergy-au/envoy-schema.git@v0.31.0-storage.0.6.0",
     "rich>=14.1.0,<15",
     "treelib>=1.8.0,<2",
     "aiohttp>=3.11.12,<4",
