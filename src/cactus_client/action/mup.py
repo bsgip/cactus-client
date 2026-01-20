@@ -62,7 +62,7 @@ def generate_upsert_mup_request(
 
     mmrs: list[MirrorMeterReading] = []
     for rt in reading_types:
-        (uom, kind, dq) = generate_reading_type_values(rt)
+        uom, kind, dq = generate_reading_type_values(rt)
         mmr_mrid = mrids.mmr_mrids[rt]
 
         mmrs.append(

@@ -6,12 +6,7 @@ from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.server.test_procedures import ClientType
 
 from cactus_client.error import ConfigException
-from cactus_client.model.config import (
-    ClientConfig,
-    GlobalConfig,
-    ServerConfig,
-    load_config,
-)
+from cactus_client.model.config import ClientConfig, GlobalConfig, ServerConfig, load_config
 
 
 def test_load_config_errors():
@@ -95,7 +90,7 @@ def test_load_config(yaml: str, expected: GlobalConfig):
     with tempfile.TemporaryDirectory() as tempdirname:
         path = Path(tempdirname) / Path("file.yaml")
         path.write_text(yaml)
-        (actual, path_used) = load_config(path)
+        actual, path_used = load_config(path)
         assert isinstance(actual, GlobalConfig)
         assert isinstance(path_used, Path)
         assert expected == actual

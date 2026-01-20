@@ -97,7 +97,7 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
         ],
     ) as session:
         execution_context: ExecutionContext
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
         result1 = await fetch_notification_webhook_for_subscription(
             step_execution,
             execution_context,
@@ -154,7 +154,7 @@ async def test_notifications_server_request_status_error(aiohttp_client, testing
             )
         ],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
             await fetch_notification_webhook_for_subscription(
                 step_execution,
@@ -178,7 +178,7 @@ async def test_notifications_server_request_parsing_error(aiohttp_client, testin
             )
         ],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
             await fetch_notification_webhook_for_subscription(
                 step_execution,
@@ -215,7 +215,7 @@ async def test_collect_notifications_for_subscription(aiohttp_client, testing_co
             )
         ],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [
@@ -307,7 +307,7 @@ async def test_collect_notifications_for_subscription_multi(aiohttp_client, test
         aiohttp_client,
         [route1, route2, route3, route4, route5],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [endpoint1, endpoint2, endpoint3, endpoint4, endpoint5]
@@ -338,7 +338,7 @@ async def test_collect_notifications_for_subscription_not_configured(aiohttp_cli
             )
         ],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
 
         with pytest.raises(NotificationException):
             await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
@@ -372,7 +372,7 @@ async def test_collect_notifications_for_subscription_status_error(aiohttp_clien
         aiohttp_client,
         [route1, route2],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [
@@ -408,7 +408,7 @@ async def test_collect_notifications_for_subscription_bad_response(aiohttp_clien
             )
         ],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [
@@ -439,7 +439,7 @@ async def test_update_notification_webhook_for_subscription(aiohttp_client, test
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     async with create_test_session(aiohttp_client, [route1, route2]) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [
             NotificationEndpoint(
@@ -478,7 +478,7 @@ async def test_update_notification_webhook_for_subscription_not_configured(aioht
             )
         ],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
         with pytest.raises(NotificationException):
             await update_notification_webhook_for_subscription(step_execution, execution_context, "sub1", enabled=False)
 
@@ -501,7 +501,7 @@ async def test_update_notification_webhook_for_subscription_status_error(aiohttp
         aiohttp_client,
         [route1, route2],
     ) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [
             NotificationEndpoint(
@@ -547,7 +547,7 @@ async def test_safely_delete_all_notification_webhooks(aiohttp_client, testing_c
         [RouteBehaviour(HTTPStatus.OK, "")],
     )
     async with create_test_session(aiohttp_client, [route1, route2, route3, route4]) as session:
-        (execution_context, step_execution) = testing_contexts_factory(None, session)
+        execution_context, step_execution = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
         notification_context.endpoints_by_sub_alias["sub1"] = [
