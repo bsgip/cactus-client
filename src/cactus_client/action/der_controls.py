@@ -114,6 +114,12 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
     stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
 
+    # Keep track of controls for better error messages
+    total_found = len(stored_der_controls)
+    skipped_no_reply_config = 0
+    skipped_already_responded = 0
+    responses_sent = 0
+
     # Go through all DER controls to see if a response is required
     for der_ctl in stored_der_controls:
         der_control = cast(DERControl, der_ctl.resource)
@@ -124,6 +130,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         response_req = der_control.responseRequired
 
         if reply_to is None and response_req is None:
+            skipped_no_reply_config += 1
             continue
 
         if reply_to is None or response_req is None:
@@ -132,6 +139,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
                 message=f"""Both reply to and response required should be set or both empty.
                 Found reply to: {reply_to}, response required: {response_req}""",
             )
+            skipped_no_reply_config += 1
             continue
 
         # Figure out what response to send using event status, and check if we have already sent a response
@@ -143,6 +151,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
         # If None, we've already sent all applicable responses
         if response_status is None:
+            skipped_already_responded += 1
             continue
 
         # Find the matching device lfdi
@@ -164,6 +173,14 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
         # Update tags to track this response was sent
         der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
+        responses_sent += 1
+
+    await context.progress.add_log(
+        step,
+        f"DERControl responses: {total_found} found, {responses_sent} responses sent, "
+        f"{skipped_no_reply_config} skipped (no replyTo/responseRequired), "
+        f"{skipped_already_responded} skipped (already responded)",
+    )
 
     return ActionResult.done()
 

@@ -88,17 +88,16 @@ def check_default_der_control(  # noqa: C901 # This complexity is from the long 
 
         total_matches += 1
 
+    total_found = len(default_der_controls)
+    metadata = f"Found {total_found} DefaultDERControls, {total_matches} matched criteria"
+
     if minimum_count is not None and total_matches < minimum_count:
-        return CheckResult(
-            False, f"Matched {total_matches} DefaultDERControls against criteria. Expected at least {minimum_count}"
-        )
+        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}")
 
     if maximum_count is not None and total_matches > maximum_count:
-        return CheckResult(
-            False, f"Matched {total_matches} DefaultDERControls against criteria. Expected at most {maximum_count}"
-        )
+        return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
 
-    return CheckResult(True, None)
+    return CheckResult(True, metadata)
 
 
 def get_latest_derc(dercs: list[StoredResource]) -> StoredResource | None:
@@ -202,15 +201,18 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
 
         total_matches += 1
 
+    # Build metadata message
+    total_found = len(all_dercontrols)
+    if latest:
+        metadata = f"Found {total_found} DERControls, examined latest only, {total_matches} matched criteria"
+    else:
+        metadata = f"Found {total_found} DERControls, {total_matches} matched criteria"
+
     # Figure out our match criteria
     if minimum_count is not None and total_matches < minimum_count:
-        return CheckResult(
-            False, f"Matched {total_matches} DERControls against criteria. Expected at least {minimum_count}"
-        )
+        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}")
 
     if maximum_count is not None and total_matches > maximum_count:
-        return CheckResult(
-            False, f"Matched {total_matches} DERControls against criteria. Expected at most {maximum_count}"
-        )
+        return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
 
-    return CheckResult(True, None)
+    return CheckResult(True, metadata)
