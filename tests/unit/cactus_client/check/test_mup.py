@@ -372,22 +372,27 @@ async def test_find_mrids_matching_filters(testing_contexts_factory):
     # Act/Assert
 
     # No filters returns both
-    matches = find_mrids_matching(resource_store, None, None, None, None)
-    assert len(matches) == 2
+    result = find_mrids_matching(resource_store, None, None, None, None)
+    assert result.total_examined == 2
+    assert len(result.matches) == 2
+    assert len(result.rejection_details) == 0
 
     # Filter by role_flags
     device_flags = RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_DER | RoleFlagsType.IS_SUBMETER
-    matches = find_mrids_matching(resource_store, device_flags, None, None, None)
-    assert len(matches) == 1
-    assert matches[0].resource.mRID == device_mup.mRID
+    result = find_mrids_matching(resource_store, device_flags, None, None, None)
+    assert len(result.matches) == 1
+    assert result.matches[0].resource.mRID == device_mup.mRID
+    assert len(result.rejection_details) == 1  # site_mup rejected
 
     # Filter by post_rate
-    matches = find_mrids_matching(resource_store, None, None, None, 60)
-    assert len(matches) == 1
-    assert matches[0].resource.mRID == device_mup.mRID
+    result = find_mrids_matching(resource_store, None, None, None, 60)
+    assert len(result.matches) == 1
+    assert result.matches[0].resource.mRID == device_mup.mRID
+    assert len(result.rejection_details) == 1  # site_mup rejected
 
     # Filter by reading_type_vals
     active_power_vals = [(UomType.REAL_POWER_WATT, KindType.POWER, DataQualifierType.AVERAGE)]
-    matches = find_mrids_matching(resource_store, None, None, active_power_vals, None)
-    assert len(matches) == 1
-    assert matches[0].resource.mRID == device_mup.mRID
+    result = find_mrids_matching(resource_store, None, None, active_power_vals, None)
+    assert len(result.matches) == 1
+    assert result.matches[0].resource.mRID == device_mup.mRID
+    assert len(result.rejection_details) == 1  # site_mup rejected
