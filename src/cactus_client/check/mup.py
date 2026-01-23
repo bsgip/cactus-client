@@ -32,6 +32,15 @@ class MirrorUsagePointMrids:
     mmr_mrids: dict[CSIPAusReadingType, str]
 
 
+@dataclass
+class MupMatchResult:
+    """Result of matching MUPs against criteria"""
+
+    total_examined: int
+    matches: list[StoredResource]
+    rejection_details: list[str]
+
+
 def generate_hashed_mrid(seed: str, pen: int) -> str:
     """Generates a 32 character mrid with the last 8 characters being the pen (0 padded)"""
     hash = hashlib.md5(seed.encode(), usedforsecurity=False)
@@ -138,27 +147,37 @@ def find_mrids_matching(
     mrids: MirrorUsagePointMrids | None,
     reading_type_vals: list[tuple[UomType, KindType, DataQualifierType]] | None,
     post_rate_seconds: int | None,
-) -> list[StoredResource]:
+) -> MupMatchResult:
     """Finds all MirrorUsagePoints in the resource store that match the specified criteria (None means no assertion)"""
     all_matches: list[StoredResource] = []
-    for mup in store.get_for_type(CSIPAusResource.MirrorUsagePoint):
+    rejection_details: list[str] = []
+    all_mups = store.get_for_type(CSIPAusResource.MirrorUsagePoint)
+
+    for mup in all_mups:
         resource = cast(MirrorUsagePoint, mup.resource)
+        mup_id = resource.mRID or resource.href or "unknown"
 
         # Look to disqualify mups as matches by checking things one by one
         if post_rate_seconds is not None and resource.postRate is not None and post_rate_seconds != resource.postRate:
+            rejection_details.append(f"{mup_id}: postRate {resource.postRate} != expected {post_rate_seconds}")
             continue
 
         if role_flags is not None and not hex_binary_equal(resource.roleFlags, role_flags):
+            rejection_details.append(f"{mup_id}: roleFlags {resource.roleFlags} != expected {role_flags}")
             continue
 
         if mrids is not None:
             # Check top level mrid
             if mrids.mup_mrid != resource.mRID:
+                rejection_details.append(f"{mup_id}: mRID {resource.mRID} != expected {mrids.mup_mrid}")
                 continue
 
             # Check mmr's across all MirrorMeterReadings (they should match perfectly)
             mmr_mrids = [mmr.mRID for mmr in resource.mirrorMeterReadings] if resource.mirrorMeterReadings else []
             if set(mmr_mrids) != set(mrids.mmr_mrids.values()):
+                rejection_details.append(
+                    f"{mup_id}: mmr_mrids {mmr_mrids} != expected {list(mrids.mmr_mrids.values())}"
+                )
                 continue
 
         # Check the readingType values for each MirrorMeterReading - we want an exact match
@@ -175,9 +194,17 @@ def find_mrids_matching(
                     )
                 )
             if set(comparison_reading_type_value) != set(reading_type_vals):
+                rejection_details.append(
+                    f"{mup_id}: readingTypes {comparison_reading_type_value} != expected {reading_type_vals}"
+                )
                 continue
         all_matches.append(mup)
-    return all_matches
+
+    return MupMatchResult(
+        total_examined=len(all_mups),
+        matches=all_matches,
+        rejection_details=rejection_details,
+    )
 
 
 def check_mirror_usage_point(
@@ -206,9 +233,11 @@ def check_mirror_usage_point(
     )
 
     # Do the matching - check it meets our expectations
-    all_matches = find_mrids_matching(
+    result = find_mrids_matching(
         resource_store, target_role_flags, target_mrids, target_reading_type_values, post_rate_seconds
     )
+    total_matches = len(result.matches)
+    metadata = f"Found {result.total_examined} MirrorUsagePoints, {total_matches} matched criteria"
 
     criteria_descriptions: list[str] = []
     if location is not None:
@@ -223,16 +252,13 @@ def check_mirror_usage_point(
     if not criteria_descriptions:
         criteria_descriptions = ["No matching criteria"]
 
-    if matches and len(all_matches) == 0:
-
-        return CheckResult(
-            False, f"Couldn't find a MirrorUsagePoint that matches criteria. {', '.join(criteria_descriptions)}"
-        )
-    elif not matches and len(all_matches) > 0:
-
+    if matches and total_matches == 0:
+        rejection_info = ". Rejections: " + "; ".join(result.rejection_details) if result.rejection_details else ""
+        return CheckResult(False, f"{metadata}. Criteria: {', '.join(criteria_descriptions)}{rejection_info}")
+    elif not matches and total_matches > 0:
         return CheckResult(
             False,
-            f"Found {len(all_matches)} MirrorUsagePoint(s) but expected 0. Criteria: {', '.join(criteria_descriptions)}",
+            f"{metadata}. Expected 0. Criteria: {', '.join(criteria_descriptions)}",
         )
 
-    return CheckResult(True, None)
+    return CheckResult(True, metadata)
