@@ -235,10 +235,18 @@ async def action_upsert_mup(
             step, context, list_href, HTTPMethod.POST, resource_to_sep2_xml(request_mup)
         )
     else:
-        # Otherwise insert and refetch the returned EndDevice
+        # Otherwise insert and refetch the returned MirrorUsagePoint
         inserted_mup = await submit_and_refetch_resource_for_step(
             MirrorUsagePoint, step, context, HTTPMethod.POST, list_href, request_mup
         )
+
+        # BRIDGE: The server returns MUP without mirrorMeterReadings (they're not exposed via GET). (TODO)
+        # We copy them from our request so that:
+        #   1. action_insert_readings can extract pow10_multiplier for formatting readings
+        #   2. check_mirror_usage_point can validate MMR structure
+        # This is a workaround - ideally we'd store pow10_multiplier in annotations and remove
+        # the MMR validation from checks (since we're just validating what we constructed).
+        inserted_mup.mirrorMeterReadings = list(request_mup.mirrorMeterReadings or [])
 
         upserted_sr = resource_store.upsert_resource(
             CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup

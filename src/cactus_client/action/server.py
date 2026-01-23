@@ -37,7 +37,7 @@ async def request_for_step(
 
     await context.progress.add_log(step, f"Requesting {method} {path}")
 
-    headers = {"Accept": MIME_TYPE_SEP2 + ", */*;q=0.9"}
+    headers = {"Accept": MIME_TYPE_SEP2}
     if sep2_xml_body is not None:
         headers["Content-Type"] = MIME_TYPE_SEP2
 
