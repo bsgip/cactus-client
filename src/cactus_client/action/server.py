@@ -61,8 +61,14 @@ async def request_for_step(
 
 async def client_error_request_for_step(
     step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
-) -> ErrorResponse:
-    """Similar to request_for_step but is only successful if the resulting response is returned as a valid sep2 error"""
+) -> ErrorResponse | None:
+    """Similar to request_for_step but is only successful if the resulting response is returned as a valid sep2 error.
+
+    Returns None if the response body could not be parsed as a valid ErrorResponse XML.
+
+    NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+    Previously this would raise a RequestException on parse failure; now it returns None to allow callers
+    to handle unparseable error bodies gracefully."""
     response = await request_for_step(step, context, path, method, sep2_xml_body)
 
     if not response.is_client_error():
@@ -73,9 +79,14 @@ async def client_error_request_for_step(
     try:
         return ErrorResponse.from_xml(response.body)
     except Exception as exc:
-        logger.error(f"Failure parsing ErrorResponse from {len(response.body)} chars at {path}", exc_info=exc)
-        logger.error(response.body)
-        raise RequestException(f"Failure parsing ErrorResponse from {len(response.body)} chars at {path}: {exc}")
+        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+        # The server returned a 4xx but the body was not valid ErrorResponse XML.
+        context.warnings.log_step_warning(
+            step,
+            f"Could not parse ErrorResponse from {len(response.body)} chars at {path}: {exc}. "
+            "Skipping error body validation.",
+        )
+        return None
 
 
 async def get_resource_for_step(

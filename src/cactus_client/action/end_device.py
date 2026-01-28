@@ -98,10 +98,19 @@ async def action_upsert_connection_point(
             step, context, href, HTTPMethod.PUT, resource_to_sep2_xml(cp_request)
         )
 
-        # This is a requirement of CSIP-Aus
-        if error.reasonCode != ReasonCodeType.invalid_request_values:
-            raise CactusClientException(
-                f"Expected ErrorResponse from PUT {href} with reasonCode=1. Received reasonCode={error.reasonCode}"
+        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+        # Previously this would raise on a missing/invalid ErrorResponse or wrong reasonCode.
+        if error is None:
+            context.warnings.log_step_warning(
+                step,
+                f"Could not parse error response body as valid ErrorResponse XML for PUT {href}. "
+                "Skipping reasonCode check.",
+            )
+        elif error.reasonCode != ReasonCodeType.invalid_request_values:
+            context.warnings.log_step_warning(
+                step,
+                f"Expected ErrorResponse from PUT {href} with reasonCode=1. "
+                f"Received reasonCode={error.reasonCode}. Continuing anyway.",
             )
 
     else:
