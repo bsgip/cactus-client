@@ -217,6 +217,7 @@ def check_mirror_usage_point(
     reading_types: list[CSIPAusReadingType] | None = resolved_parameters.get("reading_types", None)
     mmr_mrids: list[str] | None = resolved_parameters.get("mmr_mrids", None)
     post_rate_seconds: int | None = resolved_parameters.get("post_rate_seconds", None)
+    check_mup_mrid: str | None = resolved_parameters.get("check_mup_mrid", None)
 
     resource_store = context.discovered_resources(step)
     client_config = context.client_config(step)
@@ -224,7 +225,13 @@ def check_mirror_usage_point(
     # Figure out our match criteria
     target_role_flags = generate_role_flags(location) if location is not None else None
     target_mrids = (
-        generate_mup_mrids(location=location, reading_types=reading_types, mmr_mrids=mmr_mrids, client=client_config)
+        generate_mup_mrids(
+            location=location,
+            reading_types=reading_types,
+            mmr_mrids=mmr_mrids,
+            client=client_config,
+            set_mup_mrid=check_mup_mrid,
+        )
         if location is not None and reading_types is not None
         else None
     )
