@@ -92,6 +92,8 @@ def get_property_changes(source: AnyResource, returned: AnyResource) -> str | No
             if isinstance(source_val, str) and returned_val is not None and isinstance(returned_val, str):
                 # Comparisons on strings have to be done carefully as a hexbinary "0003" is equivalent to "03"
                 # and hex values may differ in case (e.g. lFDI "D255CF..." vs "d255cf...")
+                # MUP mrids and other string matching can be more strict in places
+                # (there are tighter constraints in specific checks)
                 source_upper = source_val.upper()
                 returned_upper = returned_val.upper()
                 if returned_upper.endswith(source_upper) or source_upper.endswith(returned_upper):
