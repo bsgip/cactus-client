@@ -32,7 +32,12 @@ def resource_to_sep2_xml(resource: Resource) -> str:
 
 
 async def _single_request(
-    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, headers: dict, sep2_xml_body: str | None
+    step: StepExecution,
+    context: ExecutionContext,
+    path: str,
+    method: HTTPMethod,
+    headers: dict,
+    sep2_xml_body: str | None,
 ) -> ServerResponse:
     """Makes a single request and returns the response."""
     session = context.session(step)

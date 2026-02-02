@@ -628,7 +628,10 @@ async def test_request_for_step_429_all_retries_exhausted(mock_sleep, aiohttp_cl
             TestingAppRoute(
                 HTTPMethod.GET,
                 "/foo/bar",
-                [RouteBehaviour(HTTPStatus.TOO_MANY_REQUESTS, b"", {}) for _ in range(len(RATE_LIMIT_RETRY_DELAYS) + 1)],
+                [
+                    RouteBehaviour(HTTPStatus.TOO_MANY_REQUESTS, b"", {})
+                    for _ in range(len(RATE_LIMIT_RETRY_DELAYS) + 1)
+                ],
             )
         ],
     ) as session:
