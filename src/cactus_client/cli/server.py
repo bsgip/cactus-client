@@ -30,6 +30,7 @@ class ServerConfigKey(StrEnum):
     VERIFY_HOST = auto()
     SERCA = auto()
     NOTIFICATION = auto()
+    PEN = auto()
 
 
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
@@ -78,6 +79,8 @@ def update_server_key(
                 if parsed.scheme not in {"http", "https"} or not parsed.netloc:
                     raise ValueError(f"{new_value} doesn't appear to be a valid URI. Got: {parsed}")
                 return replace(server, notification_uri=new_value)
+            case ServerConfigKey.PEN:
+                return replace(server, pen=int(new_value))
             case _:
                 console.print(f"[b]{config_key}[/b] can't be updated", style="red")
                 sys.exit(1)
@@ -98,6 +101,7 @@ def print_server(console: Console, config: GlobalConfig) -> None:
     verify_host = config.server.verify_host_name if config.server else None
     serca_pem_file = config.server.serca_pem_file if config.server else None
     notification = config.server.notification_uri if config.server else None
+    pen = config.server.pen
 
     table.add_row(
         "dcap",
@@ -124,6 +128,11 @@ def print_server(console: Console, config: GlobalConfig) -> None:
         notification if notification else "[b red]null[/b red]",
         "URI to the [b]cactus-client-notifications[/b] server instance that will implement webhooks for"
         + " subscription/notification tests. eg: https://cactus.cecs.anu.edu.au/client-notifications/",
+    )
+    table.add_row(
+        "pen",
+        str(pen) if pen else "[b red]0[/b red]",
+        "[b]Private Enterprise Number[/b] for the server. This will used when validating server generated mRID's.",
     )
     console.print(table)
 
