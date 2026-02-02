@@ -3,9 +3,6 @@ import logging
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from typing import Callable, TypeVar
-
-RATE_LIMIT_RETRY_DELAYS = (5, 15, 30)  # seconds to wait between retries on 429
-
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import Resource
 
@@ -15,6 +12,8 @@ from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
 from cactus_client.sep2 import get_property_changes
+
+RATE_LIMIT_RETRY_DELAYS = (5, 15, 30)  # seconds to wait between retries on 429
 
 logger = logging.getLogger(__name__)
 
