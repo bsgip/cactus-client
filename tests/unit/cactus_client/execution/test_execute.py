@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions.csipaus import CSIPAusResource
 from cactus_test_definitions.server.test_procedures import (
     Action,
     Check,
@@ -12,9 +13,17 @@ from cactus_test_definitions.server.test_procedures import (
     TestProcedure,
     TestProcedureId,
 )
+from envoy_schema.server.schema.sep2.der import (
+    ActivePower,
+    DERControlBase,
+    DERControlResponse,
+)
+from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
+from envoy_schema.server.schema.sep2.time import TimeResponse
 
 from cactus_client.error import CactusClientException
-from cactus_client.execution.execute import execute_for_context
+from cactus_client.execution.execute import execute_for_context, validate_all_resources
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.model.execution import (
@@ -539,3 +548,142 @@ async def test_execute_for_context_success_cases_with_delays(
     assert mock_execute_checks.call_count == 3
     assert mock_execute_action.call_count == 3
     assert len(context.warnings.warnings) == 0
+
+
+VALID_SERVER_PEN = 12345678
+
+
+@pytest.mark.parametrize(
+    "resources, expected_warnings",
+    [
+        ([], 0),
+        ([(CSIPAusResource.MirrorUsagePoint, generate_class_instance(MirrorUsagePoint, mRID="ABC123"))], 0),
+        (
+            [
+                (
+                    CSIPAusResource.DERControl,
+                    generate_class_instance(
+                        DERControlResponse,
+                        mRID=f"ABC123{VALID_SERVER_PEN}",
+                        DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True),
+                    ),
+                )
+            ],
+            0,
+        ),
+        (
+            [
+                (
+                    CSIPAusResource.DERControl,
+                    generate_class_instance(
+                        DERControlResponse,
+                        mRID=f"ABC123{VALID_SERVER_PEN + 1}",
+                        DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True),
+                    ),  # mrid is invalid (PEN)
+                )
+            ],
+            1,
+        ),
+        (
+            [
+                (
+                    CSIPAusResource.DERControl,
+                    generate_class_instance(
+                        DERControlResponse,
+                        seed=101,
+                        mRID=f"AAA123{VALID_SERVER_PEN}",
+                        DERControlBase_=generate_class_instance(
+                            DERControlBase,
+                            optional_is_none=True,
+                            opModImpLimW=ActivePower(multiplier=0, value=99999),
+                        ),
+                    ),  # out of range value
+                ),
+                (
+                    CSIPAusResource.DERControl,
+                    generate_class_instance(
+                        DERControlResponse,
+                        seed=202,
+                        mRID=f"BBB456{VALID_SERVER_PEN}",
+                        DERControlBase_=generate_class_instance(
+                            DERControlBase,
+                            optional_is_none=True,
+                            opModImpLimW=ActivePower(multiplier=0, value=435),
+                        ),
+                    ),
+                ),
+                (
+                    CSIPAusResource.Time,
+                    generate_class_instance(TimeResponse, seed=303),
+                ),
+                (
+                    CSIPAusResource.DERControl,
+                    generate_class_instance(
+                        DERControlResponse,
+                        seed=404,
+                        mRID=f"CCC123{VALID_SERVER_PEN}",
+                        DERControlBase_=generate_class_instance(
+                            DERControlBase,
+                            optional_is_none=True,
+                            opModImpLimW=ActivePower(multiplier=0, value=123),
+                        ),
+                    ),
+                ),
+                (CSIPAusResource.MirrorUsagePoint, generate_class_instance(MirrorUsagePoint, mRID="DDD1239999")),
+                (
+                    CSIPAusResource.DERControl,
+                    generate_class_instance(
+                        DERControlResponse,
+                        seed=505,
+                        mRID=f"EEE123{VALID_SERVER_PEN + 1}",
+                        DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True),
+                    ),  # mrid is invalid (PEN)
+                ),
+            ],
+            2,
+        ),
+    ],
+)
+def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]], expected_warnings: int):
+    """Can validate_all_resources handle doing the basic validation checks across all resources"""
+
+    # We will be using multiple clients and running this test against each one individually
+    for use_store_1 in [True, False]:
+        tree = CSIPAusResourceTree()
+        store1 = ResourceStore(tree)
+        store2 = ResourceStore(tree)
+
+        if use_store_1:
+            store_to_add = store1
+        else:
+            store_to_add = store2
+
+        for resource_type, resource in resources:
+            store_to_add.append_resource(resource_type, None, resource)
+
+        context = ExecutionContext(
+            test_procedure_id=TestProcedureId.S_ALL_01,
+            test_procedure=generate_class_instance(TestProcedure),
+            test_procedures_version="vtest",
+            output_directory=Path("."),  # Shouldn't be used to do anything in this test
+            dcap_path="/dcap/path",
+            server_config=generate_class_instance(ServerConfig, pen=VALID_SERVER_PEN),
+            clients_by_alias={
+                "client-test1": ClientContext(
+                    "client-test1", generate_class_instance(ClientConfig), store1, {}, mock.Mock(), None
+                ),
+                "client-test2": ClientContext(
+                    "client-test2", generate_class_instance(ClientConfig), store2, {}, mock.Mock(), None
+                ),
+            },
+            resource_tree=tree,
+            repeat_delay=timedelta(0),
+            responses=ResponseTracker(),
+            warnings=WarningTracker(),
+            progress=ProgressTracker(),
+            steps=[],
+        )
+
+        validate_all_resources(context)
+        readable_warnings = "\n".join([w.message for w in context.warnings.warnings])
+        assert len(context.warnings.warnings) == expected_warnings, readable_warnings

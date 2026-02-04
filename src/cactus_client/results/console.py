@@ -73,7 +73,7 @@ def render_console(  # noqa: C901
         for warning in context.warnings.warnings:
             warnings_table.add_row(
                 context_relative_time(context, warning.created_at),
-                warning.step_execution.source.id,
+                warning.source_id(),
                 warning.message,
                 style="red",
             )

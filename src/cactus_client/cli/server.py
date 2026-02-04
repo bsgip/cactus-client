@@ -101,7 +101,7 @@ def print_server(console: Console, config: GlobalConfig) -> None:
     verify_host = config.server.verify_host_name if config.server else None
     serca_pem_file = config.server.serca_pem_file if config.server else None
     notification = config.server.notification_uri if config.server else None
-    pen = config.server.pen
+    pen = config.server.pen if config.server else 0
 
     table.add_row(
         "dcap",

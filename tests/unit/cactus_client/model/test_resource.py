@@ -242,6 +242,7 @@ def test_ResourceStore():
     assert s.delete_resource(StoredResourceId.from_parent(None, "/href")) is None
     assert s.get_for_type(CSIPAusResource.EndDevice) == []
     assert s.get_for_id(StoredResourceId.from_parent(None, "abc")) is None
+    assert list(s.resources()) == []
 
     r1 = generate_class_instance(DER, seed=101, generate_relationships=True)
     r2 = generate_class_instance(DER, seed=202)
@@ -258,6 +259,7 @@ def test_ResourceStore():
     assert CSIPAusResource.DERCapability in sr1.resource_link_hrefs
     assert CSIPAusResource.DERStatus in sr1.resource_link_hrefs
     assert CSIPAusResource.DERStatus in sr1.resource_link_hrefs
+    assert list(s.resources()) == [sr1]
 
     # We can't append the same resource again
     with pytest.raises(CactusClientException):
@@ -271,6 +273,7 @@ def test_ResourceStore():
     assert sr2.resource_type == CSIPAusResource.DER
     assert sr2.member_of_list == CSIPAusResource.DERList
     assert sr2.resource_link_hrefs == {}, "We generated this entry with no links"
+    assert list(s.resources()) == [sr1, sr2]
 
     sr3 = s.append_resource(CSIPAusResource.EndDevice, sr1.id, r3)
     assert sr3.id.parent_id() == sr1.id
@@ -352,6 +355,7 @@ def test_ResourceStore():
     assert s.get_for_id(sr3.id) is None, "Cleared"
     assert s.get_for_id(sr4.id) is None, "Cleared"
     assert s.get_for_id(sr6.id) is sr6
+    assert list(s.resources()) == [sr2, sr6]
 
 
 def test_ResourceStore_upsert_resource():

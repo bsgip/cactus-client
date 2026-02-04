@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable, Optional, TypeVar, cast
+from typing import Generator, Iterable, Optional, TypeVar, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
 from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
@@ -343,6 +343,12 @@ class ResourceStore:
                 return current
             current_id = current_id.parent_id()
         return None
+
+    def resources(self) -> Generator[StoredResource, None, None]:
+        """Enumerates every StoredResource in the store"""
+        for stored_resources in self.resource_store.values():
+            for sr in stored_resources:
+                yield sr
 
 
 def get_link_href(link: Link | None) -> str | None:

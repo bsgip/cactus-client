@@ -4,11 +4,23 @@ from dataclasses import replace
 
 from cactus_client.action import execute_action
 from cactus_client.check import execute_checks
+from cactus_client.check.sep2 import is_invalid_resource
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+def validate_all_resources(context: ExecutionContext) -> None:
+    """Enumerates the resource store - running validation on all stored resources and appending errors to the context
+    warnings"""
+    server_pen = context.server_config.pen
+    for client_context in context.clients_by_alias.values():
+        for sr in client_context.discovered_resources.resources():
+            error = is_invalid_resource(sr, server_pen)
+            if error:
+                context.warnings.log_stored_resource_warning(sr, error)
 
 
 async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
@@ -75,5 +87,8 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
             # If this step failed - no point continuing, it's likely downstream steps will also fail
             if not check_result.passed:
                 break
+
+    # We do resource validation at the very end - it's easier than trying to identify resource changes after each step
+    validate_all_resources(context)
 
     return ExecutionResult(completed=True)

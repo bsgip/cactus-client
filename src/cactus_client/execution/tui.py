@@ -174,13 +174,12 @@ def generate_step_progress(context: ExecutionContext) -> RenderableType:
 
 
 def generate_warnings(context: ExecutionContext, height: int) -> RenderableType:
-
     return generate_scrolling_table(
         "Warnings",
         [Column(overflow="ellipsis", no_wrap=True)],
         "red",
         context.warnings.warnings,
-        lambda tbl, log: tbl.add_row(f"[b]{log.step_execution.source.id}[/] {log.message}"),
+        lambda tbl, log: tbl.add_row(f"[b]{log.source_id()}[/] {log.message}"),
         height=height,
     )
 
