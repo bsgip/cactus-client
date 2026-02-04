@@ -7,6 +7,7 @@ from cactus_test_definitions.server.test_procedures import Step
 
 from cactus_client.model.execution import ActionResult, CheckResult, StepExecution
 from cactus_client.model.http import NotificationRequest, ServerRequest, ServerResponse
+from cactus_client.model.resource import StoredResource
 from cactus_client.time import relative_time, utc_now
 
 logger = logging.getLogger(__name__)
@@ -15,8 +16,24 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class LogEntry:
     message: str  # The log entry
-    step_execution: StepExecution  # The step execution that generated this log entry
+
+    # The step execution that generated this log entry (None if stored_resource is set)
+    step_execution: StepExecution | None
+
+    # The specific resource that generated this log entry (None if step_execution is set)
+    stored_resource: StoredResource | None
+
     created_at: datetime = field(default_factory=utc_now, init=False)
+
+    def source_id(self) -> str:
+        """Returns a short descriptive ID to uniquely identify the source of this log entry"""
+        if self.step_execution is not None:
+            return self.step_execution.source.id
+
+        if self.stored_resource is not None:
+            return self.stored_resource.id.href()
+
+        return "???"
 
 
 class WarningTracker:
@@ -28,18 +45,19 @@ class WarningTracker:
     def __init__(self) -> None:
         self.warnings = []
 
-    # def log_resource_warning(self, type: CSIPAusResource, message: str) -> None:
-    #     """Log an warning about a specific type of CSIPAusResource"""
-    #     warning = f"Resource {type}: {message}"
-    #     self.warnings.append(warning)
-    #     logger.warning(warning)
+    def log_stored_resource_warning(self, stored_resource: StoredResource, message: str) -> None:
+        """Log a warning about a specific stored resource"""
+        log_entry = LogEntry(message=message, step_execution=None, stored_resource=stored_resource)
+        self.warnings.append(LogEntry(message=message, step_execution=None, stored_resource=stored_resource))
+        logger.warning(f"{log_entry.source_id()}: {message}")
 
     def log_step_warning(self, step_execution: StepExecution, message: str) -> None:
         """Log a warning about a specific execution step"""
-        self.warnings.append(LogEntry(message, step_execution))
+        log_entry = LogEntry(message=message, step_execution=step_execution, stored_resource=None)
+        self.warnings.append(log_entry)
 
         logger.warning(
-            f"{step_execution.source.id}[{step_execution.repeat_number}] Attempt {step_execution.attempts}: {message}"
+            f"{log_entry.source_id()}[{step_execution.repeat_number}] Attempt {step_execution.attempts}: {message}"
         )
 
 
@@ -120,9 +138,8 @@ class ProgressTracker:
 
     async def add_log(self, step_execution: StepExecution, message: str) -> None:
         """Adds a log entry for a specific StepExecution"""
-        log = LogEntry(message, step_execution)
-        step_id = step_execution.source.id
-        logger.info(f"{step_id}[{step_execution.repeat_number}] Attempt {step_execution.attempts}: {message}")
+        log = LogEntry(message=message, step_execution=step_execution, stored_resource=None)
+        logger.info(f"{log.source_id()}[{step_execution.repeat_number}] Attempt {step_execution.attempts}: {message}")
 
         self._update_progress(step_execution, lambda p: p.log_entries.append(log))
 
