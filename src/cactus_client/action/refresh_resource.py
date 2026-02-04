@@ -40,7 +40,9 @@ async def action_refresh_resource(
             await client_error_request_for_step(step, context, href, HTTPMethod.GET)
 
         elif expect_rejection_or_empty:
-            await _handle_expected_rejection_or_empty(step, context, href, resource_type, resource)
+            result = await _handle_expected_rejection_or_empty(step, context, href, resource_type, resource)
+            if not result.completed:
+                return result
 
         # If not expected to fail, actually request the resource and upsert in the resource store
         else:
@@ -52,15 +54,18 @@ async def action_refresh_resource(
 
 async def _handle_expected_rejection_or_empty(
     step: StepExecution, context: ExecutionContext, href: str, resource_type: CSIPAusResource, resource_instance: Any
-) -> None:
-    """Verify that a request is either rejected OR returns an empty list."""
+) -> ActionResult:
+    """Verify that a request is either rejected OR returns an empty list.
+
+    Returns ActionResult.failed() for retriable failures (e.g., list not empty yet),
+    raises CactusClientException for fatal errors."""
 
     response = await request_for_step(step, context, href, HTTPMethod.GET)
 
     # Case 1: Expected rejection
     if response.is_client_error():
         await client_error_request_for_step(step, context, href, HTTPMethod.GET)
-        return
+        return ActionResult.done()
 
     # Case 2: Success (must be an empty list resource)
     if response.is_success():
@@ -72,12 +77,12 @@ async def _handle_expected_rejection_or_empty(
 
         fetched_resource = await get_resource_for_step(type(resource_instance.resource), step, context, href)
 
-        # Check if list is empty
+        # Check if list is empty - this is a retriable failure
         if not (hasattr(fetched_resource, "all_") and fetched_resource.all_ == 0):
-            raise CactusClientException(
+            return ActionResult.failed(
                 f"Expected rejection or empty list for {resource_type} at {href}, but got non-empty list."
             )
-        return
+        return ActionResult.done()
 
     # Any other status code is unexpected
     raise CactusClientException(f"Unexpected status {response.status} for {href} in expect_rejection_or_empty")

@@ -50,8 +50,11 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
 
         await context.progress.add_step_execution_completion(current_step, action_result, check_result)
 
+        # Combine action and check results - step passes only if both pass
+        step_passed = action_result.completed and check_result.passed
+
         # Depending on how the step ran - we may need to add a repeat or requeue
-        if check_result.passed and action_result.repeat:
+        if step_passed and action_result.repeat:
             # The step was successful, but asked for a repeat
             repeat_step = replace(
                 current_step,
@@ -60,8 +63,8 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
                 not_before=action_result.not_before,
             )
             context.steps.add(repeat_step)
-        elif not check_result.passed and current_step.source.repeat_until_pass:
-            # The step failed - but it might be marked as repeat_until_pass
+        elif not step_passed and current_step.source.repeat_until_pass:
+            # The step failed (action or check) - but it might be marked as repeat_until_pass
             repeat_step = replace(current_step, attempts=current_step.attempts + 1, not_before=None)
             context.steps.add(repeat_step)
 
@@ -73,7 +76,7 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
             await context.progress.set_step_result(current_step, check_result)
 
             # If this step failed - no point continuing, it's likely downstream steps will also fail
-            if not check_result.passed:
+            if not step_passed:
                 break
 
     return ExecutionResult(completed=True)

@@ -199,7 +199,7 @@ async def action_insert_readings(
         # all of our readings in a quick burst - we always want to have a minimum wait period
         next_reading_time = calculate_reading_time(context, post_rate_seconds, step.repeat_number + 1)
         minimum_wait = utc_now() + timedelta(seconds=60)
-        return ActionResult(True, max(next_reading_time, minimum_wait))
+        return ActionResult(completed=True, repeat=True, not_before=max(next_reading_time, minimum_wait))
 
 
 async def action_upsert_mup(

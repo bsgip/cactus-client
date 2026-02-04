@@ -96,7 +96,7 @@ async def test_ResultsEvaluation_passed(assertical_extensions):
     step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
 
     await context.progress.add_step_execution_completion(
-        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+        step_execution_1, ActionResult(completed=True, repeat=True, not_before=None), CheckResult(True, None)
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
@@ -127,7 +127,7 @@ async def test_ResultsEvaluation_failing_missing_result(assertical_extensions):
     step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
 
     await context.progress.add_step_execution_completion(
-        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+        step_execution_1, ActionResult(completed=True, repeat=True, not_before=None), CheckResult(True, None)
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
@@ -158,7 +158,7 @@ async def test_ResultsEvaluation_failing_xsd_errors(assertical_extensions):
     step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
 
     await context.progress.add_step_execution_completion(
-        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+        step_execution_1, ActionResult(completed=True, repeat=True, not_before=None), CheckResult(True, None)
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
@@ -190,7 +190,7 @@ async def test_ResultsEvaluation_failing_xsd_errors_notifications(assertical_ext
     step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
 
     await context.progress.add_step_execution_completion(
-        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+        step_execution_1, ActionResult(completed=True, repeat=True, not_before=None), CheckResult(True, None)
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
@@ -222,7 +222,7 @@ async def test_ResultsEvaluation_failing_warning(assertical_extensions):
     step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
 
     await context.progress.add_step_execution_completion(
-        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+        step_execution_1, ActionResult(completed=True, repeat=True, not_before=None), CheckResult(True, None)
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
@@ -254,7 +254,7 @@ async def test_ResultsEvaluation_failing_failing_step(assertical_extensions):
     step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
 
     await context.progress.add_step_execution_completion(
-        step_execution_1, ActionResult(True, None), CheckResult(True, None)
+        step_execution_1, ActionResult(completed=True, repeat=True, not_before=None), CheckResult(True, None)
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
