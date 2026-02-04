@@ -100,8 +100,8 @@ async def test_ResultsEvaluation_passed(assertical_extensions):
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_2, CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_2, ActionResult.done(), CheckResult(True, None))
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
@@ -131,7 +131,7 @@ async def test_ResultsEvaluation_failing_missing_result(assertical_extensions):
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
@@ -162,8 +162,8 @@ async def test_ResultsEvaluation_failing_xsd_errors(assertical_extensions):
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_2, CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_2, ActionResult.done(), CheckResult(True, None))
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=["has error"]))
@@ -194,8 +194,8 @@ async def test_ResultsEvaluation_failing_xsd_errors_notifications(assertical_ext
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_2, CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_2, ActionResult.done(), CheckResult(True, None))
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
@@ -226,8 +226,8 @@ async def test_ResultsEvaluation_failing_warning(assertical_extensions):
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_2, CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_2, ActionResult.done(), CheckResult(True, None))
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))
@@ -258,8 +258,8 @@ async def test_ResultsEvaluation_failing_failing_step(assertical_extensions):
     )
     await context.progress.add_step_execution_completion(step_execution_1, ActionResult.done(), CheckResult(True, None))
     await context.progress.add_step_execution_completion(step_execution_2, ActionResult.done(), CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_1, CheckResult(True, None))
-    await context.progress.set_step_result(step_execution_2, CheckResult(False, None))
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(step_execution_2, ActionResult.done(), CheckResult(False, None))
 
     context.responses.responses.append(generate_server_response(1, xsd_errors=None))
     context.responses.responses.append(generate_server_response(2, xsd_errors=[]))

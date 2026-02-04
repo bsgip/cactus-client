@@ -56,10 +56,11 @@ class StepExecutionCompletion:
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     def is_success(self) -> bool:
-        """True if this execution represents a successful result (no exceptions and a passing check result)"""
+        """True if this execution represents a successful result (no exceptions, action completed, and checks passed)"""
         return (
             self.exc is None
             and self.action_result is not None
+            and self.action_result.completed
             and self.check_result is not None
             and self.check_result.passed
         )
@@ -167,12 +168,22 @@ class ProgressTracker:
         else:
             await self.add_log(step_execution, f"Check Failure: {check_result.description}")
 
-    async def set_step_result(self, step_execution: StepExecution, check_result: CheckResult) -> None:
+    async def set_step_result(
+        self, step_execution: StepExecution, action_result: ActionResult, check_result: CheckResult
+    ) -> None:
         """Logs that a step execution is that LAST time the underlying step will run."""
 
-        result = StepResult(
-            step=step_execution.source, failure_result=None if check_result.passed else check_result, exc=None
-        )
+        step_passed = action_result.completed and check_result.passed
+        if step_passed:
+            failure_result = None
+        elif not action_result.completed:
+            # Action failed - create a synthetic CheckResult to record the failure
+            failure_result = CheckResult(passed=False, description=f"Action failed: {action_result.description}")
+        else:
+            # Check failed
+            failure_result = check_result
+
+        result = StepResult(step=step_execution.source, failure_result=failure_result, exc=None)
         self.all_results.append(result)
 
         def do_update(progress: StepProgress) -> None:
@@ -180,11 +191,11 @@ class ProgressTracker:
 
         self._update_progress(step_execution, do_update)
 
-        if check_result.passed:
+        if step_passed:
             await self.add_log(step_execution, f"{step_execution.source.id} has been marked as successful")
         else:
             await self.add_log(
-                step_execution, f"{step_execution.source.id} has been marked as failed: {check_result.description}"
+                step_execution, f"{step_execution.source.id} has been marked as failed: {failure_result.description}"
             )
 
 

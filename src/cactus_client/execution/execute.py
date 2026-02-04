@@ -73,7 +73,7 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
             await asyncio.sleep(context.repeat_delay.seconds)
         else:
             # At this point - we aren't re-queuing a repeat, therefore this step is now "done" (pass or fail)
-            await context.progress.set_step_result(current_step, check_result)
+            await context.progress.set_step_result(current_step, action_result, check_result)
 
             # If this step failed - no point continuing, it's likely downstream steps will also fail
             if not step_passed:
