@@ -28,6 +28,7 @@ class RunOutputFile(StrEnum):
     #
     ConsoleLogs = "cactus.log"  # Logs from the python logging API
     Report = "report.html"  # Dump of the console "results" in a portable format (eg HTML)
+    Result = ".result"  # Contains "PASS" or "FAIL" depending on test outcome
 
     #
     # Output subdirectories
@@ -114,7 +115,7 @@ class RunOutputManager:
         run_id_file = self.base_output_dir / RUN_ID_FILE_NAME
 
         self.run_id = increment_run_id_counter(run_id_file)
-        self.run_output_dir = self.base_output_dir / Path(f"run{self.run_id:03}")
+        self.run_output_dir = self.base_output_dir / Path(f"run {self.run_id:03} - {run_config.test_procedure_id}")
 
         # Start initialising the run output directory with the default metadata files
         if self.run_output_dir.exists():
