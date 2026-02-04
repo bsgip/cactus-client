@@ -32,6 +32,9 @@ class ServerConfig:
     serca_pem_file: str | None = None  # The file path to the SERCA PEM that the server will be using as a trust anchor
     notification_uri: str | None = None  # The base URI of the cactus-client-notifications that will be used for pub/sub
     pen: int = 0  # The Private Enterprise Number that server will be expected to utilise
+    refetch_delay_ms: int = (
+        0  # When the client pushes a write request, wait this long (milliseconds) before fetching it to compare
+    )
 
 
 @dataclass(frozen=True)

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from typing import Callable, TypeVar
+
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import Resource
 
@@ -177,6 +178,12 @@ async def submit_and_refetch_resource_for_step(
                 f"{response.status} response from {response.method} {href} did not return an expected 'Location' header."
             )
         refetch_href = response.location
+
+    # There might be a refetch delay
+    if context.server_config.refetch_delay_ms:
+        delay_seconds = context.server_config.refetch_delay_ms / 1000
+        await context.progress.add_log(step, f"Delaying re-fetch for {delay_seconds}s (as per server configuration).")
+        await asyncio.sleep(delay_seconds)
 
     # Check the returned resource matches the submitted resource
     returned_resource = await get_resource_for_step(t, step, context, refetch_href)

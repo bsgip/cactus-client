@@ -1,7 +1,9 @@
 import unittest.mock as mock
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 from http import HTTPMethod, HTTPStatus
+from itertools import product
 from typing import AsyncIterator, cast
 
 import pytest
@@ -207,11 +209,15 @@ async def test_get_resource_for_step_xml_failure(aiohttp_client, testing_context
         assert len(execution_context.responses.responses) == 1, "We still log errors"
 
 
-@pytest.mark.parametrize("has_property_changes", [True, False])
+@pytest.mark.parametrize("has_property_changes, refetch_delay", product([True, False], [0, 2000]))
 @mock.patch("cactus_client.action.server.get_property_changes")
 @pytest.mark.asyncio
 async def test_submit_and_refetch_resource_for_step_success(
-    mock_get_property_changes: mock.MagicMock, has_property_changes: bool, aiohttp_client, testing_contexts_factory
+    mock_get_property_changes: mock.MagicMock,
+    has_property_changes: bool,
+    refetch_delay: int,
+    aiohttp_client,
+    testing_contexts_factory,
 ):
     """Does submit_and_refetch_resource_for_step handle parsing the XML and returning the correct data"""
     if has_property_changes:
@@ -228,6 +234,9 @@ async def test_submit_and_refetch_resource_for_step_success(
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
+        execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
+
+        start = datetime.now()
         result = await submit_and_refetch_resource_for_step(
             DeviceCapabilityResponse,
             step_execution,
@@ -236,6 +245,7 @@ async def test_submit_and_refetch_resource_for_step_success(
             "/baz",
             generate_class_instance(DeviceCapabilityResponse),
         )
+        finish = datetime.now()
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
@@ -248,6 +258,12 @@ async def test_submit_and_refetch_resource_for_step_success(
     else:
         assert len(execution_context.warnings.warnings) == 0
     assert len(execution_context.responses.responses) == 2
+
+    # Assert use of the refetch delay
+    if refetch_delay == 0:
+        assert (finish - start).total_seconds() < 1, "There shouldn't have been any delay"
+    else:
+        assert (finish - start).total_seconds() >= (refetch_delay / 1000)
 
 
 @pytest.mark.parametrize("has_property_changes", [True, False])
