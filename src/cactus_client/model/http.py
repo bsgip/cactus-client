@@ -57,6 +57,7 @@ class ServerResponse:
 
     request: ServerRequest  # The request that generated this response
 
+    client_alias: str = ""  # The client that made this request (set after creation)
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     def is_success(self) -> bool:
@@ -102,6 +103,7 @@ class NotificationRequest:
     remote: str | None  # What IP address (or network address) sent this request?
     sub_id: str  # What subscription ID was this Notification sent to?
     source: NotificationEndpoint
+    client_alias: str = ""  # The client that received this notification (set after creation)
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     @staticmethod

@@ -188,18 +188,10 @@ class ProgressTracker:
             )
 
 
-@dataclass(frozen=True)
-class TrackedResponse:
-    """A response (or notification) paired with the client alias that generated it"""
-
-    response: ServerResponse | NotificationRequest
-    client_alias: str
-
-
 class ResponseTracker:
     """A utility for tracking raw responses received from the utility server and their validity"""
 
-    responses: list[TrackedResponse]
+    responses: list[ServerResponse | NotificationRequest]
     active_request: ServerRequest | None
 
     def __init__(self) -> None:
@@ -216,9 +208,11 @@ class ResponseTracker:
         self.active_request = None
 
     async def log_response_body(self, r: ServerResponse, client_alias: str) -> None:
-        self.responses.append(TrackedResponse(response=r, client_alias=client_alias))
+        r.client_alias = client_alias
+        self.responses.append(r)
         logger.info(f"{r.method} {r.url} Yielded {r.status}: Received body of length {len(r.body)}.")
 
     async def log_notification_body(self, r: NotificationRequest, client_alias: str) -> None:
-        self.responses.append(TrackedResponse(response=r, client_alias=client_alias))
+        r.client_alias = client_alias
+        self.responses.append(r)
         logger.info(f"{r.method} Notification from '{r.remote}': Received body of length {len(r.body)}.")

@@ -93,11 +93,10 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
                         endpoint.created_endpoint.fully_qualified_endpoint
                     )
 
-    for idx, tracked in enumerate(context.responses.responses):
+    for idx, comms in enumerate(context.responses.responses):
 
         # We don't have EVERYTHING logged - so we try and reconstitute as much as possible
-        comms = tracked.response
-        client_alias = tracked.client_alias
+        client_alias = comms.client_alias
         if isinstance(comms, ServerResponse):
             # This is a traditional HTTP request/response to the utility server
             host = urlparse(context.server_config.device_capability_uri).netloc
