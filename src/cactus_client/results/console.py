@@ -114,7 +114,7 @@ def render_console(  # noqa: C901
     if context.responses.responses:
         requests_table = Table(title="Requests", title_justify="left", show_header=False, expand=True)
 
-        for response in context.responses.responses:
+        for idx, response in enumerate(context.responses.responses):
             if response.body:
                 xsd = "\n".join(response.xsd_errors) if response.xsd_errors else "valid"
             else:
@@ -130,6 +130,7 @@ def render_console(  # noqa: C901
                 status = ""
 
             requests_table.add_row(
+                f"{idx:03}",
                 context_relative_time(context, request_time),
                 response.method,
                 url,
