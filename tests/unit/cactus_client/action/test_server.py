@@ -17,10 +17,12 @@ from envoy_schema.server.schema.sep2.end_device import (
 )
 
 from cactus_client.action.server import (
+    RATE_LIMIT_RETRY_DELAYS,
     delete_and_check_resource_for_step,
     fetch_list_page,
     get_resource_for_step,
     paginate_list_resource_items,
+    request_for_step,
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
@@ -591,3 +593,53 @@ async def test_fetch_list_page(aiohttp_client, testing_contexts_factory):
     assert len(execution_context.responses.responses) == 1, "should only request 1 page"
     requested_url = execution_context.responses.responses[0].url
     assert f"?s={start}&l={limit}" in requested_url, f"Expected params s={start}&l={limit} in URL"
+
+
+@mock.patch("cactus_client.action.server.asyncio.sleep")
+@pytest.mark.asyncio
+async def test_request_for_step_429_retry_success(mock_sleep, aiohttp_client, testing_contexts_factory):
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [
+                    RouteBehaviour(HTTPStatus.TOO_MANY_REQUESTS, b"", {}),
+                    RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml"),
+                ],
+            )
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        response = await request_for_step(step_execution, execution_context, "/foo/bar", HTTPMethod.GET)
+
+    assert response.status == HTTPStatus.OK
+    assert len(execution_context.responses.responses) == 2
+    mock_sleep.assert_called_once_with(RATE_LIMIT_RETRY_DELAYS[0])
+
+
+@mock.patch("cactus_client.action.server.asyncio.sleep")
+@pytest.mark.asyncio
+async def test_request_for_step_429_all_retries_exhausted(mock_sleep, aiohttp_client, testing_contexts_factory):
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [
+                    RouteBehaviour(HTTPStatus.TOO_MANY_REQUESTS, b"", {})
+                    for _ in range(len(RATE_LIMIT_RETRY_DELAYS) + 1)
+                ],
+            )
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        response = await request_for_step(step_execution, execution_context, "/foo/bar", HTTPMethod.GET)
+
+    assert response.status == HTTPStatus.TOO_MANY_REQUESTS
+    assert len(execution_context.responses.responses) == len(RATE_LIMIT_RETRY_DELAYS) + 1
+    assert mock_sleep.call_count == len(RATE_LIMIT_RETRY_DELAYS)
+    for i, delay in enumerate(RATE_LIMIT_RETRY_DELAYS):
+        assert mock_sleep.call_args_list[i] == mock.call(delay)

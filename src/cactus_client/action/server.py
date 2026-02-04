@@ -1,8 +1,8 @@
+import asyncio
 import logging
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from typing import Callable, TypeVar
-
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import Resource
 
@@ -12,6 +12,8 @@ from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
 from cactus_client.sep2 import get_property_changes
+
+RATE_LIMIT_RETRY_DELAYS = (5, 15, 30)  # seconds to wait between retries on 429
 
 logger = logging.getLogger(__name__)
 
@@ -28,23 +30,16 @@ def resource_to_sep2_xml(resource: Resource) -> str:
     return xml
 
 
-async def request_for_step(
-    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
+async def _single_request(
+    step: StepExecution,
+    context: ExecutionContext,
+    path: str,
+    method: HTTPMethod,
+    headers: dict,
+    sep2_xml_body: str | None,
 ) -> ServerResponse:
-    """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
-    logs the actions in the various context trackers. Raises a RequestException on connection failure."""
+    """Makes a single request and returns the response."""
     session = context.session(step)
-
-    await context.progress.add_log(step, f"Requesting {method} {path}")
-
-    headers = {"Accept": MIME_TYPE_SEP2}
-    if sep2_xml_body is not None:
-        headers["Content-Type"] = MIME_TYPE_SEP2
-
-    user_agent = context.client_config(step).user_agent
-    if user_agent:
-        headers["User-Agent"] = user_agent
-
     server_request = await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
     async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
         try:
@@ -57,6 +52,35 @@ async def request_for_step(
         await context.responses.log_response_body(response)
         await context.responses.clear_active_request()
         return response
+
+
+async def request_for_step(
+    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
+) -> ServerResponse:
+    """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
+    logs the actions in the various context trackers. Raises a RequestException on connection failure.
+
+    Retries up to 3 times on 429 responses with delays of 5, 15, 30 seconds."""
+    await context.progress.add_log(step, f"Requesting {method} {path}")
+
+    headers = {"Accept": MIME_TYPE_SEP2}
+    if sep2_xml_body is not None:
+        headers["Content-Type"] = MIME_TYPE_SEP2
+
+    user_agent = context.client_config(step).user_agent
+    if user_agent:
+        headers["User-Agent"] = user_agent
+
+    response = await _single_request(step, context, path, method, headers, sep2_xml_body)
+
+    for delay in RATE_LIMIT_RETRY_DELAYS:
+        if response.status != HTTPStatus.TOO_MANY_REQUESTS:
+            break
+        await context.progress.add_log(step, f"Rate limited (429), retrying in {delay}s")
+        await asyncio.sleep(delay)
+        response = await _single_request(step, context, path, method, headers, sep2_xml_body)
+
+    return response
 
 
 async def client_error_request_for_step(
