@@ -263,7 +263,7 @@ async def collect_and_validate_notification(
     from it in order to add things to the Resource store"""
 
     notification = NotificationRequest.from_collected_notification(source, collected_notification, sub_id)
-    await context.responses.log_notification_body(notification)
+    await context.responses.log_notification_body(notification, step.client_alias)
 
     if notification.method != "POST":
         context.warnings.log_step_warning(

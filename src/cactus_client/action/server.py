@@ -54,7 +54,7 @@ async def request_for_step(
             await context.responses.clear_active_request()
             raise RequestException(f"Caught exception attempting to {method} {path}: {exc}")
 
-        await context.responses.log_response_body(response)
+        await context.responses.log_response_body(response, step.client_alias)
         await context.responses.clear_active_request()
         return response
 
