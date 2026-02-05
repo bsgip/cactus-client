@@ -110,6 +110,11 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         console.record = True
         render_console(console, context, results, output_manager)
         console.save_html(str(output_manager.file_path(RunOutputFile.Report).absolute()))
+
+        # Write pass/fail result file
+        with open(output_manager.file_path(RunOutputFile.Result), "w") as fp:
+            fp.write("PASS" if results.has_passed() else "FAIL")
+
         console.print(f"Results stored at {output_manager.run_output_dir.absolute()}")
 
         # Generate other "results" outputs in the output directory

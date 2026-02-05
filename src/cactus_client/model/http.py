@@ -57,6 +57,7 @@ class ServerResponse:
 
     request: ServerRequest  # The request that generated this response
 
+    client_alias: str = ""  # The client that made this request (set after creation)
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     def is_success(self) -> bool:
@@ -102,11 +103,12 @@ class NotificationRequest:
     remote: str | None  # What IP address (or network address) sent this request?
     sub_id: str  # What subscription ID was this Notification sent to?
     source: NotificationEndpoint
+    client_alias: str = ""  # The client that received this notification (set after creation)
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     @staticmethod
     def from_collected_notification(
-        source: NotificationEndpoint, notification: CollectedNotification, sub_id: str
+        source: NotificationEndpoint, notification: CollectedNotification, sub_id: str, client_alias: str
     ) -> "NotificationRequest":
         body_xml = notification.body
         headers = CIMultiDict(((h.name, h.value) for h in notification.headers))
@@ -125,5 +127,6 @@ class NotificationRequest:
             received_at=notification.received_at,
             remote=notification.remote,
             sub_id=sub_id,
+            client_alias=client_alias,
             source=source,
         )

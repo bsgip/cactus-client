@@ -48,6 +48,7 @@ ACTION_DONE = "action-done"
 ACTION_REPEAT_ONCE = "action-repeat-once"
 ACTION_REPEAT_ONCE_DELAY = "action-repeat-once-delay"
 ACTION_EXCEPTION = "action-exception"
+ACTION_FAIL_ONCE = "action-fail-once"  # Returns ActionResult.failed() on first attempt, then done()
 
 CHECK_FAIL_ONCE = "check-fail-once"
 CHECK_PASS = "check-pass"
@@ -67,16 +68,22 @@ def handle_mock_execute_action(current_step: StepExecution, context: ExecutionCo
         return ActionResult.done()
     elif action_type == ACTION_REPEAT_ONCE:
         if current_step.repeat_number == 0:
-            return ActionResult(True, None)
+            return ActionResult(completed=True, repeat=True, not_before=None)
         else:
             return ActionResult.done()
     elif action_type == ACTION_REPEAT_ONCE_DELAY:
         if current_step.repeat_number == 0:
-            return ActionResult(True, utc_now() + DELAY_TIME)
+            return ActionResult(completed=True, repeat=True, not_before=utc_now() + DELAY_TIME)
         else:
             return ActionResult.done()
     elif action_type == ACTION_EXCEPTION:
         raise CactusClientException("mocked exception")
+    elif action_type == ACTION_FAIL_ONCE:
+        # Returns failed on first attempt, done on subsequent - tests retriable action failures
+        if current_step.attempts == 0:
+            return ActionResult.failed("Retriable failure on first attempt")
+        else:
+            return ActionResult.done()
     else:
         raise NotImplementedError(f"Unsupported action type {action_type}")
 
@@ -206,6 +213,159 @@ async def test_execute_for_context_success_cases_with_repeats(
     for p in context.progress.all_completions:
         assert_nowish(p.created_at)
         assert p.exc is None
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_execute_for_context_action_failed_with_repeat_until_pass(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+):
+    """Actions returning ActionResult.failed() should be retried when repeat_until_pass is set"""
+    # Arrange
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_FAIL_ONCE), checks=[Check(CHECK_PASS)], repeat_until_pass=True),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+    step_list.add(
+        StepExecution(
+            Step(id="2", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    tree = CSIPAusResourceTree()
+    context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
+        test_procedure=generate_class_instance(TestProcedure),
+        test_procedures_version="vtest",
+        output_directory=Path("."),
+        dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
+        clients_by_alias={
+            "client-test": ClientContext(
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+            )
+        },
+        resource_tree=tree,
+        repeat_delay=timedelta(0),
+        responses=ResponseTracker(),
+        warnings=WarningTracker(),
+        progress=ProgressTracker(),
+        steps=step_list,
+    )
+
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+    mock_execute_action.side_effect = handle_mock_execute_action
+
+    # Act
+    result = await execute_for_context(context)
+
+    # Assert
+    assert isinstance(result, ExecutionResult)
+    assert result.completed
+
+    # Step 1 runs twice (fails on first attempt), step 2 runs once
+    assert mock_execute_action.call_count == 3
+    assert mock_execute_checks.call_count == 3
+
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "1", "2"]
+    # First attempt of step 1 fails (action returned failed), second passes, step 2 passes
+    assert [p.is_success() for p in context.progress.all_completions] == [False, True, True]
+    assert_step_result(context.progress, "1", True)
+    assert_step_result(context.progress, "2", True)
+
+    assert len(context.warnings.warnings) == 0
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_execute_for_context_action_failed_without_repeat_stops_early(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+):
+    """Actions returning ActionResult.failed() should stop execution when repeat_until_pass is NOT set"""
+    # Arrange
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_FAIL_ONCE), checks=[Check(CHECK_PASS)]),  # No repeat_until_pass
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+    step_list.add(
+        StepExecution(
+            Step(id="2", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    tree = CSIPAusResourceTree()
+    context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
+        test_procedure=generate_class_instance(TestProcedure),
+        test_procedures_version="vtest",
+        output_directory=Path("."),
+        dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
+        clients_by_alias={
+            "client-test": ClientContext(
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+            )
+        },
+        resource_tree=tree,
+        repeat_delay=timedelta(0),
+        responses=ResponseTracker(),
+        warnings=WarningTracker(),
+        progress=ProgressTracker(),
+        steps=step_list,
+    )
+
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+    mock_execute_action.side_effect = handle_mock_execute_action
+
+    # Act
+    result = await execute_for_context(context)
+
+    # Assert
+    assert isinstance(result, ExecutionResult)
+    assert result.completed  # completed=True means no exception, even though step failed
+
+    # Only step 1 runs, and it fails (action returned failed), step 2 never runs
+    assert mock_execute_action.call_count == 1
+    assert mock_execute_checks.call_count == 1
+
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1"]
+    assert [p.is_success() for p in context.progress.all_completions] == [False]
+    assert_step_result(context.progress, "1", False)
+    assert_step_result(context.progress, "2", None)  # Never executed
+
+    assert len(context.warnings.warnings) == 0
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")

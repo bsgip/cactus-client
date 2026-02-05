@@ -262,7 +262,9 @@ async def collect_and_validate_notification(
     """Takes a CollectedNotification and parses into a NotificationRequest (for logging) and decomposes a Notification
     from it in order to add things to the Resource store"""
 
-    notification = NotificationRequest.from_collected_notification(source, collected_notification, sub_id)
+    notification = NotificationRequest.from_collected_notification(
+        source, collected_notification, sub_id, step.client_alias
+    )
     await context.responses.log_notification_body(notification)
 
     if notification.method != "POST":

@@ -18,13 +18,20 @@ class CheckResult:
 
 @dataclass
 class ActionResult:
+    completed: bool  # True if action succeeded, False if failed in a retriable way (not an exception)
     repeat: bool  # If true - this will trigger the action to retrigger again (with a higher repeat number)
     not_before: datetime | None  # If repeat is true - this will be the new value for StepExecution.not_before
+    description: str | None = None  # description of the failure (when passed=False)
 
     @staticmethod
     def done() -> "ActionResult":
-        """Shorthand for generating a "completed" StepExecution"""
-        return ActionResult(False, None)
+        """Shorthand for generating a "completed" ActionResult"""
+        return ActionResult(completed=True, repeat=False, not_before=None)
+
+    @staticmethod
+    def failed(description: str) -> "ActionResult":
+        """Action failed in a retriable way - will be retried if repeat_until_pass is set on the step."""
+        return ActionResult(completed=False, repeat=False, not_before=None, description=description)
 
 
 @dataclass

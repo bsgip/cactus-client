@@ -45,12 +45,12 @@ def generate_response_file(status: int, headers: dict[str, str] | CIMultiDict, b
     return lines
 
 
-def persist_server_response(base_dir: Path, idx: int, host: str, response: ServerResponse) -> None:
+def persist_server_response(base_dir: Path, idx: int, host: str, response: ServerResponse, client_alias: str) -> None:
     # This is the traditional request/response
     request = response.request
     sanitised_url = sanitise_url_to_filename(request.url)
-    request_file = base_dir / f"{idx:03}-{request.method}-{sanitised_url}.request"
-    response_file = base_dir / f"{idx:03}-{request.method}-{sanitised_url}.response"
+    request_file = base_dir / f"{idx:03}-{client_alias}-{request.method}-{sanitised_url}.request"
+    response_file = base_dir / f"{idx:03}-{client_alias}-{request.method}-{sanitised_url}.response"
     with open(request_file, "w") as fp:
         fp.write("\n".join(generate_request_file(request.method, request.url, host, request.headers, request.body)))
     with open(response_file, "w") as fp:
@@ -58,7 +58,7 @@ def persist_server_response(base_dir: Path, idx: int, host: str, response: Serve
 
 
 def persist_notification(
-    base_dir: Path, idx: int, webhook_endpoint: str | None, notification: NotificationRequest
+    base_dir: Path, idx: int, webhook_endpoint: str | None, notification: NotificationRequest, client_alias: str
 ) -> None:
 
     if webhook_endpoint:
@@ -66,7 +66,7 @@ def persist_notification(
         path = parsed_url.path
     else:
         path = ""
-    notification_file = base_dir / f"{idx:03}-NOTIFICATION-{notification.sub_id}.request"
+    notification_file = base_dir / f"{idx:03}-{client_alias}-NOTIFICATION-{notification.sub_id}.request"
 
     with open(notification_file, "w") as fp:
         fp.write(
@@ -94,12 +94,17 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
     for idx, comms in enumerate(context.responses.responses):
 
         # We don't have EVERYTHING logged - so we try and reconstitute as much as possible
+        client_alias = comms.client_alias
         if isinstance(comms, ServerResponse):
             # This is a traditional HTTP request/response to the utility server
             host = urlparse(context.server_config.device_capability_uri).netloc
-            persist_server_response(base_dir, idx, host, comms)
+            persist_server_response(base_dir, idx, host, comms, client_alias)
         else:
             # This is a request that landed at our webhook (typically a pub/sub Notification)
             persist_notification(
-                base_dir, idx, webhook_by_sub_id.get((comms.sub_id, comms.source.subscribed_resource_id), None), comms
+                base_dir,
+                idx,
+                webhook_by_sub_id.get((comms.sub_id, comms.source.subscribed_resource_id), None),
+                comms,
+                client_alias,
             )
