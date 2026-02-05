@@ -108,7 +108,7 @@ class NotificationRequest:
 
     @staticmethod
     def from_collected_notification(
-        source: NotificationEndpoint, notification: CollectedNotification, sub_id: str
+        source: NotificationEndpoint, notification: CollectedNotification, sub_id: str, client_alias: str
     ) -> "NotificationRequest":
         body_xml = notification.body
         headers = CIMultiDict(((h.name, h.value) for h in notification.headers))
@@ -127,5 +127,6 @@ class NotificationRequest:
             received_at=notification.received_at,
             remote=notification.remote,
             sub_id=sub_id,
+            client_alias=client_alias,
             source=source,
         )

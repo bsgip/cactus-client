@@ -222,7 +222,6 @@ class ResponseTracker:
         self.responses.append(r)
         logger.info(f"{r.method} {r.url} Yielded {r.status}: Received body of length {len(r.body)}.")
 
-    async def log_notification_body(self, r: NotificationRequest, client_alias: str) -> None:
-        r.client_alias = client_alias
+    async def log_notification_body(self, r: NotificationRequest) -> None:
         self.responses.append(r)
         logger.info(f"{r.method} Notification from '{r.remote}': Received body of length {len(r.body)}.")
