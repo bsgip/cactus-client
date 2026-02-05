@@ -194,9 +194,8 @@ class ProgressTracker:
         if step_passed:
             await self.add_log(step_execution, f"{step_execution.source.id} has been marked as successful")
         else:
-            await self.add_log(
-                step_execution, f"{step_execution.source.id} has been marked as failed: {failure_result.description}"
-            )
+            desc = failure_result.description if failure_result else ""  # Should not occur
+            await self.add_log(step_execution, f"{step_execution.source.id} has been marked as failed: {desc}")
 
 
 class ResponseTracker:

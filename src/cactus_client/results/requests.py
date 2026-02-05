@@ -45,9 +45,7 @@ def generate_response_file(status: int, headers: dict[str, str] | CIMultiDict, b
     return lines
 
 
-def persist_server_response(
-    base_dir: Path, idx: int, host: str, response: ServerResponse, client_alias: str
-) -> None:
+def persist_server_response(base_dir: Path, idx: int, host: str, response: ServerResponse, client_alias: str) -> None:
     # This is the traditional request/response
     request = response.request
     sanitised_url = sanitise_url_to_filename(request.url)
