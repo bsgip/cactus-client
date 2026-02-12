@@ -148,16 +148,43 @@ def print_client(console: Console, client: ClientConfig) -> None:
     table = Table(title=client.id)
     table.add_column("key")
     table.add_column("value")
+    table.add_column("description")
 
-    table.add_row("type", client.type)
-    table.add_row("certificate_file", rich_cert_file_value(client.certificate_file))
-    table.add_row("key_file", rich_key_file_value(client.key_file))
-    table.add_row("lfdi", client.lfdi)
-    table.add_row("sfdi", str(client.sfdi))
-    table.add_row("max_watts", str(client.max_watts))
-    table.add_row("pen", str(client.pen))
-    table.add_row("pin", str(client.pin))
-    table.add_row("user_agent", client.user_agent if client.user_agent else "[b red]null[/b red]")
+    table.add_row("type", client.type, "What sort of client is this? [b]device[/] or [b]aggregator[/]")
+    table.add_row(
+        "certificate_file",
+        rich_cert_file_value(client.certificate_file),
+        "The file path to a PEM encoded client certificate (and any CA certs) that this client will utilise",
+    )
+    table.add_row(
+        "key_file",
+        rich_key_file_value(client.key_file),
+        "The file path to a PEM encoded key to use with client_certificate",
+    )
+    table.add_row(
+        "lfdi",
+        client.lfdi,
+        "The long form device identifier that this client will use with an [b]EndDevice[/b]",
+    )
+    table.add_row(
+        "sfdi",
+        str(client.sfdi),
+        "The short form device identifier that this client will use with an [b]EndDevice[/b]",
+    )
+    table.add_row(
+        "max_watts",
+        str(client.max_watts),
+        "When registering a [b]DERCapability[/] and [b]DERSettings[/], use this value for max watts.",
+    )
+    table.add_row("pen", str(client.pen), "The IANA private enterprise number of this client. Used for [b]mRID's[/]")
+    table.add_row(
+        "pin", str(client.pin), "The PIN that this client will attempt to match via [b]EndDevice[/] Registration"
+    )
+    table.add_row(
+        "user_agent",
+        client.user_agent if client.user_agent else "[b red]null[/b red]",
+        "The value for the HTTP header [b]User-Agent[/]. Included in all requests made to the utility server",
+    )
 
     console.print(table)
 
