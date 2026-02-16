@@ -86,18 +86,33 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
     yield ClientSession(base_url=client.server.make_url("/"))
 
 
-@pytest.mark.parametrize("refetch_status", [HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN])
+@pytest.mark.parametrize(
+    "refetch_status, refetch_delay",
+    product([HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN], [0, 2000]),
+)
 @pytest.mark.asyncio
-async def test_delete_and_check_resource_for_step_success(aiohttp_client, testing_contexts_factory, refetch_status):
+async def test_delete_and_check_resource_for_step_success(
+    aiohttp_client, testing_contexts_factory, refetch_status: bool, refetch_delay: int
+):
     """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
     delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
     get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
+        execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
+
+        start = datetime.now()
         await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
+        finish = datetime.now()
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
     assert len(get_route.behaviour) == 0, "Request should've been made"
+
+    # Assert use of the refetch delay
+    if refetch_delay == 0:
+        assert (finish - start).total_seconds() < 1, "There shouldn't have been any delay"
+    else:
+        assert (finish - start).total_seconds() >= (refetch_delay / 1000)
 
 
 @pytest.mark.parametrize(
