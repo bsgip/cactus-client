@@ -84,6 +84,22 @@ async def request_for_step(
     return response
 
 
+def parse_error_response(
+    step: StepExecution, context: ExecutionContext, response: ServerResponse
+) -> ErrorResponse | None:
+    try:
+        return ErrorResponse.from_xml(response.body)
+    except Exception as exc:
+        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+        # The server returned a 4xx but the body was not valid ErrorResponse XML.
+        context.warnings.log_step_warning(
+            step,
+            f"Could not parse ErrorResponse from {len(response.body)} chars at {response.request.url}: {exc}. "
+            "Skipping error body validation.",
+        )
+        return None
+
+
 async def client_error_request_for_step(
     step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
 ) -> ErrorResponse | None:
@@ -101,17 +117,7 @@ async def client_error_request_for_step(
             f"Received status {response.status} but expected 4XX requesting {response.method} {path}."
         )
 
-    try:
-        return ErrorResponse.from_xml(response.body)
-    except Exception as exc:
-        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-        # The server returned a 4xx but the body was not valid ErrorResponse XML.
-        context.warnings.log_step_warning(
-            step,
-            f"Could not parse ErrorResponse from {len(response.body)} chars at {path}: {exc}. "
-            "Skipping error body validation.",
-        )
-        return None
+    return parse_error_response(step, context, response)
 
 
 async def get_resource_for_step(

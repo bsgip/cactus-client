@@ -1,3 +1,4 @@
+import logging
 from http import HTTPMethod
 from typing import Any
 
@@ -8,10 +9,12 @@ from cactus_client.action.server import (
     get_resource_for_step,
     request_for_step,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientException, RequestException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
+
+logger = logging.getLogger(__name__)
 
 
 async def action_refresh_resource(
@@ -21,7 +24,7 @@ async def action_refresh_resource(
 
     # Retrieve params
     resource_type: CSIPAusResource = CSIPAusResource(resolved_parameters["resource"])
-    expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
+    expect_rejection: bool | None = resolved_parameters.get("expect_rejection", None)
     expect_rejection_or_empty: bool = resolved_parameters.get("expect_rejection_or_empty", False)
 
     resource_store = context.discovered_resources(step)
@@ -36,17 +39,23 @@ async def action_refresh_resource(
         if href is None:  # Skip resources without a href
             continue
 
-        if expect_rejection:
+        if expect_rejection is True:
             await client_error_request_for_step(step, context, href, HTTPMethod.GET)
 
-        elif expect_rejection_or_empty:
+        elif expect_rejection_or_empty is True:
             result = await _handle_expected_rejection_or_empty(step, context, href, resource_type, resource)
             if not result.completed:
                 return result
 
-        # If not expected to fail, actually request the resource and upsert in the resource store
         else:
-            fetched_resource = await get_resource_for_step(type(resource.resource), step, context, href)
+            # If not expected to fail, actually request the resource and upsert in the resource store
+            try:
+                fetched_resource = await get_resource_for_step(type(resource.resource), step, context, href)
+            except RequestException as exc:
+                logger.error(f"Error refreshing {href}", exc_info=exc)
+                if expect_rejection is False:
+                    return ActionResult.failed(f"Error: {exc}")
+                raise
             resource_store.upsert_resource(resource_type, resource.id.parent_id(), fetched_resource)
 
     return ActionResult.done()

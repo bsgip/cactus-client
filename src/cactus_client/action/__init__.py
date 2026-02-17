@@ -6,12 +6,16 @@ from cactus_client.action.der import (
     action_upsert_der_settings,
     action_upsert_der_status,
 )
-from cactus_client.action.der_controls import action_respond_der_controls, action_send_malformed_response
+from cactus_client.action.der_controls import (
+    action_respond_der_controls,
+    action_send_malformed_response,
+)
 from cactus_client.action.discovery import action_discovery
 from cactus_client.action.end_device import (
     action_insert_end_device,
     action_upsert_connection_point,
 )
+from cactus_client.action.forget import action_forget
 from cactus_client.action.mup import action_insert_readings, action_upsert_mup
 from cactus_client.action.noop import action_noop
 from cactus_client.action.refresh_resource import action_refresh_resource
@@ -50,6 +54,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_noop()
         case "discovery":
             return await action_discovery(resolved_params, step, context)
+        case "forget":
+            return await action_forget(resolved_params, step, context)
         case "notifications":
             return await action_notifications(resolved_params, step, context)
         case "insert-end-device":
