@@ -198,7 +198,7 @@ async def action_insert_readings(
         # If we get delayed (eg slow server or being blocked by a precondition) we don't want to send
         # all of our readings in a quick burst - we always want to have a minimum wait period
         next_reading_time = calculate_reading_time(context, post_rate_seconds, step.repeat_number + 1)
-        minimum_wait = utc_now() + timedelta(seconds=60)
+        minimum_wait = utc_now() + timedelta(seconds=post_rate_seconds)
         return ActionResult(completed=True, repeat=True, not_before=max(next_reading_time, minimum_wait))
 
 
