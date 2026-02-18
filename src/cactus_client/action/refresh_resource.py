@@ -1,10 +1,12 @@
 import logging
 from http import HTTPMethod
-from typing import Any
+from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
+from envoy_schema.server.schema.sep2.identification import List
 
 from cactus_client.action.server import (
+    client_error_or_empty_list_request_for_step,
     client_error_request_for_step,
     get_resource_for_step,
     request_for_step,
@@ -33,65 +35,30 @@ async def action_refresh_resource(
     if len(matching_resources) == 0:
         raise CactusClientException(f"Expected matching resources to refresh for resource {resource_type}. None found.")
 
-    for resource in matching_resources:
-        href = resource.resource.href
+    for sr in matching_resources:
+        href = sr.resource.href
 
         if href is None:  # Skip resources without a href
             continue
 
-        if expect_rejection is True:
-            await client_error_request_for_step(step, context, href, HTTPMethod.GET)
+        try:
+            if expect_rejection:
+                await client_error_request_for_step(step, context, href, HTTPMethod.GET)
+            elif expect_rejection_or_empty:
+                if is_list_resource(resource_type):
+                    await client_error_or_empty_list_request_for_step(
+                        cast(Any, type(sr.resource)), step, context, href, HTTPMethod.GET
+                    )
+                else:
+                    await client_error_request_for_step(step, context, href, HTTPMethod.GET)
+            else:
+                # If not expected to fail, actually request the resource and upsert in the resource store
+                fetched_resource = await get_resource_for_step(type(sr.resource), step, context, href)
+                resource_store.upsert_resource(resource_type, sr.id.parent_id(), fetched_resource)
 
-        elif expect_rejection_or_empty is True:
-            result = await _handle_expected_rejection_or_empty(step, context, href, resource_type, resource)
-            if not result.completed:
-                return result
-
-        else:
-            # If not expected to fail, actually request the resource and upsert in the resource store
-            try:
-                fetched_resource = await get_resource_for_step(type(resource.resource), step, context, href)
-            except RequestException as exc:
-                logger.error(f"Error refreshing {href}", exc_info=exc)
-                if expect_rejection is False:
-                    return ActionResult.failed(f"Error: {exc}")
-                raise
-            resource_store.upsert_resource(resource_type, resource.id.parent_id(), fetched_resource)
+        except RequestException as exc:
+            # We will bundle up RequestException as a "retryable" failure
+            logger.error(f"Request error refreshing {href}", exc_info=exc)
+            return ActionResult.failed(f"Request error: {exc}")
 
     return ActionResult.done()
-
-
-async def _handle_expected_rejection_or_empty(
-    step: StepExecution, context: ExecutionContext, href: str, resource_type: CSIPAusResource, resource_instance: Any
-) -> ActionResult:
-    """Verify that a request is either rejected OR returns an empty list.
-
-    Returns ActionResult.failed() for retriable failures (e.g., list not empty yet),
-    raises CactusClientException for fatal errors."""
-
-    response = await request_for_step(step, context, href, HTTPMethod.GET)
-
-    # Case 1: Expected rejection
-    if response.is_client_error():
-        await client_error_request_for_step(step, context, href, HTTPMethod.GET)
-        return ActionResult.done()
-
-    # Case 2: Success (must be an empty list resource)
-    if response.is_success():
-        if not is_list_resource(resource_type):
-            raise CactusClientException(
-                f"Expected rejection or empty for {resource_type} at {href}, "
-                f"but got {response.status} for non-list resource"
-            )
-
-        fetched_resource = await get_resource_for_step(type(resource_instance.resource), step, context, href)
-
-        # Check if list is empty - this is a retriable failure
-        if not (hasattr(fetched_resource, "all_") and fetched_resource.all_ == 0):
-            return ActionResult.failed(
-                f"Expected rejection or empty list for {resource_type} at {href}, but got non-empty list."
-            )
-        return ActionResult.done()
-
-    # Any other status code is unexpected
-    raise CactusClientException(f"Unexpected status {response.status} for {href} in expect_rejection_or_empty")

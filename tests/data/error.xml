@@ -1,0 +1,4 @@
+<Error xmlns="urn:ieee:std:2030.5:ns" xmlns:csipaus="https://csipaus.org/ns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <maxRetryDuration>180</maxRetryDuration>
+    <reasonCode>2</reasonCode>
+</Error>

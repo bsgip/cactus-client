@@ -17,9 +17,13 @@ from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceRequest,
     EndDeviceResponse,
 )
+from envoy_schema.server.schema.sep2.error import ErrorResponse
+from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 
 from cactus_client.action.server import (
     RATE_LIMIT_RETRY_DELAYS,
+    client_error_or_empty_list_request_for_step,
+    client_error_request_for_step,
     delete_and_check_resource_for_step,
     fetch_list_page,
     get_resource_for_step,
@@ -659,3 +663,147 @@ async def test_request_for_step_429_all_retries_exhausted(mock_sleep, aiohttp_cl
     assert mock_sleep.call_count == len(RATE_LIMIT_RETRY_DELAYS)
     for i, delay in enumerate(RATE_LIMIT_RETRY_DELAYS):
         assert mock_sleep.call_args_list[i] == mock.call(delay)
+
+
+@pytest.mark.asyncio
+async def test_client_error_request_for_step_success(aiohttp_client, testing_contexts_factory):
+    """Does client_error_request_for_step handle parsing the XML and returning the correct data"""
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "error.xml")])],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        result = await client_error_request_for_step(
+            step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+        )
+
+    # Assert - contents of response
+    assert isinstance(result, ErrorResponse)
+    assert result.reasonCode == 2
+    assert result.maxRetryDuration == 180
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
+@pytest.mark.parametrize("status_code", [HTTPStatus.OK, HTTPStatus.INTERNAL_SERVER_ERROR])
+@pytest.mark.asyncio
+async def test_client_error_request_for_step_non_client_error(status_code, aiohttp_client, testing_contexts_factory):
+    """Does client_error_request_for_step handle parsing the XML and returning the correct data"""
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(status_code, "error.xml")])],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+
+        with pytest.raises(RequestException):
+            await client_error_request_for_step(step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "body")
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
+@pytest.mark.parametrize(
+    "list_type, xml_file",
+    [
+        (EndDeviceListResponse, "edev-list-completely-empty.xml"),
+        (MirrorUsagePointListResponse, "mup-list-empty.xml"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_client_error_or_empty_list_request_for_step_success_empty(
+    list_type, xml_file, aiohttp_client, testing_contexts_factory
+):
+    """Does client_error_or_empty_list_request_for_step handle parsing the empty list XML and returning the correct
+    data"""
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, xml_file)])],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        result = await client_error_or_empty_list_request_for_step(
+            list_type, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+        )
+
+    # Assert - contents of response
+    assert isinstance(result, list_type)
+    assert result.all_ == 0
+    assert result.results == 0
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
+@pytest.mark.parametrize(
+    "list_type, xml_file",
+    [
+        (EndDeviceListResponse, "edev-list-1.xml"),  # This has entries
+        (EndDeviceListResponse, "edev-list-empty.xml"),  # This has all="3" results="0"
+    ],
+)
+@pytest.mark.asyncio
+async def test_client_error_or_empty_list_request_for_step_fail_not_empty(
+    list_type, xml_file, aiohttp_client, testing_contexts_factory
+):
+    """Does client_error_or_empty_list_request_for_step check the all/results field"""
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, xml_file)])],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+
+        with pytest.raises(RequestException):
+            await client_error_or_empty_list_request_for_step(
+                list_type, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+            )
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
+@pytest.mark.asyncio
+async def test_client_error_or_empty_list_request_for_step_success_error(aiohttp_client, testing_contexts_factory):
+    """Does client_error_or_empty_list_request_for_step handle parsing an Error XML"""
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "error.xml")])],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        result = await client_error_or_empty_list_request_for_step(
+            EndDeviceListResponse, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+        )
+
+    # Assert - contents of response
+    assert isinstance(result, ErrorResponse)
+    assert result.reasonCode == 2
+    assert result.maxRetryDuration == 180
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
+@pytest.mark.parametrize("status_code", [HTTPStatus.BAD_GATEWAY, HTTPStatus.INTERNAL_SERVER_ERROR])
+@pytest.mark.asyncio
+async def test_client_error_or_empty_list_request_for_step_non_client_error(
+    status_code, aiohttp_client, testing_contexts_factory
+):
+    """Does client_error_or_empty_list_request_for_step handle 5XX errors with an exception?"""
+    async with create_test_session(
+        aiohttp_client,
+        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(status_code, "error.xml")])],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+
+        with pytest.raises(RequestException):
+            await client_error_or_empty_list_request_for_step(
+                EndDeviceListResponse, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "body"
+            )
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
