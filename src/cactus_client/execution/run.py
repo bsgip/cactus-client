@@ -78,17 +78,30 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
 
         # Wait until any of the tasks is completed (the TUI task doesn't normally exit so it should be the execute task)
         try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            if execute_task not in done:
+            done, pending = await asyncio.wait(
+                tasks, timeout=run_config.timeout, return_when=asyncio.FIRST_COMPLETED
+            )
+            if execute_task in done:
+                for task in pending:
+                    task.cancel()
+                    await task
+                results = ResultsEvaluation(context, execute_task.result())
+            elif done:
                 raise CactusClientException(
                     "It appears that the UI has exited prematurely. Aborting test run."
                     + f"Details at {log_file_path.absolute()}"
                 )
-            for task in pending:
-                task.cancel()
-                await task
-
-            results = ResultsEvaluation(context, execute_task.result())
+            else:
+                # Timeout elapsed before any task completed - treat the same as a CTRL-C abort
+                logger.error("Aborting test due to timeout after %d seconds.", run_config.timeout)
+                results = ResultsEvaluation(context, ExecutionResult(completed=False))
+                for task in tasks:
+                    if not task.done() and not task.cancelled():
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
         except asyncio.CancelledError as exc:
             # On cancellation - just log it as a non completion but still allow the results printouts to proceed
             logger.error("Aborting test due to cancellation.", exc_info=exc)

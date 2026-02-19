@@ -62,6 +62,7 @@ class RunConfig:
     client_ids: list[str]  # What clients are being
     csip_aus_version: str  # What csip aus version of the tests are being evaluated? (Will be mapped to CSIPAusVersion)
     headless: bool  # If set - don't run a terminal UI - just spit out logs and the final report
+    timeout: int | None = None  # Optional timeout in seconds; if exceeded, treated the same as a CTRL-C abort
 
 
 @dataclass(frozen=True)
