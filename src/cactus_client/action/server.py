@@ -195,6 +195,12 @@ async def delete_and_check_resource_for_step(step: StepExecution, context: Execu
     if not delete_response.is_success():
         raise RequestException(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
 
+    # There might be a refetch delay
+    if context.server_config.refetch_delay_ms:
+        delay_seconds = context.server_config.refetch_delay_ms / 1000
+        await context.progress.add_log(step, f"Delaying re-fetch for {delay_seconds}s (as per server configuration).")
+        await asyncio.sleep(delay_seconds)
+
     # Try and refetch it - it should now be "deleted" so we'll accept a few different error statuses as a pass
     refetch_response = await request_for_step(step, context, href, HTTPMethod.GET)
     if refetch_response.status not in {HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}:

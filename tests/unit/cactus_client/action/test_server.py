@@ -90,18 +90,33 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
     yield ClientSession(base_url=client.server.make_url("/"))
 
 
-@pytest.mark.parametrize("refetch_status", [HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN])
+@pytest.mark.parametrize(
+    "refetch_status, refetch_delay",
+    product([HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN], [0, 2000]),
+)
 @pytest.mark.asyncio
-async def test_delete_and_check_resource_for_step_success(aiohttp_client, testing_contexts_factory, refetch_status):
+async def test_delete_and_check_resource_for_step_success(
+    aiohttp_client, testing_contexts_factory, refetch_status: bool, refetch_delay: int
+):
     """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
     delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
     get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
+        execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
+
+        start = datetime.now()
         await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
+        finish = datetime.now()
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
     assert len(get_route.behaviour) == 0, "Request should've been made"
+
+    # Assert use of the refetch delay
+    if refetch_delay == 0:
+        assert (finish - start).total_seconds() < 1, "There shouldn't have been any delay"
+    else:
+        assert (finish - start).total_seconds() >= (refetch_delay / 1000)
 
 
 @pytest.mark.parametrize(
@@ -336,6 +351,44 @@ async def test_submit_and_refetch_resource_for_step_failure_no_location_header(
                 "/foo",
                 generate_class_instance(DeviceCapabilityResponse),
             )
+
+
+@pytest.mark.asyncio
+async def test_submit_and_refetch_resource_for_step_server_overrides_post_rate(
+    aiohttp_client, testing_contexts_factory
+):
+    """When the server overrides postRate on the returned resource, it should NOT produce a warning."""
+
+    submitted = EndDeviceRequest(changedTime=1000, sFDI=12345, postRate=60)
+    returned = EndDeviceResponse(changedTime=1000, sFDI=12345, postRate=30)
+    returned_xml = resource_to_sep2_xml(returned)
+
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.POST, "/edev", [RouteBehaviour.no_content_location(HTTPStatus.CREATED, "/edev/1")]
+            ),
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/edev/1",
+                [RouteBehaviour(HTTPStatus.OK, returned_xml.encode(), {"Content-Type": MIME_TYPE_SEP2})],
+            ),
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        result = await submit_and_refetch_resource_for_step(
+            EndDeviceResponse,
+            step_execution,
+            execution_context,
+            HTTPMethod.POST,
+            "/edev",
+            submitted,
+        )
+
+    assert isinstance(result, EndDeviceResponse)
+    assert result.postRate == 30  # Server's overridden value
+    assert len(execution_context.warnings.warnings) == 0
 
 
 @pytest.mark.asyncio
