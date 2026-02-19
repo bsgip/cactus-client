@@ -36,7 +36,7 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
         delay_required = upcoming_step.executable_delay_required(now)
         if delay_required:
             await context.progress.update_current_step(upcoming_step, delay=delay_required)
-            await asyncio.sleep(delay_required.seconds)
+            await asyncio.sleep(delay_required.total_seconds())
             continue
 
         # We're ready to commit to running the next step
