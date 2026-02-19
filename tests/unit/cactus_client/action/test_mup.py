@@ -1,6 +1,9 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from http import HTTPMethod, HTTPStatus
 from unittest import mock
+
+from freezegun import freeze_time
 
 import pytest
 from assertical.fake.generator import generate_class_instance
@@ -32,6 +35,7 @@ from cactus_client.check.mup import (
 )
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
+from tests.unit.cactus_client.action.test_server import RouteBehaviour, TestingAppRoute, create_test_session
 
 
 def assert_mrid(mrid: str, pen: int):
@@ -268,3 +272,52 @@ async def test_action_insert_readings(testing_contexts_factory):
         expected_timestamp = int(base_time.replace(second=0, microsecond=0).timestamp())
         assert reading.timePeriod.start == expected_timestamp
         assert reading.timePeriod.duration == post_rate
+
+
+@freeze_time("2025-01-01 12:00:00")
+@pytest.mark.parametrize("post_rate", [15, 30, 60, 120])
+@pytest.mark.asyncio
+async def test_action_insert_readings_minimum_wait_respects_server_post_rate(
+    post_rate, aiohttp_client, testing_contexts_factory
+):
+    """When the server sets a postRate on a MUP, the minimum wait between readings should use that"""
+
+    frozen_now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    # Arrange
+    post_route = TestingAppRoute(HTTPMethod.POST, "/mup/test", [RouteBehaviour(HTTPStatus.CREATED, b"", {})])
+    async with create_test_session(aiohttp_client, [post_route]) as session:
+        context, step = testing_contexts_factory(session)
+        step.repeat_number = 0
+        context.created_at = frozen_now
+
+        resource_store = context.discovered_resources(step)
+        client_config = context.client_config(step)
+
+        # Create a MUP with the server-assigned postRate
+        mup_mrid = "ABC123456789012345678901TESTPEN1"
+        mmr_mrid = generate_mmr_mrid(mup_mrid, CSIPAusReadingType.ActivePowerAverage, client_config.pen)
+        reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=0)
+        mmr = generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)
+        mup = generate_class_instance(
+            MirrorUsagePoint, mRID=mup_mrid, href="/mup/test", postRate=post_rate, mirrorMeterReadings=[mmr]
+        )
+
+        sr = resource_store.upsert_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
+        context.resource_annotations(step, sr.id).alias = "test-mup"
+
+        resolved_params = {
+            "mup_id": "test-mup",
+            "values": {CSIPAusReadingType.ActivePowerAverage: [100.0, 200.0]},
+        }
+
+        # Act
+        result = await action_insert_readings(resolved_params, step, context)
+
+    # Assert
+    assert result.repeat is True
+    assert result.not_before is not None
+
+    # With frozen time: next_reading_time = frozen_now + post_rate = minimum_wait
+    expected_not_before = frozen_now + timedelta(seconds=post_rate)
+    assert result.not_before == expected_not_before

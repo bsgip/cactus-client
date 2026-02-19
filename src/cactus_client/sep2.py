@@ -98,6 +98,8 @@ def get_property_changes(source: AnyResource, returned: AnyResource) -> str | No
                 returned_upper = returned_val.upper()
                 if returned_upper.endswith(source_upper) or source_upper.endswith(returned_upper):
                     continue
+            if key == "postRate":
+                continue  # The server MAY override the client's preferred postRate
             if (
                 "time" in key.lower()
                 and isinstance(source_val, int)

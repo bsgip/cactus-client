@@ -184,6 +184,16 @@ def test_hex_binary_equal(a, b, expected):
             generate_class_instance(MirrorUsagePoint, seed=1, roleFlags="0003"),
             True,
         ),  # various hex binary comparisons can be a mismatch on leading zeroes
+        (
+            EndDeviceResponse(changedTime=1, sFDI=2, postRate=60),
+            EndDeviceResponse(changedTime=1, sFDI=2, postRate=30),
+            True,
+        ),
+        (
+            EndDeviceResponse(changedTime=1, sFDI=2, postRate=60),
+            EndDeviceResponse(changedTime=1, sFDI=2, postRate=900),
+            True,
+        ),  # Server MAY override client's preferred postRate
     ],
 )
 def test_get_property_changes(source, returned, expected_match: bool):

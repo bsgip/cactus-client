@@ -14,10 +14,7 @@ from envoy_schema.server.schema.sep2.response import ResponseType
 from envoy_schema.server.schema.sep2.types import DateTimeIntervalType
 from freezegun import freeze_time
 
-from cactus_client.action.der_controls import (
-    action_respond_der_controls,
-    action_send_malformed_response,
-)
+from cactus_client.action.der_controls import action_respond_der_controls, action_send_malformed_response
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.schema.validator import to_hex_binary
