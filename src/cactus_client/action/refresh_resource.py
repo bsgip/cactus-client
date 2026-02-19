@@ -3,13 +3,11 @@ from http import HTTPMethod
 from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
-from envoy_schema.server.schema.sep2.identification import List
 
 from cactus_client.action.server import (
     client_error_or_empty_list_request_for_step,
     client_error_request_for_step,
     get_resource_for_step,
-    request_for_step,
 )
 from cactus_client.error import CactusClientException, RequestException
 from cactus_client.model.context import ExecutionContext

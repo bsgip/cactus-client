@@ -96,7 +96,7 @@ def generate_insert_readings_request(
     step: StepExecution,
     context: ExecutionContext,
     mup_mrid: str,
-    reading_values: dict[CSIPAusReadingType, list[float]],
+    reading_values: dict[CSIPAusReadingType, list[float] | float],
     pow10_by_mrid: dict[str, int],
     post_rate_seconds: int,
 ) -> MirrorMeterReadingListRequest:
@@ -114,7 +114,10 @@ def generate_insert_readings_request(
             logger.error(f"Couldn't find {mmr_mrid} in pow10_by_mrid: {pow10_by_mrid}")
             raise CactusClientException(f"Couldn't find the pow10 multiplier for MirrorMeterReading {mmr_mrid}")
 
-        raw_value = rt_values[step.repeat_number]
+        if isinstance(rt_values, list):
+            raw_value = rt_values[step.repeat_number]
+        else:
+            raw_value = rt_values
         mmrs.append(
             MirrorMeterReading(
                 mRID=mmr_mrid,
@@ -132,17 +135,26 @@ async def action_insert_readings(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
     mup_id: str = resolved_parameters["mup_id"]  # mandatory param
-    values: dict[CSIPAusReadingType, list[float]] = resolved_parameters["values"]
+    values: dict[CSIPAusReadingType, list[float] | float] = resolved_parameters["values"]
     expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
 
     # sanity check our values are well formed
-    all_value_lengths = [len(value_list) for value_list in values.values()]
-    if len(set(all_value_lengths)) != 1:
+    list_lengths: set[int] = set()
+    total_constants = 0
+    all_lengths: int | None = None
+    for list_or_constant in values.values():
+        if isinstance(list_or_constant, list):
+            list_lengths.add(len(list_or_constant))
+        else:
+            total_constants += 1
+    if len(list_lengths) > 1:
         logger.error(f"values parameter is malformed. Not every length is the same: {values}")
         raise CactusClientException("The values parameters is malformed. This is a test definition error.")
-    if step.repeat_number >= all_value_lengths[0]:
-        logger.error(f"Too many repeats - at repeat {step.repeat_number} but only has {all_value_lengths[0]}")
-        raise CactusClientException("The values parameters is malformed. This is a test definition error.")
+    elif len(list_lengths) == 1:
+        all_lengths = list_lengths.pop()
+        if step.repeat_number >= all_lengths:
+            logger.error(f"Too many repeats - at repeat {step.repeat_number} but only has {all_lengths}")
+            raise CactusClientException("The values parameters is malformed. This is a test definition error.")
 
     resource_store = context.discovered_resources(step)
     mups_with_id = [
@@ -192,7 +204,7 @@ async def action_insert_readings(
             raise RequestException(f"Received {response.status} from POST {mup_href} when submitting readings")
 
     # Repeat if we have more readings to send
-    if step.repeat_number >= (all_value_lengths[0] - 1):
+    if all_lengths is None or step.repeat_number >= (all_lengths - 1):
         return ActionResult.done()
     else:
         # If we get delayed (eg slow server or being blocked by a precondition) we don't want to send
