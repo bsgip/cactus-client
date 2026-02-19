@@ -5,7 +5,7 @@ from http import HTTPMethod, HTTPStatus
 from typing import Callable, TypeVar
 
 from envoy_schema.server.schema.sep2.error import ErrorResponse
-from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.identification import List, Resource
 
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import RequestException
@@ -19,6 +19,7 @@ RATE_LIMIT_RETRY_DELAYS = (5, 15, 30)  # seconds to wait between retries on 429
 logger = logging.getLogger(__name__)
 
 AnyResourceType = TypeVar("AnyResourceType", bound=Resource)
+AnyListType = TypeVar("AnyListType", bound=List)
 AnyType = TypeVar("AnyType")
 
 
@@ -84,6 +85,35 @@ async def request_for_step(
     return response
 
 
+def parse_type_response(t: type[AnyResourceType], response: ServerResponse) -> AnyResourceType:
+    href = response.request.url
+    try:
+        return t.from_xml(response.body)
+    except Exception as exc:
+        logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
+        logger.error(response.body)
+        raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+
+
+def parse_error_response(
+    step: StepExecution, context: ExecutionContext, response: ServerResponse
+) -> ErrorResponse | None:
+    """NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+    Previously this would raise a RequestException on parse failure; now it returns None to allow callers
+    to handle unparseable error bodies gracefully."""
+    try:
+        return ErrorResponse.from_xml(response.body)
+    except Exception as exc:
+        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+        # The server returned a 4xx but the body was not valid ErrorResponse XML.
+        context.warnings.log_step_warning(
+            step,
+            f"Could not parse ErrorResponse from {len(response.body)} chars at {response.request.url}: {exc}. "
+            "Skipping error body validation.",
+        )
+        return None
+
+
 async def client_error_request_for_step(
     step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
 ) -> ErrorResponse | None:
@@ -101,17 +131,45 @@ async def client_error_request_for_step(
             f"Received status {response.status} but expected 4XX requesting {response.method} {path}."
         )
 
-    try:
-        return ErrorResponse.from_xml(response.body)
-    except Exception as exc:
-        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-        # The server returned a 4xx but the body was not valid ErrorResponse XML.
+    return parse_error_response(step, context, response)
+
+
+async def client_error_or_empty_list_request_for_step(
+    t: type[AnyListType],
+    step: StepExecution,
+    context: ExecutionContext,
+    path: str,
+    method: HTTPMethod,
+    sep2_xml_body: str | None = None,
+) -> ErrorResponse | AnyListType | None:
+    """Similar to client_error_request_for_step but also allows a successful response if it's an empty sep2 List.
+
+    raises a RequestException if the response succeeds
+
+    NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
+    Previously this would raise a RequestException on parse failure; now it returns None to allow callers
+    to handle unparseable error bodies gracefully."""
+
+    # Fire off the request and if it fails, handle the error response.
+    response = await request_for_step(step, context, path, method, sep2_xml_body)
+    if response.is_client_error():
+        return parse_error_response(step, context, response)
+
+    if not response.is_success():
+        raise RequestException(f"Received status {response.status} (expected 4XX) requesting {response.method} {path}.")
+
+    # At this point - we're assuming we've got a List response
+    list_data = parse_type_response(t, response)
+    if list_data.all_ is None or list_data.results is None:
         context.warnings.log_step_warning(
-            step,
-            f"Could not parse ErrorResponse from {len(response.body)} chars at {path}: {exc}. "
-            "Skipping error body validation.",
+            step, f"{method} {path} yielded a List that's missing either the 'all' or 'results' attribute."
         )
-        return None
+    elif list_data.all_ != 0 or list_data.results != 0:
+        raise RequestException(
+            f"{method} {path} should've returned an error or empty List but instead got a List with "
+            f"'all'={list_data.all_} 'results'={list_data.results}"
+        )
+    return list_data
 
 
 async def get_resource_for_step(
@@ -125,12 +183,7 @@ async def get_resource_for_step(
     if not response.is_success():
         raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
 
-    try:
-        return t.from_xml(response.body)
-    except Exception as exc:
-        logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
-        logger.error(response.body)
-        raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+    return parse_type_response(t, response)
 
 
 async def delete_and_check_resource_for_step(step: StepExecution, context: ExecutionContext, href: str) -> None:

@@ -197,15 +197,35 @@ async def test_action_upsert_mup(testing_contexts_factory):
         assert stored_mups[0].resource.href == inserted_mup.href
 
 
+@pytest.mark.parametrize(
+    "pow10_multiplier, list_values, repeat_number, expected_value, expected_repeat",
+    [
+        (0, [100.5, 200.3, 300.7], 0, 100.5, True),
+        (-1, [100.5, 200.3, 300.7], 1, 200.3, True),
+        (0, [100.5, 200.3, 300.7], 2, 300.7, False),
+        (0, [100.5], 0, 100.5, False),
+        (0, 100.6, 0, 100.6, False),
+        (0, 100.7, 99, 100.7, False),
+        (-1, 100.7, 99, 100.7, False),
+        (1, 100.7, 99, 100.7, False),
+    ],
+)
 @pytest.mark.asyncio
-async def test_action_insert_readings(testing_contexts_factory):
+async def test_action_insert_readings(
+    pow10_multiplier: int,
+    list_values: list[float] | float,
+    repeat_number: int,
+    expected_value: float,
+    expected_repeat: bool,
+    testing_contexts_factory,
+):
     """Test that action_insert_readings correctly generates and submits reading data"""
 
     # Arrange
     context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     post_rate = 60
-    step.repeat_number = 0
+    step.repeat_number = repeat_number
     base_time = calculate_reading_time(context, post_rate, repeat_number=0)
 
     context.created_at = base_time
@@ -214,7 +234,6 @@ async def test_action_insert_readings(testing_contexts_factory):
 
     # Create a MUP with MirrorMeterReadings
     mup_mrid = "ABC123456789012345678901TESTPEN1"
-    pow10_multiplier = 1  # multiply by 10^1
     mmr_mrid = generate_mmr_mrid(mup_mrid, CSIPAusReadingType.ActivePowerAverage, client_config.pen)
 
     reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=pow10_multiplier)
@@ -235,7 +254,7 @@ async def test_action_insert_readings(testing_contexts_factory):
 
         resolved_params = {
             "mup_id": "test-mup-1",
-            "values": {CSIPAusReadingType.ActivePowerAverage: [100.5, 200.3, 300.7]},
+            "values": {CSIPAusReadingType.ActivePowerAverage: list_values},
         }
 
         # Act
@@ -243,11 +262,12 @@ async def test_action_insert_readings(testing_contexts_factory):
 
         # Assert
         assert isinstance(result, ActionResult)
-        assert result.repeat is True  # Should want to repeat since we have more readings
+        assert result.repeat is expected_repeat
 
         expected_next_time = base_time.replace(second=0, microsecond=0) + timedelta(seconds=60)
         # Should be either the expected time or later (if minimum wait)
-        assert result.not_before >= expected_next_time
+        if expected_repeat:
+            assert result.not_before >= expected_next_time
 
         # Verify request
         mock_request.assert_called_once()
@@ -265,11 +285,9 @@ async def test_action_insert_readings(testing_contexts_factory):
         assert sent_mmr.reading is not None
 
         reading = sent_mmr.reading
-        expected_value = value_to_sep2(100.5, pow10_multiplier)
-        assert reading.value == expected_value
-        assert reading.value == 10  # 100 / pow10_multiplier = 10
+        assert reading.value == value_to_sep2(expected_value, pow10_multiplier)
 
-        expected_timestamp = int(base_time.replace(second=0, microsecond=0).timestamp())
+        expected_timestamp = int(base_time.replace(second=0, microsecond=0).timestamp()) + repeat_number * post_rate
         assert reading.timePeriod.start == expected_timestamp
         assert reading.timePeriod.duration == post_rate
 
