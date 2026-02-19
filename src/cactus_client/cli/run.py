@@ -37,7 +37,7 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         type=int,
         default=None,
         metavar="SECONDS",
-        help="Optional timeout in seconds. If the test exceeds this duration it is aborted, treated the same as CTRL-C.",
+        help="Optional timeout in seconds.",
     )
     run_parser.add_argument("id", help="The id of the test procedure to execute (To list ids run 'cactus tests')")
     run_parser.add_argument("clientid", help="The ID's of configured client(s) to be used in this run.", nargs="*")

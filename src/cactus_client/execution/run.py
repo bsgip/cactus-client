@@ -92,9 +92,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
                     + f"Details at {log_file_path.absolute()}"
                 )
             else:
-                # Timeout elapsed before any task completed - treat the same as a CTRL-C abort
-                logger.error("Aborting test due to timeout after %d seconds.", run_config.timeout)
-                results = ResultsEvaluation(context, ExecutionResult(completed=False))
+                # Timeout elapsed before any task completed - cancel everything then raise TimeoutError
                 for task in tasks:
                     if not task.done() and not task.cancelled():
                         task.cancel()
@@ -102,6 +100,11 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
                             await task
                         except asyncio.CancelledError:
                             pass
+                raise asyncio.TimeoutError()
+        except asyncio.TimeoutError:
+            logger.error("Aborting test due to timeout after %d seconds.", run_config.timeout)
+            console.print(f"[bold red]Test timed out after {run_config.timeout} seconds[/bold red]")
+            results = ResultsEvaluation(context, ExecutionResult(completed=False))
         except asyncio.CancelledError as exc:
             # On cancellation - just log it as a non completion but still allow the results printouts to proceed
             logger.error("Aborting test due to cancellation.", exc_info=exc)
