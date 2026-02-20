@@ -31,6 +31,14 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Stops terminal UI from running - execution logs will instead display via stderr",
     )
+    run_parser.add_argument(
+        "--timeout",
+        required=False,
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help="Optional timeout in seconds.",
+    )
     run_parser.add_argument("id", help="The id of the test procedure to execute (To list ids run 'cactus tests')")
     run_parser.add_argument("clientid", help="The ID's of configured client(s) to be used in this run.", nargs="*")
 
@@ -41,6 +49,7 @@ def run_action(args: argparse.Namespace) -> None:
     test_id: str = args.id
     client_ids: list[str] = args.clientid
     headless = True if args.headless else False
+    timeout: int | None = args.timeout
 
     try:
         global_config, _ = load_config(config_file_override)
@@ -59,6 +68,7 @@ def run_action(args: argparse.Namespace) -> None:
         client_ids=client_ids,
         csip_aus_version=CSIPAusVersion.RELEASE_1_2,
         headless=headless,
+        timeout=timeout,
     )
 
     try:
