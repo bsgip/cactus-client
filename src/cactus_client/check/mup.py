@@ -75,7 +75,7 @@ def generate_mup_mrids(
             )
         return MirrorUsagePointMrids(
             mup_mrid=mup_mrid,
-            mmr_mrids=dict(((rt, f"{raw_mrid[:24]}{client.pen:08}") for rt, raw_mrid in zip(reading_types, mmr_mrids))),
+            mmr_mrids=dict(((rt, raw_mrid[:32]) for rt, raw_mrid in zip(reading_types, mmr_mrids))),
         )
 
     # Otherwise continue to derive more hashed mrids
