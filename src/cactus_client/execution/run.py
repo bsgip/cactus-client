@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import logging.config
+from pathlib import Path
 
 from rich.console import Console
 
@@ -9,6 +10,7 @@ from cactus_client.execution.build import build_execution_context
 from cactus_client.execution.execute import execute_for_context
 from cactus_client.execution.tui import run_tui
 from cactus_client.model.config import GlobalConfig, RunConfig
+from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
 from cactus_client.model.output import RunOutputFile, RunOutputManager
 from cactus_client.results.common import ResultsEvaluation
@@ -16,6 +18,49 @@ from cactus_client.results.console import render_console
 from cactus_client.results.requests import persist_all_request_data
 
 logger = logging.getLogger(__name__)
+
+
+async def _cancel_tasks(tasks: list[asyncio.Task]) -> None:
+    """Cancel all tasks that are still running and await their completion."""
+    for task in tasks:
+        if not task.done() and not task.cancelled():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+
+async def _run_and_await_tasks(
+    execute_task: asyncio.Task,
+    tasks: list[asyncio.Task],
+    timeout: int | None,
+    context: ExecutionContext,
+    log_file_path: Path,
+    console: Console,
+) -> ResultsEvaluation:
+    """Awaits the execution (and optional TUI) tasks, handling timeout and cancellation."""
+    try:
+        done, pending = await asyncio.wait(tasks, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
+        if execute_task in done:
+            await _cancel_tasks(list(pending))
+            return ResultsEvaluation(context, execute_task.result())
+        elif done:
+            raise CactusClientException(
+                "It appears that the UI has exited prematurely. Aborting test run."
+                + f"Details at {log_file_path.absolute()}"
+            )
+        else:
+            await _cancel_tasks(tasks)
+            raise asyncio.TimeoutError()
+    except asyncio.TimeoutError:
+        logger.error("Aborting test due to timeout after %d seconds.", timeout)
+        console.print(f"[bold red]Test timed out after {timeout} seconds[/bold red]")
+        return ResultsEvaluation(context, ExecutionResult(completed=False))
+    except asyncio.CancelledError as exc:
+        logger.error("Aborting test due to cancellation.", exc_info=exc)
+        await _cancel_tasks(tasks)
+        return ResultsEvaluation(context, ExecutionResult(completed=False))
 
 
 async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> bool:
@@ -76,32 +121,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         if not run_config.headless:
             tasks.append(asyncio.create_task(run_tui(console=console, context=context, run_id=output_manager.run_id)))
 
-        # Wait until any of the tasks is completed (the TUI task doesn't normally exit so it should be the execute task)
-        try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            if execute_task not in done:
-                raise CactusClientException(
-                    "It appears that the UI has exited prematurely. Aborting test run."
-                    + f"Details at {log_file_path.absolute()}"
-                )
-            for task in pending:
-                task.cancel()
-                await task
-
-            results = ResultsEvaluation(context, execute_task.result())
-        except asyncio.CancelledError as exc:
-            # On cancellation - just log it as a non completion but still allow the results printouts to proceed
-            logger.error("Aborting test due to cancellation.", exc_info=exc)
-            results = ResultsEvaluation(context, ExecutionResult(completed=False))
-
-            # Go through all other tasks and force them to cancel and await that cancellation
-            for task in tasks:
-                if not task.done() and not task.cancelled():
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass  # This is the expected result - we are awaiting a task we cancelled.
+        results = await _run_and_await_tasks(execute_task, tasks, run_config.timeout, context, log_file_path, console)
 
         logger.info(f"Test passed: {results.has_passed()}")
         logger.debug(f"ResultsEvaluation: {results}")
