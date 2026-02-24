@@ -26,7 +26,7 @@ from cactus_client.check.mup import (
     check_mirror_usage_point,
     find_mrids_matching,
     generate_hashed_mrid,
-    generate_mmr_mrid,
+    generate_mmr_mrids,
     generate_mup_mrids,
     generate_reading_type_values,
     generate_role_flags,
@@ -120,16 +120,6 @@ def test_generate_mup_mrids():
     assert_all_different(mup1, mup2)
     assert_all_different(mup1, mup3)
 
-    mup4 = generate_mup_mrids(
-        CSIPAusReadingLocation.Device,
-        rts_2,
-        ["012345678901234567890123ABCDEF01", "AAAAAAAAAA01234567890123ABCDEF01"],
-        cfg1,
-    )
-    assert_mup_mrids(mup4, rts_2, cfg1.pen, check_mmr_pens=False)
-    assert mup4.mmr_mrids[CSIPAusReadingType.ActivePowerMaximum] == "012345678901234567890123ABCDEF01"
-    assert mup4.mmr_mrids[CSIPAusReadingType.ActivePowerMinimum] == "AAAAAAAAAA01234567890123ABCDEF01"
-
 
 def test_generate_reading_type_values_bad_value():
     with pytest.raises(CactusClientException):
@@ -157,21 +147,31 @@ def test_generate_role_flags_values():
     assert len(all_values) == len(set(all_values)), "For catching copy paste errors"
 
 
-def test_generate_mmr_mrid_basic():
-    """Test that generate_mmr_mrid produces a consistent 32-character MRID with PEN suffix"""
+def test_generate_mmr_mrids_basic():
+    """Test that generate_mmr_mrids produces a consistent 32-character MRID with PEN suffix if mmr mrids not specified"""
     mup_mrid = "ABC123456789012345678901234567890"
-    rt = CSIPAusReadingType.ActivePowerAverage
+    rts = [CSIPAusReadingType.ActivePowerAverage]
     pen = 12345678
 
-    result = generate_mmr_mrid(mup_mrid, rt, pen)
+    result = generate_mmr_mrids(mup_mrid, rts, pen)
 
-    assert isinstance(result, str)
-    assert len(result) == 32
-    assert result.endswith(str(pen))
+    assert isinstance(result, dict)
+    assert list(result.keys()) == rts
+    mrid = result[rts[0]]
+    assert mrid.endswith(str(pen))
 
     # Deterministic:
-    result2 = generate_mmr_mrid(mup_mrid, rt, pen)
+    result2 = generate_mmr_mrids(mup_mrid, rts, pen)
     assert result == result2
+
+    # Override case: explicit mrids are used as-is (truncated to 32 chars)
+    override = ["012345678901234567890123ABCDEF01"]
+    result3 = generate_mmr_mrids(mup_mrid, rts, pen, override)
+    assert result3[rts[0]] == "012345678901234567890123ABCDEF01"
+
+    # Error case: mismatched lengths raise an error
+    with pytest.raises(CactusClientException):
+        generate_mmr_mrids(mup_mrid, rts, pen, ["mrid1", "mrid2"])
 
 
 def test_generate_reading_type_values_fuzzy_match():

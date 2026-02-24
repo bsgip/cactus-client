@@ -48,7 +48,10 @@ def generate_hashed_mrid(seed: str, pen: int) -> str:
 
 
 def generate_mmr_mrids(
-    mup_mrid: str, reading_types: list[CSIPAusReadingType], mmr_mrids: list[str] | None, pen: int
+    mup_mrid: str,
+    reading_types: list[CSIPAusReadingType],
+    pen: int,
+    mmr_mrids: list[str] | None = None,
 ) -> dict[CSIPAusReadingType, str]:
     """Generates mrids for all MirrorMeterReadings that lives under a MirrorUsagePoint with mup_mrid"""
     if mmr_mrids:
@@ -77,7 +80,7 @@ def generate_mup_mrids(
         else generate_hashed_mrid(str(location) + client.id + "|".join(sorted(reading_types)), client.pen)
     )
 
-    mmr_mrids_by_rt = generate_mmr_mrids(mup_mrid, reading_types, mmr_mrids, client.pen)
+    mmr_mrids_by_rt = generate_mmr_mrids(mup_mrid, reading_types, client.pen, mmr_mrids)
 
     return MirrorUsagePointMrids(mup_mrid=mup_mrid, mmr_mrids=mmr_mrids_by_rt)
 

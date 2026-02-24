@@ -107,7 +107,7 @@ def generate_insert_readings_request(
     # Base our readings relative to the start time of the test
     reading_time = calculate_reading_time(context, post_rate_seconds, step.repeat_number)
 
-    reading_value_mrids = generate_mmr_mrids(mup_mrid, list(reading_values.keys()), mmr_mrids, client_config.pen)
+    reading_value_mrids = generate_mmr_mrids(mup_mrid, list(reading_values.keys()), client_config.pen, mmr_mrids)
     mmrs: list[MirrorMeterReading] = []
     for rt, rt_values in reading_values.items():
         mmr_mrid = reading_value_mrids[rt]
