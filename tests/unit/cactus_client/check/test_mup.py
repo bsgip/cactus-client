@@ -36,20 +36,23 @@ from cactus_client.model.config import ClientConfig
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 
 
-def assert_mrid(mrid: str, pen: int):
+def assert_mrid(mrid: str, pen: int | None):
     assert isinstance(mrid, str)
     assert len(mrid) == 32
-    assert mrid.endswith(str(pen))
+    if pen is not None:
+        assert mrid.endswith(str(pen))
     assert re.search(r"[^A-F0-9]", mrid) is None, "Should only be uppercase hex chars"
 
 
-def assert_mup_mrids(m: MirrorUsagePointMrids, reading_types: list[CSIPAusReadingType], pen: int):
+def assert_mup_mrids(
+    m: MirrorUsagePointMrids, reading_types: list[CSIPAusReadingType], pen: int, check_mmr_pens: bool = True
+):
     assert isinstance(m, MirrorUsagePointMrids)
     assert_mrid(m.mup_mrid, pen)
 
     assert_dict_type(CSIPAusReadingType, str, m.mmr_mrids, len(reading_types))
     for rt in reading_types:
-        assert_mrid(m.mmr_mrids[rt], pen)
+        assert_mrid(m.mmr_mrids[rt], pen if check_mmr_pens else None)
 
 
 def assert_all_different(m1: MirrorUsagePointMrids, m2: MirrorUsagePointMrids):
@@ -120,12 +123,12 @@ def test_generate_mup_mrids():
     mup4 = generate_mup_mrids(
         CSIPAusReadingLocation.Device,
         rts_2,
-        ["012345678901234567890123XXXXXXXX", "AAAAAAAAAA01234567890123XXXXXXXX"],
+        ["012345678901234567890123ABCDEF01", "AAAAAAAAAA01234567890123ABCDEF01"],
         cfg1,
     )
-    assert_mup_mrids(mup4, rts_2, cfg1.pen)
-    assert mup4.mmr_mrids[CSIPAusReadingType.ActivePowerMaximum].startswith("012345678901234567890123")
-    assert mup4.mmr_mrids[CSIPAusReadingType.ActivePowerMinimum].startswith("AAAAAAAAAA01234567890123")
+    assert_mup_mrids(mup4, rts_2, cfg1.pen, check_mmr_pens=False)
+    assert mup4.mmr_mrids[CSIPAusReadingType.ActivePowerMaximum] == "012345678901234567890123ABCDEF01"
+    assert mup4.mmr_mrids[CSIPAusReadingType.ActivePowerMinimum] == "AAAAAAAAAA01234567890123ABCDEF01"
 
 
 def test_generate_reading_type_values_bad_value():
