@@ -28,7 +28,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.check.mup import (
-    generate_mmr_mrid,
+    generate_mmr_mrids,
     generate_mup_mrids,
     generate_reading_type_values,
     generate_role_flags,
@@ -97,6 +97,7 @@ def generate_insert_readings_request(
     context: ExecutionContext,
     mup_mrid: str,
     reading_values: dict[CSIPAusReadingType, list[float] | float],
+    mmr_mrids: list[str] | None,
     pow10_by_mrid: dict[str, int],
     post_rate_seconds: int,
 ) -> MirrorMeterReadingListRequest:
@@ -106,9 +107,10 @@ def generate_insert_readings_request(
     # Base our readings relative to the start time of the test
     reading_time = calculate_reading_time(context, post_rate_seconds, step.repeat_number)
 
+    reading_value_mrids = generate_mmr_mrids(mup_mrid, list(reading_values.keys()), client_config.pen, mmr_mrids)
     mmrs: list[MirrorMeterReading] = []
     for rt, rt_values in reading_values.items():
-        mmr_mrid = generate_mmr_mrid(mup_mrid, rt, client_config.pen)
+        mmr_mrid = reading_value_mrids[rt]
         pow10 = pow10_by_mrid.get(mmr_mrid, None)
         if pow10 is None:
             logger.error(f"Couldn't find {mmr_mrid} in pow10_by_mrid: {pow10_by_mrid}")
@@ -136,6 +138,7 @@ async def action_insert_readings(
 ) -> ActionResult:
     mup_id: str = resolved_parameters["mup_id"]  # mandatory param
     values: dict[CSIPAusReadingType, list[float] | float] = resolved_parameters["values"]
+    mmr_mrids: list[str] | None = resolved_parameters.get("mmr_mrids", None)
     expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
 
     # sanity check our values are well formed
@@ -192,7 +195,7 @@ async def action_insert_readings(
     # Now we are ready to submit readings
     post_rate_seconds = mup.postRate or 60
     mmr_list_xml = resource_to_sep2_xml(
-        generate_insert_readings_request(step, context, mup.mRID, values, pow10_by_mrid, post_rate_seconds)
+        generate_insert_readings_request(step, context, mup.mRID, values, mmr_mrids, pow10_by_mrid, post_rate_seconds)
     )
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
