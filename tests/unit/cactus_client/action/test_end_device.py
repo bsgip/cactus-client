@@ -21,8 +21,10 @@ from cactus_client.action.end_device import (
     action_insert_end_device,
     action_upsert_connection_point,
 )
-from cactus_client.model.context import ExecutionContext
-from cactus_client.model.execution import ActionResult
+from cactus_client.model.config import ClientConfig
+from cactus_client.model.context import ClientContext, ExecutionContext
+from cactus_client.model.execution import ActionResult, StepExecution
+from cactus_client.model.resource import ResourceStore
 from cactus_client.time import utc_now
 
 
@@ -128,3 +130,52 @@ async def test_action_insert_end_device(testing_contexts_factory):
         assert len(stored_edevs) == 1
         assert stored_edevs[0].resource.lFDI == inserted_edev.lFDI
         assert stored_edevs[0].resource.href == inserted_edev.href
+
+
+@pytest.mark.asyncio
+async def test_action_insert_end_device_cross_client_uses_context_lfdi(testing_contexts_factory):
+    """Test to ensure S-ALL-52 behaviour"""
+
+    # Arrange - build with CLIENT-A as the base, then add CLIENT-B
+    context, _ = testing_contexts_factory(mock.Mock())
+    client_a_alias = list(context.clients_by_alias.keys())[0]
+    client_a_lfdi = context.clients_by_alias[client_a_alias].client_config.lfdi
+
+    client_b_alias = "CLIENT-B"
+    client_b_config = generate_class_instance(ClientConfig, optional_is_none=True, lfdi="BBBBBBBBBB")
+    client_b_context = ClientContext(
+        test_procedure_alias=client_b_alias,
+        client_config=client_b_config,
+        discovered_resources=ResourceStore(context.resource_tree),
+        session=mock.Mock(),
+        annotations={},
+        notifications=None,
+    )
+    context.clients_by_alias[client_b_alias] = client_b_context
+
+    # EndDeviceList goes into CLIENT-A's resource store (the context/resources client)
+    client_a_resource_store = context.clients_by_alias[client_a_alias].discovered_resources
+    edev_list = generate_class_instance(EndDeviceListResponse, href="/edev")
+    client_a_resource_store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
+
+    # Step executes as CLIENT-B but uses CLIENT-A's resource context (simulates use_client_context: CLIENT-A)
+    step = generate_class_instance(
+        StepExecution,
+        optional_is_none=True,
+        client_alias=client_b_alias,
+        client_resources_alias=client_a_alias,
+    )
+
+    with mock.patch("cactus_client.action.end_device.client_error_request_for_step") as mock_reject:
+        mock_reject.return_value = None
+
+        # Act
+        result = await action_insert_end_device({"expect_rejection": True}, step, context)
+
+        # Assert
+        assert isinstance(result, ActionResult)
+        mock_reject.assert_called_once()
+
+        xml_body: str = mock_reject.call_args[0][4]
+        assert client_a_lfdi.upper() in xml_body.upper()  # body contains CLIENT-A's LFDI (the context client)
+        assert client_b_config.lfdi.upper() not in xml_body.upper()  # not CLIENT-B's LFDI (the executing client)
