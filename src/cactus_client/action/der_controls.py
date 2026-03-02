@@ -171,9 +171,7 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
             step, context, reply_to, HTTPMethod.POST, sep2_xml_body=resource_to_sep2_xml(response)
         )
         if not post_response.is_success():
-            raise RequestException(
-                f"Received status {post_response.status} posting DERControlResponse to {reply_to}."
-            )
+            raise RequestException(f"Received status {post_response.status} posting DERControlResponse to {reply_to}.")
 
         # Update tags to track this response was sent
         der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
