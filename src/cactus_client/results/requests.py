@@ -17,7 +17,12 @@ def sanitise_url_to_filename(url: str) -> str:
 
 
 def generate_request_file(
-    method: str, url: str, host: str | None, headers: dict[str, str] | CIMultiDict, body: str | None, timestamp: datetime
+    method: str,
+    url: str,
+    host: str | None,
+    headers: dict[str, str] | CIMultiDict,
+    body: str | None,
+    timestamp: datetime,
 ) -> list[str]:
 
     lines = [
@@ -38,7 +43,9 @@ def generate_request_file(
     return lines
 
 
-def generate_response_file(status: int, headers: dict[str, str] | CIMultiDict, body: str | None, timestamp: datetime) -> list[str]:
+def generate_response_file(
+    status: int, headers: dict[str, str] | CIMultiDict, body: str | None, timestamp: datetime
+) -> list[str]:
     lines = [
         f"# Epoch: {timestamp.timestamp()}",
         f"# UTC: {timestamp.strftime('%Y-%m-%dT%H:%M:%S.%fZ')}",
@@ -61,9 +68,17 @@ def persist_server_response(base_dir: Path, idx: int, host: str, response: Serve
     request_file = base_dir / f"{idx:03}-{client_alias}-{request.method}-{sanitised_url}.request"
     response_file = base_dir / f"{idx:03}-{client_alias}-{request.method}-{sanitised_url}.response"
     with open(request_file, "w") as fp:
-        fp.write("\n".join(generate_request_file(request.method, request.url, host, request.headers, request.body, request.created_at)))
+        fp.write(
+            "\n".join(
+                generate_request_file(
+                    request.method, request.url, host, request.headers, request.body, request.created_at
+                )
+            )
+        )
     with open(response_file, "w") as fp:
-        fp.write("\n".join(generate_response_file(response.status, response.headers, response.body, response.created_at)))
+        fp.write(
+            "\n".join(generate_response_file(response.status, response.headers, response.body, response.created_at))
+        )
 
 
 def persist_notification(
@@ -79,7 +94,11 @@ def persist_notification(
 
     with open(notification_file, "w") as fp:
         fp.write(
-            "\n".join(generate_request_file(notification.method, path, None, notification.headers, notification.body, notification.received_at))
+            "\n".join(
+                generate_request_file(
+                    notification.method, path, None, notification.headers, notification.body, notification.received_at
+                )
+            )
         )
 
 
