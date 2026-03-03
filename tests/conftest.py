@@ -2,6 +2,7 @@ import warnings
 from datetime import timedelta
 from pathlib import Path
 from typing import Callable
+from unittest.mock import MagicMock
 
 import pytest
 from aiohttp import ClientSession
@@ -123,6 +124,18 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
         return (execution_context, step_execution)
 
     return create_testing_contexts
+
+
+def make_client_context(alias: str, tree: CSIPAusResourceTree) -> ClientContext:
+    """Creates a ClientContext with a mock session — suitable for tests that don't make real HTTP calls."""
+    return ClientContext(
+        test_procedure_alias=alias,
+        client_config=generate_class_instance(ClientConfig, optional_is_none=True, lfdi="0DEADBEEF0"),
+        discovered_resources=ResourceStore(tree),
+        annotations={},
+        session=MagicMock(),
+        notifications=None,
+    )
 
 
 @pytest.fixture
