@@ -1,15 +1,48 @@
 import asyncio
+import json
 import logging
 from dataclasses import replace
+from pathlib import Path
 
 from cactus_client.action import execute_action
 from cactus_client.check import execute_checks
 from cactus_client.check.sep2 import is_invalid_resource
 from cactus_client.model.context import ExecutionContext
-from cactus_client.model.execution import ExecutionResult
+from cactus_client.model.execution import ExecutionResult, StepExecution
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+def _write_admin_instructions(log_path: Path, step: StepExecution) -> None:
+    """Append the step's admin_instructions as a JSONL entry to the admin instructions log file."""
+    instructions = step.source.admin_instructions
+    if not instructions:
+        return
+
+    def _to_json_safe(v: object) -> object:
+        """Convert parameter values that may be Expression objects to their string form."""
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            return v
+        return str(v)
+
+    entry = {
+        "timestamp": utc_now().isoformat(),
+        "step_id": step.source.id,
+        "attempt": step.attempts,
+        "admin_instructions": [
+            {
+                "type": ai.type,
+                "description": ai.description,
+                "client": ai.client,
+                "parameters": {k: _to_json_safe(v) for k, v in ai.parameters.items()},
+            }
+            for ai in instructions
+        ],
+    }
+
+    with open(log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 def validate_all_resources(context: ExecutionContext) -> None:
@@ -23,7 +56,7 @@ def validate_all_resources(context: ExecutionContext) -> None:
                 context.warnings.log_stored_resource_warning(sr, error)
 
 
-async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
+async def execute_for_context(context: ExecutionContext, admin_instructions_log: Path | None = None) -> ExecutionResult:
     """Does the actual execution work - will operate until the context's step list is fully drained. Will also
     handle updating trackers as the steps execute.
 
@@ -79,6 +112,10 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
             # The step failed (action or check) - but it might be marked as repeat_until_pass
             repeat_step = replace(current_step, attempts=current_step.attempts + 1, not_before=None)
             context.steps.add(repeat_step)
+
+            # Write admin instructions
+            if admin_instructions_log is not None:
+                _write_admin_instructions(admin_instructions_log, current_step)
 
             # This can potentially result in a tight loop - so we add a delay
             await context.progress.update_current_step(repeat_step, delay=context.repeat_delay)
