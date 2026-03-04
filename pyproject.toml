@@ -12,15 +12,24 @@ profile = "black"
 exclude_dirs = ["tests"]
 
 [tool.mypy]
-exclude = ["tests", "build"]
+python_version = "3.12"
 check_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_calls = true
-disallow_untyped_decorators = true
 disallow_untyped_defs = true
+disallow_untyped_decorators = true
 namespace_packages = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+exclude = "^(tests|build)/"
+
+[[tool.mypy.overrides]]
+module = ["apluggy.*", "apluggy"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["cactus_client.admin", "cactus_client.admin.*"]
+disallow_untyped_decorators = false
 
 
 [build-system]
@@ -44,6 +53,7 @@ dependencies = [
     "reportlab>=4.4.1,<5",
     "cryptography",
     "tzdata; platform_system == 'Windows'",
+    "apluggy",
 ]
 
 [project.optional-dependencies]
@@ -66,7 +76,6 @@ test = ["assertical", "pytest", "pytest-aiohttp", "freezegun", "cryptography"]
 [tool.setuptools.dynamic]
 version = { attr = "cactus_client.__version__" }
 readme = { file = ["README.md"], content-type = "text/markdown" }
-
 
 [project.scripts]
 cactus = "cactus_client.cli.main:cli_entrypoint"
