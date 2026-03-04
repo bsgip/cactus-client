@@ -29,15 +29,13 @@ def _write_admin_instructions(log_path: Path, step: StepExecution) -> None:
     entry = {
         "timestamp": utc_now().isoformat(),
         "step_id": step.source.id,
-        "attempt": step.attempts,
         "admin_instructions": [
             {
-                "type": ai.type,
-                "description": ai.description,
-                "client": ai.client,
-                "parameters": {k: _to_json_safe(v) for k, v in ai.parameters.items()},
+                "type": instr.type,
+                "client": instr.client,
+                "parameters": {k: _to_json_safe(v) for k, v in instr.parameters.items()},
             }
-            for ai in instructions
+            for instr in instructions
         ],
     }
 
@@ -113,8 +111,8 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
             repeat_step = replace(current_step, attempts=current_step.attempts + 1, not_before=None)
             context.steps.add(repeat_step)
 
-            # Write admin instructions
-            if admin_instructions_log is not None:
+            # Write admin instructions on first failure only
+            if admin_instructions_log is not None and current_step.attempts == 0:
                 _write_admin_instructions(admin_instructions_log, current_step)
 
             # This can potentially result in a tight loop - so we add a delay
