@@ -101,8 +101,6 @@ async def action_upsert_connection_point(
             step, context, href, HTTPMethod.PUT, resource_to_sep2_xml(cp_request)
         )
 
-        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-        # Previously this would raise on a missing/invalid ErrorResponse or wrong reasonCode.
         if error is None:
             context.warnings.log_step_warning(
                 step,

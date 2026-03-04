@@ -73,8 +73,11 @@ class ServerResponse:
         content_type = response.headers.get("Content-Type", None)
         body_xml = body_bytes.decode(response.get_encoding())
 
+        # Error response (4xx/5xx) bodies are not required to conform to the CSIP-Aus XSD schema,
+        # so XSD validation is skipped for them. Exception: the ConnectionPoint rejection step will
+        # add explicit XSD validation for that specific case when it is implemented.
         xsd_errors = None
-        if body_xml:
+        if body_xml and response.status < 400:
             xsd_errors = validate_xml(body_xml)
 
         return ServerResponse(
