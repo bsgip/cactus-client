@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlparse
 
 from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
@@ -113,6 +114,7 @@ def render_console(  # noqa: C901
 
     if context.responses.responses:
         requests_table = Table(title="Requests", title_justify="left", show_header=False, expand=True)
+        is_multi_client = len(context.clients_by_alias) > 1
 
         for idx, response in enumerate(context.responses.responses):
             if response.body:
@@ -122,22 +124,20 @@ def render_console(  # noqa: C901
 
             if isinstance(response, ServerResponse):
                 request_time = response.request.created_at
-                url = response.url
+                parsed = urlparse(response.url)
+                url = parsed.path + (f"?{parsed.query}" if parsed.query else "")
                 status = str(response.status)
             else:
                 request_time = response.received_at
                 url = f"Notification from '{response.remote}'"
                 status = ""
 
-            requests_table.add_row(
-                f"{idx:03}",
-                context_relative_time(context, request_time),
-                response.method,
-                url,
-                status,
-                xsd,
-                style="red" if response.xsd_errors else "green",
-            )
+            row: list[Any] = [f"{idx:03}", context_relative_time(context, request_time)]
+            if is_multi_client:
+                row.append(response.client_alias)
+            row.extend([response.method, url, status, xsd])
+
+            requests_table.add_row(*row, style="red" if response.xsd_errors else "green")
 
         panel_items.append(requests_table)
 
