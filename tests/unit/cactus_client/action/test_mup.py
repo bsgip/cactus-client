@@ -29,7 +29,7 @@ from cactus_client.action.mup import (
     value_to_sep2,
 )
 from cactus_client.check.mup import (
-    generate_mmr_mrid,
+    generate_mmr_mrids,
     generate_reading_type_values,
     generate_role_flags,
 )
@@ -105,17 +105,17 @@ async def test_action_upsert_mup(testing_contexts_factory):
 
     with mock.patch("cactus_client.action.mup.submit_and_refetch_resource_for_step") as mock_submit:
         mrid = "ABC123456789012345678901TESTPEN1"
-        mmr1_mrid = generate_mmr_mrid(mrid, CSIPAusReadingType.ActivePowerAverage, client_config.pen)
-        mmr2_mrid = generate_mmr_mrid(mrid, CSIPAusReadingType.ReactivePowerInstantaneous, client_config.pen)
+        mmr1_mrid = generate_mmr_mrids(mrid, [CSIPAusReadingType.ActivePowerAverage], client_config.pen)
+        mmr2_mrid = generate_mmr_mrids(mrid, [CSIPAusReadingType.ReactivePowerInstantaneous], client_config.pen)
 
         mmr1 = generate_class_instance(
             MirrorMeterReading,
-            mRID=mmr1_mrid,
+            mRID=mmr1_mrid[CSIPAusReadingType.ActivePowerAverage],
             readingType=generate_class_instance(ReadingType, powerOfTenMultiplier=-2),
         )
         mmr2 = generate_class_instance(
             MirrorMeterReading,
-            mRID=mmr2_mrid,
+            mRID=mmr2_mrid[CSIPAusReadingType.ReactivePowerInstantaneous],
             readingType=generate_class_instance(ReadingType, powerOfTenMultiplier=-2),
         )
 
@@ -234,7 +234,8 @@ async def test_action_insert_readings(
 
     # Create a MUP with MirrorMeterReadings
     mup_mrid = "ABC123456789012345678901TESTPEN1"
-    mmr_mrid = generate_mmr_mrid(mup_mrid, CSIPAusReadingType.ActivePowerAverage, client_config.pen)
+    mmr_mrids = generate_mmr_mrids(mup_mrid, [CSIPAusReadingType.ActivePowerAverage], client_config.pen)
+    mmr_mrid = next(iter(mmr_mrids.values()))
 
     reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=pow10_multiplier)
     mmr = generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)
@@ -314,7 +315,8 @@ async def test_action_insert_readings_minimum_wait_respects_server_post_rate(
 
         # Create a MUP with the server-assigned postRate
         mup_mrid = "ABC123456789012345678901TESTPEN1"
-        mmr_mrid = generate_mmr_mrid(mup_mrid, CSIPAusReadingType.ActivePowerAverage, client_config.pen)
+        mmr_mrids = generate_mmr_mrids(mup_mrid, [CSIPAusReadingType.ActivePowerAverage], client_config.pen)
+        mmr_mrid = next(iter(mmr_mrids.values()))
         reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=0)
         mmr = generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)
         mup = generate_class_instance(

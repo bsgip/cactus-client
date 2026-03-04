@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from assertical.fake.generator import generate_class_instance, generate_value
+from cactus_test_definitions.server.actions import Action
 from cactus_test_definitions.server.test_procedures import (
     Step,
     TestProcedure,
@@ -32,6 +33,11 @@ from cactus_client.model.progress import (
 )
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CSIPAusResourceTree
 from cactus_client.results.common import ResultsEvaluation
+
+
+def generate_step(seed: int) -> Step:
+    """Generate a Step with an explicit Action to avoid assertical trying to generate dict[str, Any]."""
+    return generate_class_instance(Step, seed=seed, action=Action(type="dummy"))
 
 
 def generate_server_response(seed: int, xsd_errors: list[str] | None) -> ServerResponse:
@@ -87,8 +93,8 @@ def generate_empty_context(steps: list[Step]) -> ExecutionContext:
 
 @pytest.mark.asyncio
 async def test_ResultsEvaluation_passed(assertical_extensions):
-    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
-    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
 
     context = generate_empty_context([step_1, step_2])
 
@@ -118,8 +124,8 @@ async def test_ResultsEvaluation_passed(assertical_extensions):
 
 @pytest.mark.asyncio
 async def test_ResultsEvaluation_failing_missing_result(assertical_extensions):
-    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
-    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
 
     context = generate_empty_context([step_1, step_2])
 
@@ -149,8 +155,8 @@ async def test_ResultsEvaluation_failing_missing_result(assertical_extensions):
 
 @pytest.mark.asyncio
 async def test_ResultsEvaluation_failing_xsd_errors(assertical_extensions):
-    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
-    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
 
     context = generate_empty_context([step_1, step_2])
 
@@ -181,8 +187,8 @@ async def test_ResultsEvaluation_failing_xsd_errors(assertical_extensions):
 
 @pytest.mark.asyncio
 async def test_ResultsEvaluation_failing_xsd_errors_notifications(assertical_extensions):
-    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
-    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
 
     context = generate_empty_context([step_1, step_2])
 
@@ -213,8 +219,8 @@ async def test_ResultsEvaluation_failing_xsd_errors_notifications(assertical_ext
 
 @pytest.mark.asyncio
 async def test_ResultsEvaluation_failing_warning(assertical_extensions):
-    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
-    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
 
     context = generate_empty_context([step_1, step_2])
 
@@ -245,8 +251,8 @@ async def test_ResultsEvaluation_failing_warning(assertical_extensions):
 
 @pytest.mark.asyncio
 async def test_ResultsEvaluation_failing_failing_step(assertical_extensions):
-    step_1 = generate_class_instance(Step, seed=1, generate_relationships=True)
-    step_2 = generate_class_instance(Step, seed=2, generate_relationships=True)
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
 
     context = generate_empty_context([step_1, step_2])
 

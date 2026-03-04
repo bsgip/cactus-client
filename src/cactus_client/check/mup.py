@@ -47,9 +47,22 @@ def generate_hashed_mrid(seed: str, pen: int) -> str:
     return f"{hash.hexdigest()[:24]}{pen:08}".upper()
 
 
-def generate_mmr_mrid(mup_mrid: str, rt: CSIPAusReadingType, pen: int) -> str:
-    """Generates an mrid for a MirrorMeterReading that lives under a MirrorUsagePoint with mup_mrid"""
-    return generate_hashed_mrid(mup_mrid + str(rt), pen)
+def generate_mmr_mrids(
+    mup_mrid: str,
+    reading_types: list[CSIPAusReadingType],
+    pen: int,
+    mmr_mrids: list[str] | None = None,
+) -> dict[CSIPAusReadingType, str]:
+    """Generates mrids for all MirrorMeterReadings that lives under a MirrorUsagePoint with mup_mrid"""
+    if mmr_mrids:
+        if len(mmr_mrids) != len(reading_types):
+            raise CactusClientException(
+                "Test definition error. Parameter mmr_mrids has a different length to reading_types"
+            )
+        return dict(((rt, raw_mrid[:32]) for rt, raw_mrid in zip(reading_types, mmr_mrids)))
+
+    # Otherwise continue to derive more hashed mrids
+    return dict(((rt, generate_hashed_mrid(mup_mrid + str(rt), pen)) for rt in reading_types))
 
 
 def generate_mup_mrids(
@@ -67,22 +80,9 @@ def generate_mup_mrids(
         else generate_hashed_mrid(str(location) + client.id + "|".join(sorted(reading_types)), client.pen)
     )
 
-    # If we have defined mrids for the MirrorMeterReadings - just apply them (with the client pen encoded)
-    if mmr_mrids:
-        if len(mmr_mrids) != len(reading_types):
-            raise CactusClientException(
-                "Test definition error. Parameter mmr_mrids has a different length to reading_types"
-            )
-        return MirrorUsagePointMrids(
-            mup_mrid=mup_mrid,
-            mmr_mrids=dict(((rt, f"{raw_mrid[:24]}{client.pen:08}") for rt, raw_mrid in zip(reading_types, mmr_mrids))),
-        )
+    mmr_mrids_by_rt = generate_mmr_mrids(mup_mrid, reading_types, client.pen, mmr_mrids)
 
-    # Otherwise continue to derive more hashed mrids
-    return MirrorUsagePointMrids(
-        mup_mrid=mup_mrid,
-        mmr_mrids=dict(((rt, generate_mmr_mrid(mup_mrid, rt, client.pen)) for rt in reading_types)),
-    )
+    return MirrorUsagePointMrids(mup_mrid=mup_mrid, mmr_mrids=mmr_mrids_by_rt)
 
 
 def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindType, DataQualifierType]:

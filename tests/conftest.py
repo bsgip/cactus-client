@@ -7,9 +7,11 @@ import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance, register_value_generator
 from assertical.fixtures.generator import generator_registry_snapshot
+from cactus_test_definitions.server.actions import Action
 from cactus_test_definitions.server.test_procedures import (
     Preconditions,
     RequiredClient,
+    Step,
     TestProcedure,
     TestProcedureId,
 )
@@ -68,6 +70,7 @@ def dummy_test_procedure(dummy_client_alias_1, assertical_extensions) -> TestPro
             optional_is_none=True,
             required_clients=[generate_class_instance(RequiredClient, id=dummy_client_alias_1)],
         ),
+        steps=[],  # Action.parameters is dict[str, Any] which assertical cannot generate
     )
 
 
@@ -110,6 +113,11 @@ def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], 
             generate_relationships=True,
             client_alias=client_alias,
             client_resources_alias=client_alias,
+            source=generate_class_instance(
+                Step,
+                optional_is_none=True,
+                action=Action(type="dummy"),  # Action.parameters is dict[str, Any] which assertical cannot generate
+            ),
         )
 
         return (execution_context, step_execution)
