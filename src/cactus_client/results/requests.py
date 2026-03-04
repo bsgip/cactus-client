@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from http import HTTPStatus
 from pathlib import Path
 from urllib.parse import urlparse
@@ -16,10 +17,19 @@ def sanitise_url_to_filename(url: str) -> str:
 
 
 def generate_request_file(
-    method: str, url: str, host: str | None, headers: dict[str, str] | CIMultiDict, body: str | None
+    method: str,
+    url: str,
+    host: str | None,
+    headers: dict[str, str] | CIMultiDict,
+    body: str | None,
+    timestamp: datetime,
 ) -> list[str]:
 
-    lines = [f"{method} {url} HTTP/1.1"]
+    lines = [
+        f"# Epoch: {timestamp.timestamp()}",
+        f"# UTC: {timestamp.strftime('%Y-%m-%dT%H:%M:%S.%fZ')}",
+        f"{method} {url} HTTP/1.1",
+    ]
     if host:
         lines.append(f"Host: {host}")
 
@@ -33,8 +43,14 @@ def generate_request_file(
     return lines
 
 
-def generate_response_file(status: int, headers: dict[str, str] | CIMultiDict, body: str | None) -> list[str]:
-    lines = [f"HTTP/1.1 {status} {HTTPStatus(status).name}"]
+def generate_response_file(
+    status: int, headers: dict[str, str] | CIMultiDict, body: str | None, timestamp: datetime
+) -> list[str]:
+    lines = [
+        f"# Epoch: {timestamp.timestamp()}",
+        f"# UTC: {timestamp.strftime('%Y-%m-%dT%H:%M:%S.%fZ')}",
+        f"HTTP/1.1 {status} {HTTPStatus(status).name}",
+    ]
     for header, header_val in headers.items():
         lines.append(f"{header}: {header_val}")
 
@@ -52,9 +68,17 @@ def persist_server_response(base_dir: Path, idx: int, host: str, response: Serve
     request_file = base_dir / f"{idx:03}-{client_alias}-{request.method}-{sanitised_url}.request"
     response_file = base_dir / f"{idx:03}-{client_alias}-{request.method}-{sanitised_url}.response"
     with open(request_file, "w") as fp:
-        fp.write("\n".join(generate_request_file(request.method, request.url, host, request.headers, request.body)))
+        fp.write(
+            "\n".join(
+                generate_request_file(
+                    request.method, request.url, host, request.headers, request.body, request.created_at
+                )
+            )
+        )
     with open(response_file, "w") as fp:
-        fp.write("\n".join(generate_response_file(response.status, response.headers, response.body)))
+        fp.write(
+            "\n".join(generate_response_file(response.status, response.headers, response.body, response.created_at))
+        )
 
 
 def persist_notification(
@@ -70,7 +94,11 @@ def persist_notification(
 
     with open(notification_file, "w") as fp:
         fp.write(
-            "\n".join(generate_request_file(notification.method, path, None, notification.headers, notification.body))
+            "\n".join(
+                generate_request_file(
+                    notification.method, path, None, notification.headers, notification.body, notification.received_at
+                )
+            )
         )
 
 
