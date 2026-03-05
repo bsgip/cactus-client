@@ -1016,6 +1016,51 @@ async def test_admin_instructions_written_once_not_on_retry(
     assert json.loads(lines[2])["step_id"] == "TEST_END"
 
 
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_run_cancelled_written_on_cancellation(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+    tmp_path: Path,
+):
+    """When execute_for_context is cancelled (e.g. Ctrl+C), RUN_CANCELLED is written to the log."""
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    async def cancel_on_first_action(step, ctx):
+        raise asyncio.CancelledError()
+
+    mock_execute_action.side_effect = cancel_on_first_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    log_path = tmp_path / "admin_instructions.jsonl"
+
+    with pytest.raises(asyncio.CancelledError):
+        await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+
+    assert log_path.exists()
+    lines = log_path.read_text().splitlines()
+    assert len(lines) == 2
+
+    start_entry = json.loads(lines[0])
+    assert start_entry["step_id"] == "TEST_START"
+
+    cancelled_entry = json.loads(lines[1])
+    assert cancelled_entry["step_id"] == "RUN_CANCELLED"
+    assert "timestamp" in cancelled_entry
+
+
 # Uncomment to inspect real JSONL output at /tmp/admin_instructions_sample.jsonl
 #
 # @mock.patch("cactus_client.execution.execute.execute_action")

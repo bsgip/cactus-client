@@ -84,6 +84,17 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
     if admin_instructions_log is not None:
         _write_test_event(admin_instructions_log, "TEST_START")
 
+    try:
+        return await _execute_steps(context, admin_instructions_log)
+    except asyncio.CancelledError:
+        if admin_instructions_log is not None:
+            _write_test_event(admin_instructions_log, "RUN_CANCELLED")
+        raise
+
+
+async def _execute_steps(context: ExecutionContext, admin_instructions_log: Path | None) -> ExecutionResult:
+    """Inner execution loop extracted from execute_for_context to allow CancelledError handling at the top level."""
+
     while (upcoming_step := context.steps.peek_next_no_wait(now := utc_now())) is not None:
 
         # Sometimes the next step will have a "not before" time - in which case we delay until that time has passed
