@@ -7,15 +7,15 @@ from typing import Any
 
 
 class Spec:
-    @hookspec(firstresult=True)
-    async def admin_setup(self, step: StepExecution, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
+    @hookspec
+    def admin_setup(self, step: StepExecution, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
         """General setup function to be run at the beginning of all test runs."""
 
-    @hookspec(firstresult=True)
-    async def admin_teardown(self, step: StepExecution, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
+    @hookspec
+    def admin_teardown(self, step: StepExecution, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
         """General teardown function to be run at the end of all test runs."""
 
-    @hookspec(firstresult=True)
+    @hookspec
     async def admin_device_register(  # type: ignore[empty-body]
         self, resolved_params: dict[str, Any], step: StepExecution, context: ExecutionContext
     ) -> ActionResult:
