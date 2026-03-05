@@ -60,6 +60,21 @@ def validate_all_resources(context: ExecutionContext) -> None:
                 context.warnings.log_stored_resource_warning(sr, error)
 
 
+async def _handle_step_exception(
+    context: ExecutionContext,
+    current_step: StepExecution,
+    exc: Exception,
+    admin_instructions_log: Path | None,
+    label: str,
+) -> ExecutionResult:
+    """Log an action/check exception, update progress, write TEST_END, and return a failed result."""
+    logger.error("%s exception", label, exc_info=exc)
+    await context.progress.add_step_execution_exception(current_step, exc)
+    if admin_instructions_log is not None:
+        _write_test_event(admin_instructions_log, "TEST_END")
+    return ExecutionResult(completed=False)
+
+
 async def execute_for_context(context: ExecutionContext, admin_instructions_log: Path | None = None) -> ExecutionResult:
     """Does the actual execution work - will operate until the context's step list is fully drained. Will also
     handle updating trackers as the steps execute.
@@ -89,20 +104,12 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
         try:
             action_result = await execute_action(current_step, context)
         except Exception as exc:
-            logger.error("Action exception", exc_info=exc)
-            await context.progress.add_step_execution_exception(current_step, exc)
-            if admin_instructions_log is not None:
-                _write_test_event(admin_instructions_log, "TEST_END")
-            return ExecutionResult(completed=False)
+            return await _handle_step_exception(context, current_step, exc, admin_instructions_log, "Action")
 
         try:
             check_result = await execute_checks(current_step, context)
         except Exception as exc:
-            logger.error("Check exception", exc_info=exc)
-            await context.progress.add_step_execution_exception(current_step, exc)
-            if admin_instructions_log is not None:
-                _write_test_event(admin_instructions_log, "TEST_END")
-            return ExecutionResult(completed=False)
+            return await _handle_step_exception(context, current_step, exc, admin_instructions_log, "Check")
 
         await context.progress.add_step_execution_completion(current_step, action_result, check_result)
 
