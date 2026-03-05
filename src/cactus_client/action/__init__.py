@@ -91,7 +91,10 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         case "simulate-client":
             return await action_simulate_client(resolved_params, step, context)
         case "admin-device-register":
-            return await admin.manager.pm.ahook.admin_device_register(resolved_params, step, context)
+            results = await admin.manager.pm.ahook.admin_device_register(
+                resolved_params=resolved_params, step=step, context=context
+            )
+            return results[0]
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
             raise CactusClientException(
