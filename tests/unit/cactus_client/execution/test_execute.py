@@ -1007,20 +1007,20 @@ async def test_admin_instructions_written_once_not_on_retry(
 
 # Uncomment to inspect real JSONL output at /tmp/admin_instructions_sample.jsonl
 #
-@mock.patch("cactus_client.execution.execute.execute_action")
-@mock.patch("cactus_client.execution.execute.execute_checks")
-@pytest.mark.asyncio
-async def test_admin_instructions_write_sample_to_disk(mock_execute_checks, mock_execute_action):
+# @mock.patch("cactus_client.execution.execute.execute_action")
+# @mock.patch("cactus_client.execution.execute.execute_checks")
+# @pytest.mark.asyncio
+# async def test_admin_instructions_write_sample_to_disk(mock_execute_checks, mock_execute_action):
 
-    tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
-    admin_instructions = tp.steps[0].admin_instructions
+#     tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
+#     admin_instructions = tp.steps[0].admin_instructions
 
-    step_list = StepExecutionList()
-    step_list.add(_step_with_admin_instructions(admin_instructions, CHECK_FAIL_ONCE))
+#     step_list = StepExecutionList()
+#     step_list.add(_step_with_admin_instructions(admin_instructions, CHECK_FAIL_ONCE))
 
-    mock_execute_action.side_effect = handle_mock_execute_action
-    mock_execute_checks.side_effect = handle_mock_execute_checks
+#     mock_execute_action.side_effect = handle_mock_execute_action
+#     mock_execute_checks.side_effect = handle_mock_execute_checks
 
-    log_path = Path("/tmp/admin_instructions_sample.jsonl")
-    log_path.unlink(missing_ok=True)
-    await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+#     log_path = Path("/tmp/admin_instructions_sample.jsonl")
+#     log_path.unlink(missing_ok=True)
+#     await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
