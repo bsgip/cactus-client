@@ -43,6 +43,12 @@ def _write_admin_instructions(log_path: Path, step: StepExecution) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
+def _write_test_event(log_path: Path, step_id: str) -> None:
+    entry = {"timestamp": utc_now().isoformat(), "step_id": step_id}
+    with open(log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
 def validate_all_resources(context: ExecutionContext) -> None:
     """Enumerates the resource store - running validation on all stored resources and appending errors to the context
     warnings"""
@@ -59,6 +65,9 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
     handle updating trackers as the steps execute.
 
     If any step reports failure - execution will be stopped"""
+
+    if admin_instructions_log is not None:
+        _write_test_event(admin_instructions_log, "TEST_START")
 
     while (upcoming_step := context.steps.peek_next_no_wait(now := utc_now())) is not None:
 
@@ -82,6 +91,8 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
         except Exception as exc:
             logger.error("Action exception", exc_info=exc)
             await context.progress.add_step_execution_exception(current_step, exc)
+            if admin_instructions_log is not None:
+                _write_test_event(admin_instructions_log, "TEST_END")
             return ExecutionResult(completed=False)
 
         try:
@@ -89,6 +100,8 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
         except Exception as exc:
             logger.error("Check exception", exc_info=exc)
             await context.progress.add_step_execution_exception(current_step, exc)
+            if admin_instructions_log is not None:
+                _write_test_event(admin_instructions_log, "TEST_END")
             return ExecutionResult(completed=False)
 
         await context.progress.add_step_execution_completion(current_step, action_result, check_result)
@@ -128,5 +141,8 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
 
     # We do resource validation at the very end - it's easier than trying to identify resource changes after each step
     validate_all_resources(context)
+
+    if admin_instructions_log is not None:
+        _write_test_event(admin_instructions_log, "TEST_END")
 
     return ExecutionResult(completed=True)

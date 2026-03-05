@@ -953,9 +953,13 @@ async def test_admin_instructions_written_to_file_on_first_failure(
     # Assert
     assert log_path.exists()
     lines = log_path.read_text().splitlines()
-    assert len(lines) == 1
+    assert len(lines) == 3
 
-    entry = json.loads(lines[0])
+    start_entry = json.loads(lines[0])
+    assert start_entry["step_id"] == "TEST_START"
+    assert "timestamp" in start_entry
+
+    entry = json.loads(lines[1])
     assert entry["step_id"] == "PRECONDITION"
     assert "timestamp" in entry
     assert len(entry["admin_instructions"]) == 2
@@ -970,6 +974,10 @@ async def test_admin_instructions_written_to_file_on_first_failure(
         "client": None,
         "parameters": {"opModImpLimW": 100},
     }
+
+    end_entry = json.loads(lines[2])
+    assert end_entry["step_id"] == "TEST_END"
+    assert "timestamp" in end_entry
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")
@@ -1000,9 +1008,12 @@ async def test_admin_instructions_written_once_not_on_retry(
     # Act
     await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
 
-    # file should have one entry
+    # file should have TEST_START, one admin_instructions entry, TEST_END
     lines = log_path.read_text().splitlines()
-    assert len(lines) == 1
+    assert len(lines) == 3
+    assert json.loads(lines[0])["step_id"] == "TEST_START"
+    assert json.loads(lines[1])["step_id"] == "PRECONDITION"
+    assert json.loads(lines[2])["step_id"] == "TEST_END"
 
 
 # Uncomment to inspect real JSONL output at /tmp/admin_instructions_sample.jsonl
