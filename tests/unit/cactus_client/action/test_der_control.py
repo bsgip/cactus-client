@@ -61,10 +61,10 @@ from cactus_client.time import utc_now
     ],
 )
 @freeze_time("2025-11-19 12:00:00")
-@mock.patch("cactus_client.action.der_controls.submit_and_refetch_resource_for_step")
+@mock.patch("cactus_client.action.der_controls.request_for_step")
 @pytest.mark.asyncio
 async def test_action_respond_der_controls_with_previous_responses(
-    mock_submit_and_refetch: mock.MagicMock,
+    mock_request_for_step: mock.AsyncMock,
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     event_status: int,
     time_offset: int,
@@ -106,7 +106,9 @@ async def test_action_respond_der_controls_with_previous_responses(
     for tag in previous_tags:
         annotations.add_tag(AnnotationNamespace.RESPONSES, tag)
 
-    mock_submit_and_refetch.return_value = mock.Mock()
+    mock_post_response = mock.Mock()
+    mock_post_response.is_success.return_value = True
+    mock_request_for_step.return_value = mock_post_response
 
     # Act
     result = await action_respond_der_controls(step, context)
@@ -115,10 +117,10 @@ async def test_action_respond_der_controls_with_previous_responses(
     assert result.done()
 
     if expect_response:
-        assert mock_submit_and_refetch.call_count == 1
+        assert mock_request_for_step.call_count == 1
 
-        call = mock_submit_and_refetch.call_args_list[0]
-        assert call[0][5].status == expected_status
+        call = mock_request_for_step.call_args_list[0]
+        assert f"<status>{int(expected_status)}</status>" in call.kwargs["sep2_xml_body"]
 
         # Verify the new tag was added
         stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))
@@ -129,7 +131,7 @@ async def test_action_respond_der_controls_with_previous_responses(
         assert all(annotations.has_tag(AnnotationNamespace.RESPONSES, tag) for tag in previous_tags)
     else:
         # Should NOT have sent a response
-        assert mock_submit_and_refetch.call_count == 0
+        assert mock_request_for_step.call_count == 0
 
         # Tags should remain unchanged
         stored_controls = list(resource_store.get_for_type(CSIPAusResource.DERControl))

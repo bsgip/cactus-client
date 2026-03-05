@@ -98,14 +98,11 @@ def parse_type_response(t: type[AnyResourceType], response: ServerResponse) -> A
 def parse_error_response(
     step: StepExecution, context: ExecutionContext, response: ServerResponse
 ) -> ErrorResponse | None:
-    """NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-    Previously this would raise a RequestException on parse failure; now it returns None to allow callers
-    to handle unparseable error bodies gracefully."""
+    """Attempts to parse an ErrorResponse from a 4xx response body. Returns None if the body cannot
+    be parsed, logging a warning instead. Error response bodies are not required to contain valid XML."""
     try:
         return ErrorResponse.from_xml(response.body)
     except Exception as exc:
-        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-        # The server returned a 4xx but the body was not valid ErrorResponse XML.
         context.warnings.log_step_warning(
             step,
             f"Could not parse ErrorResponse from {len(response.body)} chars at {response.request.url}: {exc}. "
@@ -117,13 +114,9 @@ def parse_error_response(
 async def client_error_request_for_step(
     step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
 ) -> ErrorResponse | None:
-    """Similar to request_for_step but is only successful if the resulting response is returned as a valid sep2 error.
+    """Similar to request_for_step but is only successful if the resulting response is a 4xx.
 
-    Returns None if the response body could not be parsed as a valid ErrorResponse XML.
-
-    NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-    Previously this would raise a RequestException on parse failure; now it returns None to allow callers
-    to handle unparseable error bodies gracefully."""
+    Returns None if the response body could not be parsed as a valid ErrorResponse XML."""
     response = await request_for_step(step, context, path, method, sep2_xml_body)
 
     if not response.is_client_error():
@@ -144,11 +137,8 @@ async def client_error_or_empty_list_request_for_step(
 ) -> ErrorResponse | AnyListType | None:
     """Similar to client_error_request_for_step but also allows a successful response if it's an empty sep2 List.
 
-    raises a RequestException if the response succeeds
-
-    NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-    Previously this would raise a RequestException on parse failure; now it returns None to allow callers
-    to handle unparseable error bodies gracefully."""
+    Raises a RequestException if the response is neither a 4xx nor an empty List.
+    Returns None if the error response body could not be parsed as a valid ErrorResponse XML."""
 
     # Fire off the request and if it fails, handle the error response.
     response = await request_for_step(step, context, path, method, sep2_xml_body)

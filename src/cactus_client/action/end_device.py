@@ -24,7 +24,10 @@ logger = logging.getLogger(__name__)
 def generate_end_device_request(
     step: StepExecution, context: ExecutionContext, force_lfdi: str | None
 ) -> EndDeviceRequest:
-    client_config = context.client_config(step)
+    # Use the resources-context client's config so that when use_client_context is set (e.g. S-ALL-52), the LFDI
+    # in the request body belongs to the context client, not the executing client. This lets us generate the
+    # "LFDI doesn't match certificate" mismatch the server should reject.
+    client_config = context.clients_by_alias[step.client_resources_alias].client_config
     deviceCategory = f"{DeviceCategory.PHOTOVOLTAIC_SYSTEM.value:02X}"
 
     return EndDeviceRequest(
@@ -98,8 +101,6 @@ async def action_upsert_connection_point(
             step, context, href, HTTPMethod.PUT, resource_to_sep2_xml(cp_request)
         )
 
-        # NOTE: Temporarily relaxing error response checks in anticipation of clarifications from the CIRG shortly.
-        # Previously this would raise on a missing/invalid ErrorResponse or wrong reasonCode.
         if error is None:
             context.warnings.log_step_warning(
                 step,

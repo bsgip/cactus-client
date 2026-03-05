@@ -12,10 +12,10 @@ from envoy_schema.server.schema.sep2.response import ResponseType, DERControlRes
 
 from cactus_client.action.server import (
     client_error_request_for_step,
+    request_for_step,
     resource_to_sep2_xml,
-    submit_and_refetch_resource_for_step,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientException, RequestException
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext, StoredResourceAnnotations
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
@@ -167,9 +167,11 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
             subject=der_control.mRID,
         )
 
-        await submit_and_refetch_resource_for_step(
-            DERControlResponse, step, context, HTTPMethod.POST, reply_to, response
+        post_response = await request_for_step(
+            step, context, reply_to, HTTPMethod.POST, sep2_xml_body=resource_to_sep2_xml(response)
         )
+        if not post_response.is_success():
+            raise RequestException(f"Received status {post_response.status} posting DERControlResponse to {reply_to}.")
 
         # Update tags to track this response was sent
         der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
