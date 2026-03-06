@@ -224,7 +224,7 @@ async def submit_and_refetch_resource_for_step(
     else:
         if not response.location:
             raise RequestException(
-                f"{response.status} response from {response.method} {href} did not return an expected 'Location' header."
+                f"{response.status} response from {response.method} {href} did not return an expected 'Location' header"
             )
         refetch_href = response.location
 

@@ -1,3 +1,5 @@
+import asyncio
+import json
 import unittest.mock as mock
 from datetime import timedelta
 from pathlib import Path
@@ -12,6 +14,7 @@ from cactus_test_definitions.server.test_procedures import (
     Step,
     TestProcedure,
     TestProcedureId,
+    parse_test_procedure,
 )
 from envoy_schema.server.schema.sep2.der import (
     ActivePower,
@@ -847,3 +850,234 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
         validate_all_resources(context)
         readable_warnings = "\n".join([w.message for w in context.warnings.warnings])
         assert len(context.warnings.warnings) == expected_warnings, readable_warnings
+
+
+# Minimal YAML with admin_instructions based on SALL21
+SALL21_WITH_ADMIN_INSTRUCTIONS = """\
+Description: Super dooper test
+Category: Test
+Classes:
+  - A
+TargetVersions:
+  - v1.2
+Preconditions:
+  required_clients:
+    - id: client
+Steps:
+  - id: PRECONDITION
+    repeat_until_pass: true
+    admin_instructions:
+      - type: ensure-end-device
+        parameters:
+          registered: true
+          has_der_list: true
+      - type: create-default-der-control
+        parameters:
+          opModImpLimW: 100
+    action:
+      type: discovery
+      parameters:
+        resources:
+          - EndDevice
+    checks:
+      - type: end-device
+        parameters:
+          matches_client: true
+"""
+
+
+def _make_context_with_steps(step_list: StepExecutionList) -> ExecutionContext:
+    tree = CSIPAusResourceTree()
+    return ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
+        test_procedure=generate_class_instance(TestProcedure),
+        test_procedures_version="vtest",
+        output_directory=Path("."),
+        dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
+        clients_by_alias={
+            "client-test": ClientContext(
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+            )
+        },
+        resource_tree=tree,
+        repeat_delay=timedelta(0),
+        responses=ResponseTracker(),
+        warnings=WarningTracker(),
+        progress=ProgressTracker(),
+        steps=step_list,
+    )
+
+
+def _step_with_admin_instructions(admin_instructions, check_type: str) -> StepExecution:
+    """Builds a StepExecution using admin_instructions from the parsed YAML with mock action/check types."""
+    return StepExecution(
+        Step(
+            id="PRECONDITION",
+            action=Action(ACTION_DONE),
+            checks=[Check(check_type)],
+            repeat_until_pass=True,
+            admin_instructions=admin_instructions,
+        ),
+        client_alias="client-test",
+        client_resources_alias="client-test",
+        primacy=0,
+        repeat_number=0,
+        not_before=None,
+        attempts=0,
+    )
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_admin_instructions_written_to_file_on_first_failure(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+    tmp_path: Path,
+):
+    # Arrange
+    tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
+    admin_instructions = tp.steps[0].admin_instructions
+
+    step_list = StepExecutionList()
+    step_list.add(_step_with_admin_instructions(admin_instructions, CHECK_FAIL_ONCE))
+
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    log_path = tmp_path / "admin_instructions.jsonl"
+
+    # Act
+    await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+
+    # Assert
+    assert log_path.exists()
+    lines = log_path.read_text().splitlines()
+    assert len(lines) == 3
+
+    start_entry = json.loads(lines[0])
+    assert start_entry["step_id"] == "TEST_START"
+    assert "timestamp" in start_entry
+
+    entry = json.loads(lines[1])
+    assert entry["step_id"] == "PRECONDITION"
+    assert "timestamp" in entry
+    assert len(entry["admin_instructions"]) == 2
+
+    assert entry["admin_instructions"][0] == {
+        "type": "ensure-end-device",
+        "client": None,
+        "parameters": {"registered": True, "has_der_list": True},
+    }
+    assert entry["admin_instructions"][1] == {
+        "type": "create-default-der-control",
+        "client": None,
+        "parameters": {"opModImpLimW": 100},
+    }
+
+    end_entry = json.loads(lines[2])
+    assert end_entry["step_id"] == "TEST_END"
+    assert "timestamp" in end_entry
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_admin_instructions_written_once_not_on_retry(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+    tmp_path: Path,
+):
+    tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
+    admin_instructions = tp.steps[0].admin_instructions
+
+    call_count = {"n": 0}
+
+    def fail_twice_then_pass(step: StepExecution, ctx: ExecutionContext) -> CheckResult:
+        call_count["n"] += 1
+        return CheckResult(call_count["n"] > 2, None)
+
+    step_list = StepExecutionList()
+    step_list.add(_step_with_admin_instructions(admin_instructions, "fail-twice"))
+
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = fail_twice_then_pass
+
+    log_path = tmp_path / "admin_instructions.jsonl"
+
+    # Act
+    await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+
+    # file should have TEST_START, one admin_instructions entry, TEST_END
+    lines = log_path.read_text().splitlines()
+    assert len(lines) == 3
+    assert json.loads(lines[0])["step_id"] == "TEST_START"
+    assert json.loads(lines[1])["step_id"] == "PRECONDITION"
+    assert json.loads(lines[2])["step_id"] == "TEST_END"
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_run_cancelled_written_on_cancellation(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+    tmp_path: Path,
+):
+    """When execute_for_context is cancelled (e.g. Ctrl+C), TEST_END is written to the log."""
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    async def cancel_on_first_action(step, ctx):
+        raise asyncio.CancelledError()
+
+    mock_execute_action.side_effect = cancel_on_first_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    log_path = tmp_path / "admin_instructions.jsonl"
+
+    with pytest.raises(asyncio.CancelledError):
+        await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+
+    assert log_path.exists()
+    lines = log_path.read_text().splitlines()
+    assert len(lines) == 2
+
+    start_entry = json.loads(lines[0])
+    assert start_entry["step_id"] == "TEST_START"
+
+    cancelled_entry = json.loads(lines[1])
+    assert cancelled_entry["step_id"] == "TEST_END"
+    assert "timestamp" in cancelled_entry
+
+
+# Uncomment to inspect real JSONL output at /tmp/admin_instructions_sample.jsonl
+#
+# @mock.patch("cactus_client.execution.execute.execute_action")
+# @mock.patch("cactus_client.execution.execute.execute_checks")
+# @pytest.mark.asyncio
+# async def test_admin_instructions_write_sample_to_disk(mock_execute_checks, mock_execute_action):
+
+#     tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
+#     admin_instructions = tp.steps[0].admin_instructions
+
+#     step_list = StepExecutionList()
+#     step_list.add(_step_with_admin_instructions(admin_instructions, CHECK_FAIL_ONCE))
+
+#     mock_execute_action.side_effect = handle_mock_execute_action
+#     mock_execute_checks.side_effect = handle_mock_execute_checks
+
+#     log_path = Path("/tmp/admin_instructions_sample.jsonl")
+#     log_path.unlink(missing_ok=True)
+#     await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)

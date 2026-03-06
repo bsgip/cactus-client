@@ -1,15 +1,52 @@
 import asyncio
+import json
 import logging
 from dataclasses import replace
+from pathlib import Path
 
 from cactus_client.action import execute_action
 from cactus_client.check import execute_checks
 from cactus_client.check.sep2 import is_invalid_resource
 from cactus_client.model.context import ExecutionContext
-from cactus_client.model.execution import ExecutionResult
+from cactus_client.model.execution import ExecutionResult, StepExecution
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+def _write_admin_instructions(log_path: Path, step: StepExecution) -> None:
+    """Append the step's admin_instructions as a JSONL entry to the admin instructions log file."""
+    instructions = step.source.admin_instructions
+    if not instructions:
+        return
+
+    def _to_json_safe(v: object) -> object:
+        """Convert parameter values that may be Expression objects to their string form."""
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            return v
+        return str(v)
+
+    entry = {
+        "timestamp": utc_now().isoformat(),
+        "step_id": step.source.id,
+        "admin_instructions": [
+            {
+                "type": instr.type,
+                "client": instr.client,
+                "parameters": {k: _to_json_safe(v) for k, v in instr.parameters.items()},
+            }
+            for instr in instructions
+        ],
+    }
+
+    with open(log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def _write_test_event(log_path: Path, step_id: str, **extra: object) -> None:
+    entry = {"timestamp": utc_now().isoformat(), "step_id": step_id, **extra}
+    with open(log_path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 def validate_all_resources(context: ExecutionContext) -> None:
@@ -23,11 +60,40 @@ def validate_all_resources(context: ExecutionContext) -> None:
                 context.warnings.log_stored_resource_warning(sr, error)
 
 
-async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
+async def _handle_step_exception(
+    context: ExecutionContext,
+    current_step: StepExecution,
+    exc: Exception,
+    admin_instructions_log: Path | None,
+    label: str,
+) -> ExecutionResult:
+    """Log an action/check exception, update progress, write TEST_END, and return a failed result."""
+    logger.error("%s exception", label, exc_info=exc)
+    await context.progress.add_step_execution_exception(current_step, exc)
+    if admin_instructions_log is not None:
+        _write_test_event(admin_instructions_log, "TEST_END")
+    return ExecutionResult(completed=False)
+
+
+async def execute_for_context(context: ExecutionContext, admin_instructions_log: Path | None = None) -> ExecutionResult:
     """Does the actual execution work - will operate until the context's step list is fully drained. Will also
     handle updating trackers as the steps execute.
 
     If any step reports failure - execution will be stopped"""
+
+    if admin_instructions_log is not None:
+        _write_test_event(admin_instructions_log, "TEST_START", test_name=str(context.test_procedure_id))
+
+    try:
+        return await _execute_steps(context, admin_instructions_log)
+    except asyncio.CancelledError:
+        if admin_instructions_log is not None:
+            _write_test_event(admin_instructions_log, "TEST_END")
+        raise
+
+
+async def _execute_steps(context: ExecutionContext, admin_instructions_log: Path | None) -> ExecutionResult:
+    """Inner execution loop extracted from execute_for_context to allow CancelledError handling at the top level."""
 
     while (upcoming_step := context.steps.peek_next_no_wait(now := utc_now())) is not None:
 
@@ -49,16 +115,12 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
         try:
             action_result = await execute_action(current_step, context)
         except Exception as exc:
-            logger.error("Action exception", exc_info=exc)
-            await context.progress.add_step_execution_exception(current_step, exc)
-            return ExecutionResult(completed=False)
+            return await _handle_step_exception(context, current_step, exc, admin_instructions_log, "Action")
 
         try:
             check_result = await execute_checks(current_step, context)
         except Exception as exc:
-            logger.error("Check exception", exc_info=exc)
-            await context.progress.add_step_execution_exception(current_step, exc)
-            return ExecutionResult(completed=False)
+            return await _handle_step_exception(context, current_step, exc, admin_instructions_log, "Check")
 
         await context.progress.add_step_execution_completion(current_step, action_result, check_result)
 
@@ -80,6 +142,10 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
             repeat_step = replace(current_step, attempts=current_step.attempts + 1, not_before=None)
             context.steps.add(repeat_step)
 
+            # Write admin instructions on first failure only
+            if admin_instructions_log is not None and current_step.attempts == 0:
+                _write_admin_instructions(admin_instructions_log, current_step)
+
             # This can potentially result in a tight loop - so we add a delay
             await context.progress.update_current_step(repeat_step, delay=context.repeat_delay)
             await asyncio.sleep(context.repeat_delay.seconds)
@@ -93,5 +159,8 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
 
     # We do resource validation at the very end - it's easier than trying to identify resource changes after each step
     validate_all_resources(context)
+
+    if admin_instructions_log is not None:
+        _write_test_event(admin_instructions_log, "TEST_END")
 
     return ExecutionResult(completed=True)
