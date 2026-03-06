@@ -1,7 +1,7 @@
 from cactus_test_definitions.server.admin_instructions import AdminInstruction
 
 
-def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:
+def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  # noqa: C901
     """Return a concise human-readable summary of the given admin instructions."""
     parts = []
     for instr in instructions:

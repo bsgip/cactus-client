@@ -43,7 +43,7 @@ def _write_admin_instructions(log_path: Path, step: StepExecution) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
-def _write_test_event(log_path: Path, step_id: str, **extra) -> None:
+def _write_test_event(log_path: Path, step_id: str, **extra: object) -> None:
     entry = {"timestamp": utc_now().isoformat(), "step_id": step_id, **extra}
     with open(log_path, "a") as f:
         f.write(json.dumps(entry) + "\n")

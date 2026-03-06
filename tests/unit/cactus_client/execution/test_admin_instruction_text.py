@@ -35,7 +35,10 @@ def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
         ([instr("ensure-der-control-list")], "Ensure DERControlList accessible"),
         ([instr("ensure-der-control-list", subscribable=True)], "Ensure DERControlList accessible, subscribable"),
         # create-der-control
-        ([instr("create-der-control", status="active", opModExpLimW=1000.0)], "Create active DERControl opModExpLimW=1000.0"),
+        (
+            [instr("create-der-control", status="active", opModExpLimW=1000.0)],
+            "Create active DERControl opModExpLimW=1000.0",
+        ),
         (
             [instr("create-der-control", status="scheduled", opModExpLimW=500.0)],
             "Create scheduled DERControl opModExpLimW=500.0",
