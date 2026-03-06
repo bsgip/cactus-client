@@ -43,8 +43,8 @@ def _write_admin_instructions(log_path: Path, step: StepExecution) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
-def _write_test_event(log_path: Path, step_id: str) -> None:
-    entry = {"timestamp": utc_now().isoformat(), "step_id": step_id}
+def _write_test_event(log_path: Path, step_id: str, **extra) -> None:
+    entry = {"timestamp": utc_now().isoformat(), "step_id": step_id, **extra}
     with open(log_path, "a") as f:
         f.write(json.dumps(entry) + "\n")
 
@@ -82,7 +82,7 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
     If any step reports failure - execution will be stopped"""
 
     if admin_instructions_log is not None:
-        _write_test_event(admin_instructions_log, "TEST_START")
+        _write_test_event(admin_instructions_log, "TEST_START", test_name=str(context.test_procedure_id))
 
     try:
         return await _execute_steps(context, admin_instructions_log)
