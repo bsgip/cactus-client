@@ -47,7 +47,7 @@ def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:
             parts.append(detail + client_suffix)
 
         elif instr.type == "create-der-control":
-            detail = "Create scheduled DERControl" if p.get("status") == "scheduled" else "Create active DERControl"
+            detail = f"Create {p['status']} DERControl"
             detail += "".join(f" {k}={v}" for k, v in p.items() if k != "status")
             parts.append(detail + client_suffix)
 
