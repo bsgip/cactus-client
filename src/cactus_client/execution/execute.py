@@ -88,7 +88,7 @@ async def execute_for_context(context: ExecutionContext, admin_instructions_log:
         return await _execute_steps(context, admin_instructions_log)
     except asyncio.CancelledError:
         if admin_instructions_log is not None:
-            _write_test_event(admin_instructions_log, "RUN_CANCELLED")
+            _write_test_event(admin_instructions_log, "TEST_END")
         raise
 
 

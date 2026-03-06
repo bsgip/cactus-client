@@ -1025,7 +1025,7 @@ async def test_run_cancelled_written_on_cancellation(
     mock_execute_action: mock.MagicMock,
     tmp_path: Path,
 ):
-    """When execute_for_context is cancelled (e.g. Ctrl+C), RUN_CANCELLED is written to the log."""
+    """When execute_for_context is cancelled (e.g. Ctrl+C), TEST_END is written to the log."""
     step_list = StepExecutionList()
     step_list.add(
         StepExecution(
@@ -1058,7 +1058,7 @@ async def test_run_cancelled_written_on_cancellation(
     assert start_entry["step_id"] == "TEST_START"
 
     cancelled_entry = json.loads(lines[1])
-    assert cancelled_entry["step_id"] == "RUN_CANCELLED"
+    assert cancelled_entry["step_id"] == "TEST_END"
     assert "timestamp" in cancelled_entry
 
 
