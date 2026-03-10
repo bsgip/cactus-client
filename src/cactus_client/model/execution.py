@@ -63,6 +63,35 @@ class StepExecution:
 
         return self.not_before - now
 
+    @staticmethod
+    def admin_setup() -> "StepExecution":
+        """Default instance for use in admin setup functions."""
+        step = Step.admin_setup()
+        return StepExecution(
+            source=step,
+            client_alias=step.client or "NOT_APPLICABLE",
+            client_resources_alias=step.client or "NOT_APPLICABLE",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0
+        )
+
+    @staticmethod
+    def admin_teardown() -> "StepExecution":
+        """Default instance for use in admin teardown functions."""
+        step = Step.admin_teardown()
+        return StepExecution(
+            source=step,
+            client_alias=step.client or "NOT_APPLICABLE",
+            client_resources_alias=step.client or "NOT_APPLICABLE",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0
+        )
+
+
 
 class StepExecutionList:
     """Really simply "priority queue" of StepExecution elements"""

@@ -52,6 +52,14 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         )
 
     match (action_info.type):
+        # Reserved action
+        case "admin-setup":
+            results = await admin.manager.pm.ahook.admin_setup(context=context)
+            return results[0]
+        # Reserved action
+        case "admin-teardown":
+            results = await admin.manager.pm.ahook.admin_teardown(context=context)
+            return results[0]
         case "no-op":
             return await action_noop()
         case "discovery":
