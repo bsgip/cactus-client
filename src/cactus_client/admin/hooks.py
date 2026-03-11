@@ -1,8 +1,8 @@
 import apluggy
 
-project_name = "cactus-client-admin"
+project_name = "cactus_client.admin"
 
 hookspec = apluggy.HookspecMarker(project_name)
 hookimpl = apluggy.HookimplMarker(project_name)
 
-API_VERSION = "0.1"
+API_VERSION = "0.1.0"
