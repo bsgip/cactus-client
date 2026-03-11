@@ -19,7 +19,7 @@ async def test_admin_device_register(
     context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
 
-    pm = admin.manager.get_plugin_manager()
+    pm = admin.get_plugin_manager()
 
     # Execute
     result = await pm.ahook.admin_device_register(resolved_params={}, step=step, context=context)
@@ -38,7 +38,7 @@ async def test_admin_setup(
     context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
 
-    pm = admin.manager.get_plugin_manager()
+    pm = admin.get_plugin_manager()
 
     # Execute
     result = await pm.ahook.admin_setup(step=step, context=context)
@@ -57,7 +57,7 @@ async def test_admin_teardown(
     context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
 
-    pm = admin.manager.get_plugin_manager()
+    pm = admin.get_plugin_manager()
 
     # Execute
     result = await pm.ahook.admin_teardown(step=step, context=context)

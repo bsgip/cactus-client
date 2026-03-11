@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from cactus_client.action import execute_action, ActionResult
 from cactus_client.check import execute_checks
 from cactus_client.check.sep2 import is_invalid_resource
-from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult, StepExecution, CheckResult
 from cactus_client.time import utc_now

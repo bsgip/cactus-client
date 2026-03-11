@@ -54,11 +54,13 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
     match (action_info.type):
         # Reserved action
         case "admin-setup":
-            results = await admin.manager.pm.ahook.admin_setup(context=context)
+            pm = admin.get_plugin_manager()
+            results = await pm.ahook.admin_setup(context=context)
             return results[0]
         # Reserved action
         case "admin-teardown":
-            results = await admin.manager.pm.ahook.admin_teardown(context=context)
+            pm = admin.get_plugin_manager()
+            results = await pm.ahook.admin_teardown(context=context)
             return results[0]
         case "no-op":
             return await action_noop()
@@ -99,7 +101,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         case "simulate-client":
             return await action_simulate_client(resolved_params, step, context)
         case "admin-device-register":
-            results = await admin.manager.pm.ahook.admin_device_register(
+            pm = admin.get_plugin_manager()
+            results = await pm.ahook.admin_device_register(
                 resolved_params=resolved_params, step=step, context=context
             )
             return results[0]
