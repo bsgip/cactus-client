@@ -12,12 +12,16 @@ from envoy_schema.server.schema.sep2.der import (
     DERProgramResponse,
 )
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower
-from cactus_client.check.der_controls import check_default_der_control, check_der_control
+from envoy_schema.server.schema.sep2.event import EventStatus
 from envoy_schema.server.schema.sep2.types import DateTimeIntervalType
+
+from cactus_client.check.der_controls import (
+    check_default_der_control,
+    check_der_control,
+    check_der_control_responses,
+)
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
-from envoy_schema.server.schema.sep2.event import EventStatus
-
 from cactus_client.schema.validator import to_hex_binary
 
 
@@ -394,3 +398,53 @@ def test_check_der_control_all_parameters(
 
     # Assert
     assert_check_result(result, should_match)
+
+
+@pytest.mark.parametrize(
+    "derc_tags, min_count, max_count, sent_response_type, expected_pass",
+    [
+        ([], None, None, 1, True),
+        ([[]], None, None, 1, True),
+        ([[1, 2]], None, None, 1, True),
+        ([[1, 2]], 1, 1, 1, True),
+        ([[1, 2]], 2, None, 1, False),
+        ([[1, 2]], None, 2, 1, True),
+        ([[], [1, 2], [1, 2, 3], [4]], 1, 1, 1, False),
+        ([[], [1, 2], [1, 2, 3], [4]], 2, 2, 1, True),
+        ([[], [1, 2], [1, 2, 3], [4]], None, 3, 1, True),
+        ([[], [1, 2], [1, 2, 3], [4]], 3, None, 1, False),
+        ([[], [1, 2], [1, 2, 3], [4]], 1, 1, 4, True),
+        ([[], [1, 2], [1, 2, 3], [4]], 2, None, 2, True),
+        ([[], [1, 2], [1, 2, 3], [4]], None, 2, 2, True),
+    ],
+)
+def test_check_der_control_responses(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    assert_check_result: Callable[[CheckResult, bool], None],
+    derc_tags: list[list[int]],
+    min_count: int | None,
+    max_count: int | None,
+    sent_response_type: int,
+    expected_pass: bool,
+):
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+
+    # Build DERControls with their tags
+    for idx, tags in enumerate(derc_tags):
+        derc = generate_class_instance(DERControlResponse, seed=idx)
+        derc_sr = resource_store.upsert_resource(CSIPAusResource.DERControl, None, derc)
+        for tag in tags:
+            context.resource_annotations(step, derc_sr.id).add_tag(AnnotationNamespace.RESPONSES, tag)
+
+    check_params = {"sent_response_type": sent_response_type}
+    if min_count is not None:
+        check_params["minimum_count"] = min_count
+    if max_count is not None:
+        check_params["maximum_count"] = max_count
+
+    # Act
+    result = check_der_control_responses(check_params, step, context)
+
+    # Assert
+    assert_check_result(result, expected_pass)
