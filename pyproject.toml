@@ -31,7 +31,6 @@ ignore_missing_imports = true
 module = ["cactus_client.admin", "cactus_client.admin.*"]
 disallow_untyped_decorators = false
 
-
 [build-system]
 requires = ["setuptools >= 40.9.0", "wheel"]
 build-backend = "setuptools.build_meta"
