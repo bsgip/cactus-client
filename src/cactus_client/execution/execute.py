@@ -35,6 +35,7 @@ async def setup_and_teardown(context: ExecutionContext) -> AsyncIterator[ActionR
     setup_step = StepExecution.admin_setup()
     logger.debug("====== Running admin setup ======")
 
+    setup_step.client_alias = next(iter(context.clients_by_alias))
     try:
         action_result = await execute_action(setup_step, context)
         await context.progress.set_step_result(setup_step, action_result, dummy_check_result)
