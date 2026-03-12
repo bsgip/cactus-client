@@ -55,12 +55,12 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         # Reserved action
         case "admin-setup":
             pm = admin.get_plugin_manager()
-            results = await pm.ahook.admin_setup(context=context)
+            results = await pm.ahook.admin_setup(context=context, step=step)
             return results[0]
         # Reserved action
         case "admin-teardown":
             pm = admin.get_plugin_manager()
-            results = await pm.ahook.admin_teardown(context=context)
+            results = await pm.ahook.admin_teardown(context=context, step=step)
             return results[0]
         case "no-op":
             return await action_noop()
