@@ -45,6 +45,7 @@ async def setup_and_teardown(context: ExecutionContext) -> AsyncIterator[ActionR
     except Exception as exc:
         logger.error("Admin setup exception", exc_info=exc)
         await context.progress.add_step_execution_exception(setup_step, exc)
+        raise
 
     finally:
         # Teardown
