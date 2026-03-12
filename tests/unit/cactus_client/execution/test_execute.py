@@ -1,5 +1,3 @@
-import asyncio
-import json
 import unittest.mock as mock
 from datetime import timedelta
 from pathlib import Path
@@ -14,7 +12,6 @@ from cactus_test_definitions.server.test_procedures import (
     Step,
     TestProcedure,
     TestProcedureId,
-    parse_test_procedure,
 )
 from envoy_schema.server.schema.sep2.der import (
     ActivePower,
@@ -25,6 +22,8 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
+import apluggy
+from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
 from cactus_client.error import CactusClientException
 from cactus_client.execution.execute import execute_for_context, validate_all_resources
 from cactus_client.model.config import ClientConfig, ServerConfig
@@ -852,40 +851,6 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
         assert len(context.warnings.warnings) == expected_warnings, readable_warnings
 
 
-# Minimal YAML with admin_instructions based on SALL21
-SALL21_WITH_ADMIN_INSTRUCTIONS = """\
-Description: Super dooper test
-Category: Test
-Classes:
-  - A
-TargetVersions:
-  - v1.2
-Preconditions:
-  required_clients:
-    - id: client
-Steps:
-  - id: PRECONDITION
-    repeat_until_pass: true
-    admin_instructions:
-      - type: ensure-end-device
-        parameters:
-          registered: true
-          has_der_list: true
-      - type: create-default-der-control
-        parameters:
-          opModImpLimW: 100
-    action:
-      type: discovery
-      parameters:
-        resources:
-          - EndDevice
-    checks:
-      - type: end-device
-        parameters:
-          matches_client: true
-"""
-
-
 def _make_context_with_steps(step_list: StepExecutionList) -> ExecutionContext:
     tree = CSIPAusResourceTree()
     return ExecutionContext(
@@ -909,123 +874,50 @@ def _make_context_with_steps(step_list: StepExecutionList) -> ExecutionContext:
     )
 
 
-def _step_with_admin_instructions(admin_instructions, check_type: str) -> StepExecution:
-    """Builds a StepExecution using admin_instructions from the parsed YAML with mock action/check types."""
-    return StepExecution(
-        Step(
-            id="PRECONDITION",
-            action=Action(ACTION_DONE),
-            checks=[Check(check_type)],
-            repeat_until_pass=True,
-            admin_instructions=admin_instructions,
-        ),
-        client_alias="client-test",
-        client_resources_alias="client-test",
-        primacy=0,
-        repeat_number=0,
-        not_before=None,
-        attempts=0,
-    )
+def _make_pm_with_failing_setup() -> apluggy.PluginManager:
+    """Creates a plugin manager whose admin_setup always returns ActionResult.failed()."""
+
+    class FailingSetupPlugin:
+        @hookimpl
+        async def admin_setup(self, context: ExecutionContext) -> ActionResult:
+            return ActionResult.failed("setup refused")
+
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    pm.register(FailingSetupPlugin())
+    return pm
+
+
+def _make_pm_with_raising_teardown() -> apluggy.PluginManager:
+    """Creates a plugin manager whose admin_teardown always raises."""
+
+    class RaisingTeardownPlugin:
+        @hookimpl
+        async def admin_teardown(self, context: ExecutionContext) -> ActionResult:
+            raise RuntimeError("teardown exploded")
+
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    pm.register(RaisingTeardownPlugin())
+    return pm
 
 
 @mock.patch("cactus_client.execution.execute.execute_action")
 @mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
 @pytest.mark.asyncio
-async def test_admin_instructions_written_to_file_on_first_failure(
+async def test_setup_failure_stops_execution(
+    mock_get_pm: mock.MagicMock,
     mock_execute_checks: mock.MagicMock,
     mock_execute_action: mock.MagicMock,
-    tmp_path: Path,
-):
-    # Arrange
-    tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
-    admin_instructions = tp.steps[0].admin_instructions
-
-    step_list = StepExecutionList()
-    step_list.add(_step_with_admin_instructions(admin_instructions, CHECK_FAIL_ONCE))
-
+) -> None:
+    """When admin_setup returns a failed ActionResult, no test steps run."""
+    mock_get_pm.return_value = _make_pm_with_failing_setup()
     mock_execute_action.side_effect = handle_mock_execute_action
     mock_execute_checks.side_effect = handle_mock_execute_checks
 
-    log_path = tmp_path / "admin_instructions.jsonl"
-
-    # Act
-    await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
-
-    # Assert
-    assert log_path.exists()
-    lines = log_path.read_text().splitlines()
-    assert len(lines) == 3
-
-    start_entry = json.loads(lines[0])
-    assert start_entry["step_id"] == "TEST_START"
-    assert "timestamp" in start_entry
-
-    entry = json.loads(lines[1])
-    assert entry["step_id"] == "PRECONDITION"
-    assert "timestamp" in entry
-    assert len(entry["admin_instructions"]) == 2
-
-    assert entry["admin_instructions"][0] == {
-        "type": "ensure-end-device",
-        "client": None,
-        "parameters": {"registered": True, "has_der_list": True},
-    }
-    assert entry["admin_instructions"][1] == {
-        "type": "create-default-der-control",
-        "client": None,
-        "parameters": {"opModImpLimW": 100},
-    }
-
-    end_entry = json.loads(lines[2])
-    assert end_entry["step_id"] == "TEST_END"
-    assert "timestamp" in end_entry
-
-
-@mock.patch("cactus_client.execution.execute.execute_action")
-@mock.patch("cactus_client.execution.execute.execute_checks")
-@pytest.mark.asyncio
-async def test_admin_instructions_written_once_not_on_retry(
-    mock_execute_checks: mock.MagicMock,
-    mock_execute_action: mock.MagicMock,
-    tmp_path: Path,
-):
-    tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
-    admin_instructions = tp.steps[0].admin_instructions
-
-    call_count = {"n": 0}
-
-    def fail_twice_then_pass(step: StepExecution, ctx: ExecutionContext) -> CheckResult:
-        call_count["n"] += 1
-        return CheckResult(call_count["n"] > 2, None)
-
-    step_list = StepExecutionList()
-    step_list.add(_step_with_admin_instructions(admin_instructions, "fail-twice"))
-
-    mock_execute_action.side_effect = handle_mock_execute_action
-    mock_execute_checks.side_effect = fail_twice_then_pass
-
-    log_path = tmp_path / "admin_instructions.jsonl"
-
-    # Act
-    await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
-
-    # file should have TEST_START, one admin_instructions entry, TEST_END
-    lines = log_path.read_text().splitlines()
-    assert len(lines) == 3
-    assert json.loads(lines[0])["step_id"] == "TEST_START"
-    assert json.loads(lines[1])["step_id"] == "PRECONDITION"
-    assert json.loads(lines[2])["step_id"] == "TEST_END"
-
-
-@mock.patch("cactus_client.execution.execute.execute_action")
-@mock.patch("cactus_client.execution.execute.execute_checks")
-@pytest.mark.asyncio
-async def test_run_cancelled_written_on_cancellation(
-    mock_execute_checks: mock.MagicMock,
-    mock_execute_action: mock.MagicMock,
-    tmp_path: Path,
-):
-    """When execute_for_context is cancelled (e.g. Ctrl+C), TEST_END is written to the log."""
     step_list = StepExecutionList()
     step_list.add(
         StepExecution(
@@ -1039,45 +931,94 @@ async def test_run_cancelled_written_on_cancellation(
         )
     )
 
-    async def cancel_on_first_action(step, ctx):
-        raise asyncio.CancelledError()
+    context = _make_context_with_steps(step_list)
 
-    mock_execute_action.side_effect = cancel_on_first_action
+    result = await execute_for_context(context)
+
+    assert isinstance(result, ExecutionResult)
+    assert not result.completed
+    assert mock_execute_action.call_count == 0
+    assert mock_execute_checks.call_count == 0
+    assert context.progress.all_completions == []
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_teardown_runs_after_step_exception(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """Teardown is always called even when a step raises an exception."""
+    teardown_called = {"value": False}
+
+    class TrackingTeardownPlugin:
+        @hookimpl
+        async def admin_teardown(self, context: ExecutionContext) -> ActionResult:
+            teardown_called["value"] = True
+            return ActionResult.done()
+
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    pm.register(TrackingTeardownPlugin())
+    mock_get_pm.return_value = pm
+
+    mock_execute_action.side_effect = handle_mock_execute_action
     mock_execute_checks.side_effect = handle_mock_execute_checks
 
-    log_path = tmp_path / "admin_instructions.jsonl"
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_EXCEPTION), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
 
-    with pytest.raises(asyncio.CancelledError):
-        await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+    context = _make_context_with_steps(step_list)
 
-    assert log_path.exists()
-    lines = log_path.read_text().splitlines()
-    assert len(lines) == 2
+    result = await execute_for_context(context)
 
-    start_entry = json.loads(lines[0])
-    assert start_entry["step_id"] == "TEST_START"
-
-    cancelled_entry = json.loads(lines[1])
-    assert cancelled_entry["step_id"] == "TEST_END"
-    assert "timestamp" in cancelled_entry
+    assert not result.completed
+    assert teardown_called["value"], "teardown must run even when a step raises"
 
 
-# Uncomment to inspect real JSONL output at /tmp/admin_instructions_sample.jsonl
-#
-# @mock.patch("cactus_client.execution.execute.execute_action")
-# @mock.patch("cactus_client.execution.execute.execute_checks")
-# @pytest.mark.asyncio
-# async def test_admin_instructions_write_sample_to_disk(mock_execute_checks, mock_execute_action):
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_teardown_exception_does_not_mask_execution_result(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """A teardown exception is swallowed — it does not replace the execution result."""
+    mock_get_pm.return_value = _make_pm_with_raising_teardown()
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
 
-#     tp = parse_test_procedure(SALL21_WITH_ADMIN_INSTRUCTIONS)
-#     admin_instructions = tp.steps[0].admin_instructions
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
 
-#     step_list = StepExecutionList()
-#     step_list.add(_step_with_admin_instructions(admin_instructions, CHECK_FAIL_ONCE))
+    context = _make_context_with_steps(step_list)
 
-#     mock_execute_action.side_effect = handle_mock_execute_action
-#     mock_execute_checks.side_effect = handle_mock_execute_checks
+    result = await execute_for_context(context)
 
-#     log_path = Path("/tmp/admin_instructions_sample.jsonl")
-#     log_path.unlink(missing_ok=True)
-#     await execute_for_context(_make_context_with_steps(step_list), admin_instructions_log=log_path)
+    assert result.completed  # teardown failure must not mask the successful execution
