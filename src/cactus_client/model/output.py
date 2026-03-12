@@ -29,7 +29,6 @@ class RunOutputFile(StrEnum):
     ConsoleLogs = "cactus.log"  # Logs from the python logging API
     Report = "report.html"  # Dump of the console "results" in a portable format (eg HTML)
     Result = ".result"  # Contains "PASS" or "FAIL" depending on test outcome
-    AdminInstructions = "admin_instructions.jsonl"  # Live log of admin instructions during repeat_until_pass steps
 
     #
     # Output subdirectories

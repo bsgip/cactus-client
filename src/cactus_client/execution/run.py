@@ -116,11 +116,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         console = Console(record=False)
 
         # Do the execution - start the TUI and execute task to run at the same time
-        execute_task = asyncio.create_task(
-            execute_for_context(
-                context, admin_instructions_log=output_manager.file_path(RunOutputFile.AdminInstructions)
-            )
-        )
+        execute_task = asyncio.create_task(execute_for_context(context))
         tasks: list[asyncio.Task] = [execute_task]
         if not run_config.headless:
             tasks.append(asyncio.create_task(run_tui(console=console, context=context, run_id=output_manager.run_id)))
