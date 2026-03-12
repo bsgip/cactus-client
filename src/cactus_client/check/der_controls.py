@@ -7,6 +7,7 @@ from envoy_schema.server.schema.sep2.der import (
     DERProgramResponse,
 )
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower
+from envoy_schema.server.schema.sep2.response import ResponseType
 
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
@@ -216,3 +217,35 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
         return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
 
     return CheckResult(True, metadata)
+
+
+def check_der_control_responses(
+    resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+) -> CheckResult:
+    """Checks whether the specified DERControl's in the resource store have responses that match the check criteria"""
+
+    sent_response_type: int = resolved_parameters["sent_response_type"]  # Mandatory param
+    minimum_count: int | None = resolved_parameters.get("minimum_count", None)
+    maximum_count: int | None = resolved_parameters.get("maximum_count", None)
+
+    response_type = ResponseType(sent_response_type)
+    resource_store = context.discovered_resources(step)
+
+    total = 0
+    for derc in resource_store.get_for_type(CSIPAusResource.DERControl):
+        annotations = context.resource_annotations(step, derc.id)
+        if annotations.has_tag(AnnotationNamespace.RESPONSES, response_type):
+            total += 1
+
+    if minimum_count is not None and total < minimum_count:
+        return CheckResult(
+            False,
+            f"Expected at least {minimum_count} DERControls with a Response {response_type} but found {total}",
+        )
+    if maximum_count is not None and total > maximum_count:
+        return CheckResult(
+            False,
+            f"Expected at most {maximum_count} DERControls with a Response {response_type} but found {total}",
+        )
+
+    return CheckResult(True, f"Found {total} DERControls with a Response {response_type}")
