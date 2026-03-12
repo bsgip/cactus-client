@@ -25,7 +25,7 @@ from envoy_schema.server.schema.sep2.time import TimeResponse
 import apluggy
 from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
 from cactus_client.error import CactusClientException
-from cactus_client.execution.execute import execute_for_context, validate_all_resources
+from cactus_client.execution.execute import execute_for_context, setup_and_teardown, validate_all_resources
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.model.execution import (
@@ -933,7 +933,11 @@ async def test_setup_failure_stops_execution(
 
     context = _make_context_with_steps(step_list)
 
-    result = await execute_for_context(context)
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            result = ExecutionResult(completed=False)
+        else:
+            result = await execute_for_context(context)
 
     assert isinstance(result, ExecutionResult)
     assert not result.completed
@@ -984,7 +988,11 @@ async def test_teardown_runs_after_step_exception(
 
     context = _make_context_with_steps(step_list)
 
-    result = await execute_for_context(context)
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            result = ExecutionResult(completed=False)
+        else:
+            result = await execute_for_context(context)
 
     assert not result.completed
     assert teardown_called["value"], "teardown must run even when a step raises"
@@ -1019,6 +1027,10 @@ async def test_teardown_exception_does_not_mask_execution_result(
 
     context = _make_context_with_steps(step_list)
 
-    result = await execute_for_context(context)
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            result = ExecutionResult(completed=False)
+        else:
+            result = await execute_for_context(context)
 
     assert result.completed  # teardown failure must not mask the successful execution
