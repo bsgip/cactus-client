@@ -8,62 +8,52 @@ def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  #
         p = instr.parameters
         client_suffix = f" for {instr.client}" if instr.client else ""
 
-        if instr.type == "ensure-end-device":
-            if p.get("registered", True):
-                detail = "Register EndDevice"
-                if p.get("has_der_list"):
-                    detail += ", with DER list"
-            else:
-                detail = "Remove EndDevice registration"
-            parts.append(detail + client_suffix)
-
-        elif instr.type == "ensure-mup-list-empty":
-            parts.append("Clear all MirrorUsagePoints")
-
-        elif instr.type == "ensure-fsa":
-            detail = "Ensure FunctionSetAssignment"
-            if p.get("annotation"):
-                detail += f"'{p['annotation']}'"
-            if p.get("primacy") is not None:
-                detail += f" primacy={p['primacy']}"
-            parts.append(detail + client_suffix)
-
-        elif instr.type == "ensure-der-program":
-            detail = "Ensure DERProgram"
-            if p.get("fsa_annotation"):
-                detail += f"'{p['fsa_annotation']}'"
-            if p.get("primacy") is not None:
-                detail += f" primacy={p['primacy']}"
-            parts.append(detail + client_suffix)
-
-        elif instr.type == "set-client-access":
-            detail = "Grant client access" if p.get("granted", True) else "Revoke client access"
-            parts.append(detail + client_suffix)
-
-        elif instr.type == "ensure-der-control-list":
-            detail = "Ensure DERControlList accessible"
-            if p.get("subscribable"):
-                detail += ", subscribable"
-            parts.append(detail + client_suffix)
-
-        elif instr.type == "create-der-control":
-            detail = f"Create {p['status']} DERControl"
-            detail += "".join(f" {k}={v}" for k, v in p.items() if k != "status")
-            parts.append(detail + client_suffix)
-
-        elif instr.type == "create-default-der-control":
-            parts.append("Create DefaultDERControl" + "".join(f" {k}={v}" for k, v in p.items()) + client_suffix)
-
-        elif instr.type == "clear-der-controls":
-            parts.append("Cancel all active DERControls" if p.get("all") else "Cancel latest DERControl")
-
-        elif instr.type == "set-poll-rate":
-            parts.append(f"Set poll rate for {p['resource']} to {p['rate_seconds']}s")
-
-        elif instr.type == "set-post-rate":
-            parts.append(f"Set post rate for {p['resource']} to {p['rate_seconds']}s")
-
-        else:
-            parts.append(instr.type)
+        match instr.type:
+            case "ensure-end-device":
+                if p.get("registered", True):
+                    detail = "Register EndDevice"
+                    if p.get("has_der_list"):
+                        detail += ", with DER list"
+                else:
+                    detail = "Remove EndDevice registration"
+                parts.append(detail + client_suffix)
+            case "ensure-mup-list-empty":
+                parts.append("Clear all MirrorUsagePoints")
+            case "ensure-fsa":
+                detail = "Ensure FunctionSetAssignment"
+                if p.get("annotation"):
+                    detail += f"'{p['annotation']}'"
+                if p.get("primacy") is not None:
+                    detail += f" primacy={p['primacy']}"
+                parts.append(detail + client_suffix)
+            case "ensure-der-program":
+                detail = "Ensure DERProgram"
+                if p.get("fsa_annotation"):
+                    detail += f"'{p['fsa_annotation']}'"
+                if p.get("primacy") is not None:
+                    detail += f" primacy={p['primacy']}"
+                parts.append(detail + client_suffix)
+            case "set-client-access":
+                detail = "Grant client access" if p.get("granted", True) else "Revoke client access"
+                parts.append(detail + client_suffix)
+            case "ensure-der-control-list":
+                detail = "Ensure DERControlList accessible"
+                if p.get("subscribable"):
+                    detail += ", subscribable"
+                parts.append(detail + client_suffix)
+            case "create-der-control":
+                detail = f"Create {p['status']} DERControl"
+                detail += "".join(f" {k}={v}" for k, v in p.items() if k != "status")
+                parts.append(detail + client_suffix)
+            case "create-default-der-control":
+                parts.append("Create DefaultDERControl" + "".join(f" {k}={v}" for k, v in p.items()) + client_suffix)
+            case "clear-der-controls":
+                parts.append("Cancel all active DERControls" if p.get("all") else "Cancel latest DERControl")
+            case "set-poll-rate":
+                parts.append(f"Set poll rate for {p['resource']} to {p['rate_seconds']}s")
+            case "set-post-rate":
+                parts.append(f"Set post rate for {p['resource']} to {p['rate_seconds']}s")
+            case _:
+                parts.append(instr.type)
 
     return ". ".join(parts)
