@@ -17,6 +17,7 @@ from rich.syntax import Syntax
 from rich.table import Column, Table
 
 from cactus_client.execution import keypress
+from cactus_client.execution.admin_instruction_text import describe_admin_instructions
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.http import NotificationRequest, ServerResponse
 from cactus_client.results.common import context_relative_time
@@ -72,9 +73,19 @@ def generate_scrolling_table(
 
 def generate_header(context: ExecutionContext, run_id: int) -> RenderableType:
     """Generates the highlighted header at the top of the UI"""
-    if context.progress.current_step_execution and context.progress.current_step_execution.source.instructions:
-        raw_instructions = ". ".join(context.progress.current_step_execution.source.instructions)
-        instructions = f"[blink on red]***[/][on red] {raw_instructions} [/][blink on red]***[/]"
+    se = context.progress.current_step_execution
+    if se is not None:
+        if se.source.instructions:
+            raw_instructions = ". ".join(se.source.instructions)
+        elif se.source.admin_instructions:
+            raw_instructions = describe_admin_instructions(se.source.admin_instructions)
+        else:
+            raw_instructions = None
+
+        if raw_instructions:
+            instructions = f"[blink on red]***[/][on red] {raw_instructions} [/][blink on red]***[/]"
+        else:
+            instructions = ""
     else:
         instructions = ""
 
