@@ -9,31 +9,48 @@ hookimpl = apluggy.HookimplMarker(project_name)
 
 
 class AdminSpec:
-    # --- Per-test lifecycle hooks ---
-    # Called once per test run regardless of how many steps or instructions exist.
+    """Base interface for admin plugins. Implement any subset of these hooks in your plugin class."""
 
     @hookspec
     def admin_setup(self, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
-        """Called once before any test steps execute."""
+        """Called once before any test steps execute.
+
+        Use this to perform any setup required before the test begins (e.g. registering end devices,
+        configuring DER controls). Return ActionResult.done() on success or ActionResult.failed(reason)
+        to abort the test before it starts.
+
+        context: Full execution context for this test run (server config, client configs, etc.)
+        """
 
     @hookspec
     def admin_teardown(self, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
-        """Called once after all test steps complete (or on failure)."""
+        """Called once after all test steps complete (or on failure). Always runs, even if setup failed.
 
-    # --- Per-instruction hook ---
-    # Called once per AdminInstruction before the first attempt of a step.
+        Use this to clean up any state created during setup or the test run. Exceptions raised here
+        are caught and logged — they will not mask the test result.
+
+        context: Full execution context for this test run (server config, client configs, etc.)
+        """
 
     @hookspec
     async def admin_instruction(
         self, instruction: AdminInstruction, step: StepExecution, context: ExecutionContext
     ) -> ActionResult | None:
-        """Handle a single admin instruction.
+        """Called once per admin instruction before the first attempt of a step.
 
-        Return None if this instruction type is not handled by this plugin.
+        Exceptions raised will abort test execution as a failure. Return None if this plugin
+        does not handle the given instruction type — the framework will log a warning if no
+        plugin handles it.
+
+        instruction: The admin instruction to handle (type + parameters)
+        step: The step that owns this instruction
+        context: Full execution context for this test run
         """
 
 
 class DefaultAdminPlugin:
+    """Default implementation. Registered last (trylast) so provider plugins run first."""
+
     @hookimpl(trylast=True)
     async def admin_setup(self, context: ExecutionContext) -> ActionResult:
         return ActionResult.done()
