@@ -67,18 +67,11 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
     """Does the actual execution work - will operate until the context's step list is fully drained. Will also
     handle updating trackers as the steps execute.
 
-    If any step reports failure - execution will be stopped"""
+    If any step reports failure - execution will be stopped.
+    Caller is responsible for wrapping this in setup_and_teardown."""
 
     logger.info("[admin-instruction] test=%s started", context.test_procedure_id)
-
-    async with setup_and_teardown(context) as setup_result:
-        if not setup_result.completed:
-            logger.info(
-                "[admin-instruction] test=%s finished completed=False (setup failed)", context.test_procedure_id
-            )
-            return ExecutionResult(completed=False)
-        result = await _execute_steps(context)
-
+    result = await _execute_steps(context)
     logger.info("[admin-instruction] test=%s finished completed=%s", context.test_procedure_id, result.completed)
     return result
 
