@@ -50,10 +50,15 @@ ACTION_REPEAT_ONCE_DELAY = "action-repeat-once-delay"
 ACTION_EXCEPTION = "action-exception"
 ACTION_FAIL_ONCE = "action-fail-once"  # Returns ActionResult.failed() on first attempt, then done()
 
+ACTION_ADMIN_SETUP = "admin-setup"
+ACTION_ADMIN_TEARDOWN = "admin-teardown"
+
 CHECK_FAIL_ONCE = "check-fail-once"
 CHECK_PASS = "check-pass"
 CHECK_FAIL = "check-fail"
 CHECK_EXCEPTION = "check-exception"
+
+TEST_PROCEDURES_VERSION_ADMIN_SETUP_FAIL = "admin-setup-failure-test"
 
 
 DELAY_TIME = timedelta(seconds=2)
@@ -84,6 +89,12 @@ def handle_mock_execute_action(current_step: StepExecution, context: ExecutionCo
             return ActionResult.failed("Retriable failure on first attempt")
         else:
             return ActionResult.done()
+    elif (
+        context.test_procedures_version == TEST_PROCEDURES_VERSION_ADMIN_SETUP_FAIL and action_type == ACTION_ADMIN_SETUP
+    ):
+        return ActionResult.failed("mocked admin setup failure")
+    elif action_type in [ACTION_ADMIN_SETUP, ACTION_ADMIN_TEARDOWN]:
+        return ActionResult.done()
     else:
         raise NotImplementedError(f"Unsupported action type {action_type}")
 
@@ -200,7 +211,8 @@ async def test_execute_for_context_success_cases_with_repeats(
     assert duration <= DELAY_TIME, "We expect the test to operate with no delays"
 
     assert mock_execute_checks.call_count == 5
-    assert mock_execute_action.call_count == 5
+    # Call counts include setup and teardown
+    assert mock_execute_action.call_count == 5 + 2
 
     assert len(context.warnings.warnings) == 0
 
@@ -280,7 +292,8 @@ async def test_execute_for_context_action_failed_with_repeat_until_pass(
     assert result.completed
 
     # Step 1 runs twice (fails on first attempt), step 2 runs once
-    assert mock_execute_action.call_count == 3
+    # Call counts include setup and teardown
+    assert mock_execute_action.call_count == 3 + 2
     assert mock_execute_checks.call_count == 3
 
     assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "1", "2"]
@@ -357,7 +370,8 @@ async def test_execute_for_context_action_failed_without_repeat_stops_early(
     assert result.completed  # completed=True means no exception, even though step failed
 
     # Only step 1 runs, and it fails (action returned failed), step 2 never runs
-    assert mock_execute_action.call_count == 1
+    # Call counts include setup and teardown (+2)
+    assert mock_execute_action.call_count == 1 + 2
     assert mock_execute_checks.call_count == 1
 
     assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1"]
@@ -444,7 +458,8 @@ async def test_execute_for_context_failure_stops_early(
     assert result.completed
 
     assert mock_execute_checks.call_count == 2, "Only the first two steps should execute due to step 2 failing"
-    assert mock_execute_action.call_count == 2, "Only the first two steps should execute due to step 2 failing"
+    # Call counts include setup and teardown (+2)
+    assert mock_execute_action.call_count == 2 + 2, "Only the first two steps should execute due to step 2 failing"
 
     assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
     assert [p.is_success() for p in context.progress.all_completions] == [True, False]
@@ -531,7 +546,8 @@ async def test_execute_for_context_action_exception(
     assert not result.completed
 
     assert mock_execute_checks.call_count == 1, "Test is aborted at step 2 (during action execution)"
-    assert mock_execute_action.call_count == 2, "Test is aborted at step 2"
+    # Call count includes setup and teardown (+2)
+    assert mock_execute_action.call_count == 2 + 2, "Test is aborted at step 2"
 
     assert len(context.warnings.warnings) == 0
     assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
@@ -706,7 +722,8 @@ async def test_execute_for_context_success_cases_with_delays(
     assert_step_result(context.progress, "2", True)
 
     assert mock_execute_checks.call_count == 3
-    assert mock_execute_action.call_count == 3
+    # Calls include setup and teardown (+2)
+    assert mock_execute_action.call_count == 3 + 2
     assert len(context.warnings.warnings) == 0
 
 
@@ -847,3 +864,69 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
         validate_all_resources(context)
         readable_warnings = "\n".join([w.message for w in context.warnings.warnings])
         assert len(context.warnings.warnings) == expected_warnings, readable_warnings
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@pytest.mark.asyncio
+async def test_setup_and_teardown_setup_fails(
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+):
+    """Can execute handle cases where some steps repeat due to failure or by request"""
+    # Arrange
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="2", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    tree = CSIPAusResourceTree()
+    context = ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
+        test_procedure=generate_class_instance(TestProcedure),
+        test_procedures_version=TEST_PROCEDURES_VERSION_ADMIN_SETUP_FAIL,
+        output_directory=Path("."),  # Shouldn't be used to do anything in this test
+        dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
+        clients_by_alias={
+            "client-test": ClientContext(
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+            )
+        },
+        resource_tree=tree,
+        repeat_delay=timedelta(0),
+        responses=ResponseTracker(),
+        warnings=WarningTracker(),
+        progress=ProgressTracker(),
+        steps=step_list,
+    )
+
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+    mock_execute_action.side_effect = handle_mock_execute_action
+
+    # Act
+    result = await execute_for_context(context)
+
+    # Assert
+    assert isinstance(result, ExecutionResult)
+
+    assert mock_execute_checks.call_count == 0
+    # Call counts include setup and teardown (+2)
+    assert mock_execute_action.call_count == 0 + 2
+
+    assert len(context.warnings.warnings) == 0
+
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == []
+    assert [p.is_success() for p in context.progress.all_completions] == []
+
+    for p in context.progress.all_completions:
+        assert_nowish(p.created_at)
+        assert p.exc is None

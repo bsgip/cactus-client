@@ -30,6 +30,7 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.parameter import resolve_variable_expressions_from_parameters
+from cactus_client import admin
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,16 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         )
 
     match (action_info.type):
+        # Reserved action
+        case "admin-setup":
+            pm = admin.get_plugin_manager()
+            results = await pm.ahook.admin_setup(context=context, step=step)
+            return results[0]
+        # Reserved action
+        case "admin-teardown":
+            pm = admin.get_plugin_manager()
+            results = await pm.ahook.admin_teardown(context=context, step=step)
+            return results[0]
         case "no-op":
             return await action_noop()
         case "discovery":
@@ -89,7 +100,12 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_wait(resolved_params)
         case "simulate-client":
             return await action_simulate_client(resolved_params, step, context)
-
+        case "admin-device-register":
+            pm = admin.get_plugin_manager()
+            results = await pm.ahook.admin_device_register(
+                resolved_params=resolved_params, step=step, context=context
+            )
+            return results[0]
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
             raise CactusClientException(

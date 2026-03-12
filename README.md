@@ -5,10 +5,6 @@ This is a set of tools for evaluating CSIP-Aus server test procedures defined at
 <img width="1841" height="1003" alt="image" src="https://github.com/user-attachments/assets/0ee5b02e-cb21-476a-a6f2-975f23ecc5ae" />
 
 
-## Development
-
-`pip install -e .[dev,test]`
-
 ## Quickstart
 
 ### Installing
@@ -118,4 +114,14 @@ The command `cactus tests` will print out all available test cases...
 ### Running your first test
 
 The following command will run the `S-ALL-01` test with the client you created earlier `cactus run S-ALL-01 myclient1`
+
+## Development
+
+`pip install -e .[dev,test]`
+
+### Admin plugins
+
+Plugins can be developed using [apluggy](https://github.com/nextline-dev/apluggy), a simple async wrapper around pytest's [pluggy](https://github.com/pytest-dev/pluggy)
+
+See [hookspecs.py](src/cactus-client/admin/hookspecs.py) for the current list of exposed hookspecs
 
