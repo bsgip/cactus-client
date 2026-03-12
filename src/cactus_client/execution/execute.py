@@ -74,10 +74,11 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
         Overall result of the test execution
     """
     # Context manager with the setup and teardown functionality
-    async with setup_and_teardown(context) as setup_result:
-        if not setup_result.completed:
-            return ExecutionResult(completed=False)
+    # async with setup_and_teardown(context) as setup_result:
+    #    if not setup_result.completed:
+    #        return ExecutionResult(completed=False)
 
+    if True:  # TODO remove temporary bridge
         while (upcoming_step := context.steps.peek_next_no_wait(now := utc_now())) is not None:
 
             # Sometimes the next step will have a "not before" time - in which case we delay until that time has passed
