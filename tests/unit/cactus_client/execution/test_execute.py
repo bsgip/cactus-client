@@ -27,7 +27,7 @@ from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl,
 from cactus_client.error import CactusClientException
 from cactus_client.execution.execute import execute_for_context, setup_and_teardown, validate_all_resources
 from cactus_client.model.config import ClientConfig, ServerConfig
-from cactus_client.model.context import ClientContext, ExecutionContext
+from cactus_client.model.context import AdminContext, ClientContext, ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
     CheckResult,
@@ -879,7 +879,7 @@ def _make_pm_with_failing_setup() -> apluggy.PluginManager:
 
     class FailingSetupPlugin:
         @hookimpl
-        async def admin_setup(self, context: ExecutionContext) -> ActionResult:
+        async def admin_setup(self, context: AdminContext) -> ActionResult:
             return ActionResult.failed("setup refused")
 
     pm = apluggy.PluginManager(project_name)
@@ -894,7 +894,7 @@ def _make_pm_with_raising_teardown() -> apluggy.PluginManager:
 
     class RaisingTeardownPlugin:
         @hookimpl
-        async def admin_teardown(self, context: ExecutionContext) -> ActionResult:
+        async def admin_teardown(self, context: AdminContext) -> ActionResult:
             raise RuntimeError("teardown exploded")
 
     pm = apluggy.PluginManager(project_name)
@@ -960,7 +960,7 @@ async def test_teardown_runs_after_step_exception(
 
     class TrackingTeardownPlugin:
         @hookimpl
-        async def admin_teardown(self, context: ExecutionContext) -> ActionResult:
+        async def admin_teardown(self, context: AdminContext) -> ActionResult:
             teardown_called["value"] = True
             return ActionResult.done()
 

@@ -7,7 +7,7 @@ from aiohttp import ClientSession
 from cactus_test_definitions.server.test_procedures import AdminInstruction
 
 from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AdminContext, ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 
 
@@ -27,7 +27,7 @@ async def test_admin_setup_default(
     context, _ = testing_contexts_factory(mock.Mock())
     pm = make_plugin_manager()
 
-    results = await pm.ahook.admin_setup(context=context)
+    results = await pm.ahook.admin_setup(context=context.to_admin_context())
 
     assert len(results) == 1
     assert results[0] == ActionResult.done()
@@ -41,7 +41,7 @@ async def test_admin_teardown_default(
     context, _ = testing_contexts_factory(mock.Mock())
     pm = make_plugin_manager()
 
-    results = await pm.ahook.admin_teardown(context=context)
+    results = await pm.ahook.admin_teardown(context=context.to_admin_context())
 
     assert len(results) == 1
     assert results[0] == ActionResult.done()
@@ -56,7 +56,7 @@ async def test_admin_instruction_default_returns_none(
     pm = make_plugin_manager()
     instr = AdminInstruction(type="ensure-end-device", parameters={"registered": True})
 
-    results = await pm.ahook.admin_instruction(instruction=instr, step=step, context=context)
+    results = await pm.ahook.admin_instruction(instruction=instr, step=step, context=context.to_admin_context())
 
     assert len(results) == 1
     assert results[0] is None
@@ -71,13 +71,13 @@ async def test_provider_plugin_runs_before_default(
 
     class ProviderPlugin:
         @hookimpl
-        async def admin_setup(self, context: ExecutionContext) -> ActionResult:
+        async def admin_setup(self, context: AdminContext) -> ActionResult:
             return ActionResult.failed("provider ran")
 
     pm = make_plugin_manager()
     pm.register(ProviderPlugin())
 
-    results = await pm.ahook.admin_setup(context=context)
+    results = await pm.ahook.admin_setup(context=context.to_admin_context())
 
     assert len(results) == 2
     assert results[0] == ActionResult.failed("provider ran")  # provider first
@@ -94,7 +94,7 @@ async def test_provider_plugin_handles_instruction(
     class ProviderPlugin:
         @hookimpl
         async def admin_instruction(
-            self, instruction: AdminInstruction, step: StepExecution, context: ExecutionContext
+            self, instruction: AdminInstruction, step: StepExecution, context: AdminContext
         ) -> ActionResult | None:
             if instruction.type == "ensure-end-device":
                 return ActionResult.done()
@@ -106,8 +106,9 @@ async def test_provider_plugin_handles_instruction(
     handled = AdminInstruction(type="ensure-end-device", parameters={})
     unhandled = AdminInstruction(type="set-poll-rate", parameters={})
 
-    handled_results = await pm.ahook.admin_instruction(instruction=handled, step=step, context=context)
-    unhandled_results = await pm.ahook.admin_instruction(instruction=unhandled, step=step, context=context)
+    admin_context = context.to_admin_context()
+    handled_results = await pm.ahook.admin_instruction(instruction=handled, step=step, context=admin_context)
+    unhandled_results = await pm.ahook.admin_instruction(instruction=unhandled, step=step, context=admin_context)
 
     assert handled_results[0] == ActionResult.done()  # provider handled it
     assert unhandled_results[0] is None  # provider returned None, default returned None
