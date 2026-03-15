@@ -1,5 +1,5 @@
 import apluggy
-from cactus_client.model.context import ExecutionContext
+from cactus_client.model.context import AdminContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_test_definitions.server.test_procedures import AdminInstruction
 
@@ -12,7 +12,7 @@ class AdminSpec:
     """Base interface for admin plugins. Implement any subset of these hooks in your plugin class."""
 
     @hookspec
-    def admin_setup(self, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
+    def admin_setup(self, context: AdminContext) -> ActionResult:  # type: ignore[empty-body]
         """Called once before any test steps execute.
 
         Use this to perform any setup required before the test begins (e.g. registering end devices,
@@ -23,7 +23,7 @@ class AdminSpec:
         """
 
     @hookspec
-    def admin_teardown(self, context: ExecutionContext) -> ActionResult:  # type: ignore[empty-body]
+    def admin_teardown(self, context: AdminContext) -> ActionResult:  # type: ignore[empty-body]
         """Called once after all test steps complete (or on failure). Always runs, even if setup failed.
 
         Use this to clean up any state created during setup or the test run. Exceptions raised here
@@ -34,7 +34,7 @@ class AdminSpec:
 
     @hookspec
     async def admin_instruction(
-        self, instruction: AdminInstruction, step: StepExecution, context: ExecutionContext
+        self, instruction: AdminInstruction, step: StepExecution, context: AdminContext
     ) -> ActionResult | None:
         """Called once per admin instruction before the first attempt of a step.
 
@@ -52,15 +52,15 @@ class DefaultAdminPlugin:
     """Default implementation. Registered last (trylast) so provider plugins run first."""
 
     @hookimpl(trylast=True)
-    async def admin_setup(self, context: ExecutionContext) -> ActionResult:
+    async def admin_setup(self, context: AdminContext) -> ActionResult:
         return ActionResult.done()
 
     @hookimpl(trylast=True)
-    async def admin_teardown(self, context: ExecutionContext) -> ActionResult:
+    async def admin_teardown(self, context: AdminContext) -> ActionResult:
         return ActionResult.done()
 
     @hookimpl(trylast=True)
     async def admin_instruction(
-        self, instruction: AdminInstruction, step: StepExecution, context: ExecutionContext
+        self, instruction: AdminInstruction, step: StepExecution, context: AdminContext
     ) -> ActionResult | None:
         return None

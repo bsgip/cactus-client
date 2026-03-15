@@ -35,8 +35,10 @@ async def setup_and_teardown(context: ExecutionContext) -> AsyncIterator[ActionR
     """
     pm = get_plugin_manager()
 
+    admin_context = context.to_admin_context()
+
     logger.debug("Running admin setup")
-    setup_results = await pm.ahook.admin_setup(context=context)
+    setup_results = await pm.ahook.admin_setup(context=admin_context)
     setup_result: ActionResult = next((r for r in setup_results if not r.completed), ActionResult.done())
     logger.debug("Admin setup complete")
 
@@ -45,7 +47,7 @@ async def setup_and_teardown(context: ExecutionContext) -> AsyncIterator[ActionR
     finally:
         logger.debug("Running admin teardown")
         try:
-            await pm.ahook.admin_teardown(context=context)
+            await pm.ahook.admin_teardown(context=admin_context)
         except Exception as exc:
             logger.error("Admin teardown error", exc_info=exc)
         logger.debug("Admin teardown complete")
@@ -86,7 +88,9 @@ async def _fire_admin_instructions(context: ExecutionContext, current_step: Step
             instr.type,
             instr.parameters,
         )
-        results = await pm.ahook.admin_instruction(instruction=instr, step=current_step, context=context)
+        results = await pm.ahook.admin_instruction(
+            instruction=instr, step=current_step, context=context.to_admin_context()
+        )
         if not any(r is not None for r in results):
             logger.info(
                 "[admin-instruction] no plugin handled type=%s in step=%s",
