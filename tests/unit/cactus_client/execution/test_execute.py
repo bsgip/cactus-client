@@ -22,10 +22,12 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
+import apluggy
+from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
 from cactus_client.error import CactusClientException
-from cactus_client.execution.execute import execute_for_context, validate_all_resources
+from cactus_client.execution.execute import execute_for_context, setup_and_teardown, validate_all_resources
 from cactus_client.model.config import ClientConfig, ServerConfig
-from cactus_client.model.context import ClientContext, ExecutionContext
+from cactus_client.model.context import AdminContext, ClientContext, ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
     CheckResult,
@@ -847,3 +849,188 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
         validate_all_resources(context)
         readable_warnings = "\n".join([w.message for w in context.warnings.warnings])
         assert len(context.warnings.warnings) == expected_warnings, readable_warnings
+
+
+def _make_context_with_steps(step_list: StepExecutionList) -> ExecutionContext:
+    tree = CSIPAusResourceTree()
+    return ExecutionContext(
+        test_procedure_id=TestProcedureId.S_ALL_01,
+        test_procedure=generate_class_instance(TestProcedure),
+        test_procedures_version="vtest",
+        output_directory=Path("."),
+        dcap_path="/dcap/path",
+        server_config=generate_class_instance(ServerConfig),
+        clients_by_alias={
+            "client-test": ClientContext(
+                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+            )
+        },
+        resource_tree=tree,
+        repeat_delay=timedelta(0),
+        responses=ResponseTracker(),
+        warnings=WarningTracker(),
+        progress=ProgressTracker(),
+        steps=step_list,
+    )
+
+
+def _make_pm_with_failing_setup() -> apluggy.PluginManager:
+    """Creates a plugin manager whose admin_setup always returns ActionResult.failed()."""
+
+    class FailingSetupPlugin:
+        @hookimpl
+        async def admin_setup(self, context: AdminContext) -> ActionResult:
+            return ActionResult.failed("setup refused")
+
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    pm.register(FailingSetupPlugin())
+    return pm
+
+
+def _make_pm_with_raising_teardown() -> apluggy.PluginManager:
+    """Creates a plugin manager whose admin_teardown always raises."""
+
+    class RaisingTeardownPlugin:
+        @hookimpl
+        async def admin_teardown(self, context: AdminContext) -> ActionResult:
+            raise RuntimeError("teardown exploded")
+
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    pm.register(RaisingTeardownPlugin())
+    return pm
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_setup_failure_stops_execution(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """When admin_setup returns a failed ActionResult, no test steps run."""
+    mock_get_pm.return_value = _make_pm_with_failing_setup()
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    context = _make_context_with_steps(step_list)
+
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            result = ExecutionResult(completed=False)
+        else:
+            result = await execute_for_context(context)
+
+    assert isinstance(result, ExecutionResult)
+    assert not result.completed
+    assert mock_execute_action.call_count == 0
+    assert mock_execute_checks.call_count == 0
+    assert context.progress.all_completions == []
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_teardown_runs_after_step_exception(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """Teardown is always called even when a step raises an exception."""
+    teardown_called = {"value": False}
+
+    class TrackingTeardownPlugin:
+        @hookimpl
+        async def admin_teardown(self, context: AdminContext) -> ActionResult:
+            teardown_called["value"] = True
+            return ActionResult.done()
+
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    pm.register(TrackingTeardownPlugin())
+    mock_get_pm.return_value = pm
+
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_EXCEPTION), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    context = _make_context_with_steps(step_list)
+
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            result = ExecutionResult(completed=False)
+        else:
+            result = await execute_for_context(context)
+
+    assert not result.completed
+    assert teardown_called["value"], "teardown must run even when a step raises"
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_teardown_exception_does_not_mask_execution_result(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """A teardown exception is swallowed — it does not replace the execution result."""
+    mock_get_pm.return_value = _make_pm_with_raising_teardown()
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(
+        StepExecution(
+            Step(id="1", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=0,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    context = _make_context_with_steps(step_list)
+
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            result = ExecutionResult(completed=False)
+        else:
+            result = await execute_for_context(context)
+
+    assert result.completed  # teardown failure must not mask the successful execution

@@ -7,7 +7,7 @@ from rich.console import Console
 
 from cactus_client.error import CactusClientException, ConfigException
 from cactus_client.execution.build import build_execution_context
-from cactus_client.execution.execute import execute_for_context
+from cactus_client.execution.execute import execute_for_context, setup_and_teardown
 from cactus_client.execution.tui import run_tui
 from cactus_client.model.config import GlobalConfig, RunConfig
 from cactus_client.model.context import ExecutionContext
@@ -63,6 +63,17 @@ async def _run_and_await_tasks(
         return ResultsEvaluation(context, ExecutionResult(completed=False))
 
 
+async def _run_with_setup_teardown(context: ExecutionContext) -> ExecutionResult:
+    """Owns the admin plugin lifecycle: calls setup before execution and guarantees teardown after."""
+    async with setup_and_teardown(context) as setup_result:
+        if not setup_result.completed:
+            logger.info(
+                "[admin-instruction] test=%s finished completed=False (setup failed)", context.test_procedure_id
+            )
+            return ExecutionResult(completed=False)
+        return await execute_for_context(context)
+
+
 async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> bool:
     """Handles running a full test procedure execution - returns True if the test passes, False otherwise"""
 
@@ -116,7 +127,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         console = Console(record=False)
 
         # Do the execution - start the TUI and execute task to run at the same time
-        execute_task = asyncio.create_task(execute_for_context(context))
+        execute_task = asyncio.create_task(_run_with_setup_teardown(context))
         tasks: list[asyncio.Task] = [execute_task]
         if not run_config.headless:
             tasks.append(asyncio.create_task(run_tui(console=console, context=context, run_id=output_manager.run_id)))

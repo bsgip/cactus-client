@@ -9,6 +9,12 @@ This is a set of tools for evaluating CSIP-Aus server test procedures defined at
 
 `pip install -e .[dev,test]`
 
+### Admin plugins
+
+Plugins can be developed using [apluggy](https://github.com/nextline-dev/apluggy), a simple async wrapper around pytest's [pluggy](https://github.com/pytest-dev/pluggy).
+
+See [`plugins.py`](src/cactus_client/admin/plugins.py) for the current list of exposed hookspecs. Plugins are registered via setuptools entry points under the `cactus_client.admin` group.
+
 ## Quickstart
 
 ### Installing
