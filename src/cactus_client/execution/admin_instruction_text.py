@@ -1,4 +1,14 @@
+from typing import Any
+
 from cactus_test_definitions.server.admin_instructions import AdminInstruction
+from cactus_test_definitions.variable_expressions import BaseExpression
+
+
+def _fmt(v: Any) -> str:
+    """Format a parameter value, using expression_representation() for variable expressions."""
+    if isinstance(v, BaseExpression):
+        return v.expression_representation()
+    return str(v)
 
 
 def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  # noqa: C901
@@ -43,10 +53,12 @@ def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  #
                 parts.append(detail + client_suffix)
             case "create-der-control":
                 detail = f"Create {p['status']} DERControl"
-                detail += "".join(f" {k}={v}" for k, v in p.items() if k != "status")
+                detail += "".join(f" {k}={_fmt(v)}" for k, v in p.items() if k != "status")
                 parts.append(detail + client_suffix)
             case "create-default-der-control":
-                parts.append("Create DefaultDERControl" + "".join(f" {k}={v}" for k, v in p.items()) + client_suffix)
+                parts.append(
+                    "Create DefaultDERControl" + "".join(f" {k}={_fmt(v)}" for k, v in p.items()) + client_suffix
+                )
             case "clear-der-controls":
                 parts.append("Cancel all active DERControls" if p.get("all") else "Cancel latest DERControl")
             case "set-poll-rate":
