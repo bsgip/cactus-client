@@ -5,6 +5,7 @@ from enum import StrEnum, auto
 from typing import Any, Callable, TypeVar
 
 import yaml
+from cactus_test_definitions.variable_expressions import BaseExpression
 from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, Group, RenderableType
@@ -26,6 +27,17 @@ from cactus_client.time import relative_time, utc_now
 logger = logging.getLogger(__name__)
 
 AnyType = TypeVar("AnyType")
+
+
+def _sanitize_parameters(params: Any) -> Any:
+    """Recursively replaces BaseExpression instances with their human-readable string form."""
+    if isinstance(params, BaseExpression):
+        return f"$({params.expression_representation()})"
+    if isinstance(params, dict):
+        return {k: _sanitize_parameters(v) for k, v in params.items()}
+    if isinstance(params, list):
+        return [_sanitize_parameters(v) for v in params]
+    return params
 
 
 class PanelFocus(StrEnum):
@@ -218,7 +230,7 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
 
     action_raw: dict[str, Any] = {
         "type": se.source.action.type,
-        "parameters": se.source.action.parameters,
+        "parameters": _sanitize_parameters(se.source.action.parameters),
     }
     yaml_columns = [
         Group(
@@ -228,7 +240,7 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
         )
     ]
     for check in se.source.checks or []:
-        check_raw = {"type": check.type, "parameters": check.parameters}
+        check_raw = {"type": check.type, "parameters": _sanitize_parameters(check.parameters)}
         yaml_columns.append(
             Group(
                 "[b]Check[/]",
