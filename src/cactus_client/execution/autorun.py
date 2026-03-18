@@ -163,16 +163,15 @@ async def autorun_entrypoint(
         except ConfigException as exc:
             logger.error("Config error running %s: %s", test_id, exc)
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.ERROR, note=str(exc)))
-            break
+            continue
         except Exception as exc:
             logger.error("Unexpected error running %s", test_id, exc_info=exc)
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.ERROR, note=str(exc)))
-            break
+            continue
 
         if passed:
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.PASSED))
         else:
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.FAILED))
-            break
 
     return records
