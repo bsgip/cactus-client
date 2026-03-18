@@ -1,0 +1,12 @@
+# One test procedure ID per line. Lines starting with # are ignored.
+
+S-ALL-01
+S-ALL-02
+S-ALL-03
+S-ALL-04
+S-ALL-05
+S-ALL-06
+S-ALL-07
+S-ALL-08
+S-ALL-09
+S-ALL-10
