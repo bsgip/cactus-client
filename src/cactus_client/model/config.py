@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,16 @@ def strenum_representer(dumper: yaml.Dumper, data: Any) -> yaml.ScalarNode:
 
 
 yaml.add_representer(ClientType, strenum_representer)
+
+
+@dataclass(frozen=True)
+class AutoRunConfig:
+    """Persistent configuration for the `cactus autorun` command."""
+
+    include: list[str] = field(default_factory=list)  # Run these test IDs (in order)
+    include_file: str | None = None  # Path to a text file listing one test ID per line
+    exclude: list[str] = field(default_factory=list)  # Test IDs to skip
+    timeout: int | None = None  # Per-test timeout in seconds (overrides main timeout)
 
 
 @dataclass(frozen=True)
@@ -70,6 +80,7 @@ class GlobalConfig(YAMLWizard):  # type: ignore
     output_dir: str | None = None  # Directory where all outputs will be dumped
     server: ServerConfig | None = None  # The current server configuration
     clients: list[ClientConfig] | None = None  # All possible clients that have been previously configured
+    runner: AutoRunConfig | None = None  # Optional config for the autorun cli
 
     def get_validation_error(self) -> str | None:
         """Attempts to identify whether this configuration is fully defined (and therefore capable of running tests)
