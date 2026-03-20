@@ -126,6 +126,19 @@ class ClientContext:
     )  # For handling requests to the cactus-client-notifications instance or None if not configured
 
 
+@dataclass(frozen=True)
+class AdminContext:
+    """Slim context passed to admin plugins. Contains only what a server provider needs to configure their
+    server before/during a test — no internal execution state, sessions, or trackers."""
+
+    test_procedure_id: TestProcedureId
+    test_procedure: TestProcedure
+    test_procedures_version: str
+    server_config: ServerConfig
+    dcap_path: str
+    client_configs: dict[str, ClientConfig]  # alias → config
+
+
 @dataclass
 class ExecutionContext:
     """Represents all state/config required for a test run execution"""
@@ -148,6 +161,16 @@ class ExecutionContext:
         seconds=5
     )  # If during execution an action is to be run in a tight loop, use this delay
     created_at: datetime = field(default_factory=utc_now, init=False)
+
+    def to_admin_context(self) -> AdminContext:
+        return AdminContext(
+            test_procedure_id=self.test_procedure_id,
+            test_procedure=self.test_procedure,
+            test_procedures_version=self.test_procedures_version,
+            server_config=self.server_config,
+            dcap_path=self.dcap_path,
+            client_configs={alias: ctx.client_config for alias, ctx in self.clients_by_alias.items()},
+        )
 
     def client_config(self, step: StepExecution) -> ClientConfig:
         """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""
