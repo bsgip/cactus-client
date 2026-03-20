@@ -40,12 +40,7 @@ class ResultsEvaluation:
 
     def has_passed(self) -> bool:
         """Returns True if EVERYTHING about the execution appears to be passing"""
-        return (
-            self.all_steps_evaluated
-            and self.all_steps_passed
-            and self.no_xsd_errors
-            and self.execution_complete
-        )
+        return self.all_steps_evaluated and self.all_steps_passed and self.no_xsd_errors and self.execution_complete
 
 
 def context_relative_time(context: ExecutionContext, dt: datetime) -> str:
