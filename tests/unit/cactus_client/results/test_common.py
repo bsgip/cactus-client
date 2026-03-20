@@ -218,7 +218,8 @@ async def test_ResultsEvaluation_failing_xsd_errors_notifications(assertical_ext
 
 
 @pytest.mark.asyncio
-async def test_ResultsEvaluation_failing_warning(assertical_extensions):
+async def test_ResultsEvaluation_passed_with_warnings(assertical_extensions):
+    """Warnings are reported but do not cause the test to fail."""
     step_1 = generate_step(1)
     step_2 = generate_step(2)
 
@@ -241,7 +242,7 @@ async def test_ResultsEvaluation_failing_warning(assertical_extensions):
     context.warnings.log_step_warning(step_execution_2, "Added a warning")
 
     actual = ResultsEvaluation(context, ExecutionResult(True))
-    assert not actual.has_passed()
+    assert actual.has_passed()
     assert not actual.no_warnings
     assert actual.total_steps == 2
     assert actual.total_steps_passed == 2

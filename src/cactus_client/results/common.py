@@ -43,7 +43,6 @@ class ResultsEvaluation:
         return (
             self.all_steps_evaluated
             and self.all_steps_passed
-            and self.no_warnings
             and self.no_xsd_errors
             and self.execution_complete
         )
