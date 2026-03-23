@@ -137,7 +137,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
 
         results = await _run_and_await_tasks(execute_task, tasks, run_config.timeout, context, log_file_path, console)
 
-        logger.info(f"Test passed: {results.has_passed()}")
+        logger.info(f"Test passed: {results.has_passed(strict=run_config.strict)}")
         logger.debug(f"ResultsEvaluation: {results}")
 
         # Print the results to the console
@@ -147,11 +147,11 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
 
         # Write pass/fail result file
         with open(output_manager.file_path(RunOutputFile.Result), "w") as fp:
-            fp.write("PASS" if results.has_passed() else "FAIL")
+            fp.write("PASS" if results.has_passed(strict=run_config.strict) else "FAIL")
 
         console.print(f"Results stored at {output_manager.run_output_dir.absolute()}")
 
         # Generate other "results" outputs in the output directory
         persist_all_request_data(context, output_manager)
 
-        return results.has_passed()
+        return results.has_passed(strict=run_config.strict)

@@ -128,6 +128,7 @@ async def autorun_entrypoint(
     exclude: list[str] | None,
     headless: bool,
     timeout: int | None,
+    strict: bool = False,
 ) -> list[AutorunRecord]:
     """Run selected test procedures sequentially with automatic client assignment.
 
@@ -156,6 +157,7 @@ async def autorun_entrypoint(
             csip_aus_version=CSIPAusVersion.RELEASE_1_2,
             headless=headless,
             timeout=timeout,
+            strict=strict,
         )
 
         try:

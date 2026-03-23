@@ -29,6 +29,7 @@ class AutoRunConfig:
     include_file: str | None = None  # Path to a text file listing one test ID per line
     exclude: list[str] = field(default_factory=list)  # Test IDs to skip
     timeout: int | None = None  # Per-test timeout in seconds (overrides main timeout)
+    strict: bool = False  # If True, warnings are treated as failures
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ class RunConfig:
     csip_aus_version: str  # What csip aus version of the tests are being evaluated? (Will be mapped to CSIPAusVersion)
     headless: bool  # If set - don't run a terminal UI - just spit out logs and the final report
     timeout: int | None = None  # Optional timeout in seconds
+    strict: bool = False  # If True, warnings are treated as failures
 
 
 @dataclass(frozen=True)

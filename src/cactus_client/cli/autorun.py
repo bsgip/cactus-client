@@ -58,6 +58,13 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         metavar="ID",
         help="Skip these test procedure IDs. Overrides runner.exclude from config.",
     )
+    autorun_parser.add_argument(
+        "--strict",
+        required=False,
+        action="store_true",
+        default=None,
+        help="Treat warnings as failures. Overrides runner.strict from config.",
+    )
 
 
 def run_action(args: argparse.Namespace) -> None:
@@ -80,6 +87,7 @@ def run_action(args: argparse.Namespace) -> None:
     cli_include_file: str | None = args.include_file
     cli_exclude: list[str] | None = args.exclude or None
     cli_timeout: int | None = args.timeout
+    cli_strict: bool | None = args.strict
 
     include = cli_include if cli_include is not None else (runner_cfg.include or None if runner_cfg else None)
     include_file = (
@@ -87,6 +95,7 @@ def run_action(args: argparse.Namespace) -> None:
     )
     exclude = cli_exclude if cli_exclude is not None else (runner_cfg.exclude or None if runner_cfg else None)
     timeout = cli_timeout if cli_timeout is not None else (runner_cfg.timeout if runner_cfg else None)
+    strict = cli_strict if cli_strict is not None else (runner_cfg.strict if runner_cfg else False)
 
     headless: bool = bool(args.headless)
 
@@ -99,6 +108,7 @@ def run_action(args: argparse.Namespace) -> None:
                 exclude=exclude,
                 headless=headless,
                 timeout=timeout,
+                strict=strict,
             )
         )
     except ConfigException as exc:

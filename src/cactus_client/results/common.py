@@ -38,9 +38,13 @@ class ResultsEvaluation:
 
         self.created_at = utc_now()
 
-    def has_passed(self) -> bool:
-        """Returns True if EVERYTHING about the execution appears to be passing"""
-        return self.all_steps_evaluated and self.all_steps_passed and self.no_xsd_errors and self.execution_complete
+    def has_passed(self, strict: bool = False) -> bool:
+        """Returns True if EVERYTHING about the execution appears to be passing.
+        If strict is True, warnings are also treated as failures."""
+        passed = self.all_steps_evaluated and self.all_steps_passed and self.no_xsd_errors and self.execution_complete
+        if strict:
+            passed = passed and self.no_warnings
+        return passed
 
 
 def context_relative_time(context: ExecutionContext, dt: datetime) -> str:
