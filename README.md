@@ -123,5 +123,63 @@ The command `cactus tests` will print out all available test cases...
 
 ### Running your first test
 
-The following command will run the `S-ALL-01` test with the client you created earlier `cactus run S-ALL-01 myclient1`
+The following command will run the `S-ALL-01` test with the client you created earlier:
 
+```
+cactus run S-ALL-01 myclient1
+```
+
+#### `cactus run` options
+
+| Flag | Description |
+|------|-------------|
+| `--headless` | Disable the terminal UI — logs are written to stderr instead. Useful for CI/scripted environments. |
+| `--timeout SECONDS` | Abort and fail the test if it exceeds this many seconds. |
+| `--strict` | Treat warnings as failures. The test will be marked FAIL if any warnings were emitted, even if all steps passed. |
+| `-c PATH` | Override the config file location (defaults to `./.cactus.yaml` then `~/.cactus.yaml`). |
+
+### Running all tests automatically
+
+`cactus autorun` runs all (or a selected subset of) test procedures sequentially, assigning configured clients to each test automatically. It stops at the first failure.
+
+```
+cactus autorun
+cactus autorun --include S-ALL-01 S-ALL-02
+cactus autorun --include-file my-tests.txt --exclude S-DER-09
+cactus autorun --strict --headless --timeout 120
+```
+
+#### `cactus autorun` options
+
+| Flag | Description |
+|------|-------------|
+| `--include ID [ID ...]` | Only run these test procedure IDs (in the order given). |
+| `--include-file PATH` | Path to a text file listing test IDs to run, one per line (`#` lines are treated as comments). Merged with `--include`. |
+| `--exclude ID [ID ...]` | Skip these test procedure IDs. Applied after `--include`/`--include-file`. |
+| `--timeout SECONDS` | Per-test timeout in seconds. A test that times out is marked as failed and the run stops. |
+| `--strict` | Treat warnings as failures for every test in the run. |
+| `--headless` | Disable the terminal UI for all tests. |
+| `-c PATH` | Override the config file location. |
+
+#### Persistent autorun config
+
+All `autorun` options (except `--headless` and `-c`) can be stored in `.cactus.yaml` under the `runner` key so you don't need to pass them on every invocation. CLI flags always take precedence over the file.
+
+```yaml
+runner:
+  include: []          # list of test IDs to include (empty = all)
+  include_file: null   # path to an include-file
+  exclude: []          # list of test IDs to skip
+  timeout: null        # per-test timeout in seconds
+  strict: false        # treat warnings as failures
+```
+
+### Viewing the compliance report
+
+After running tests, print a summary of the latest result for each test procedure:
+
+```
+cactus report
+```
+
+This scans the configured `output_dir` and shows a table of every test procedure with its most recent PASS/FAIL result and timestamp. The same report is printed automatically at the end of `cactus autorun`.
