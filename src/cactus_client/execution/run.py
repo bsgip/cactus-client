@@ -117,11 +117,14 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
             )
         else:
             # When we have the TUI up - just write logs to the output file
+            # force=True removes any existing handlers so that autorun's second+ invocations
+            # redirect logs to the new run's file rather than silently reusing the previous one.
             logging.basicConfig(
                 filename=log_file_path,
                 filemode="w",
                 level=logging.DEBUG,
                 format=log_format,
+                force=True,
             )
 
         console = Console(record=False)
