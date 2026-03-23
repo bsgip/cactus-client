@@ -3,7 +3,7 @@
 #   - readings insertions: S-ALL-04, S-ALL-06, S-ALL-07, S-ALL-47
 #   - DER controls with long durations: S-ALL-44, S-ALL-45
 #   - wait steps: S-ALL-41, S-ALL-42, S-ALL-46, S-ALL-50
-# Run with: cactus autorun --include-file include_example.txt --timeout 20
+# Run with: cactus autorun --include-file include_short.txt --timeout 20
 
 S-ALL-01
 S-ALL-02
