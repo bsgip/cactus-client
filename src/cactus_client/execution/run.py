@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import logging.config
+import urllib.parse
 from pathlib import Path
 
 from rich.console import Console
@@ -146,7 +147,9 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         with open(output_manager.file_path(RunOutputFile.Result), "w") as fp:
             fp.write("PASS" if results.has_passed() else "FAIL")
 
-        console.print(f"Results stored at {output_manager.run_output_dir.absolute()}")
+        # Print the path in a "nice" way so that common terminals support ctrl+click to open the directory
+        quoted_path = urllib.parse.quote(str(output_manager.run_output_dir.absolute()))
+        console.print(f"Results stored at file://{quoted_path}")
 
         # Generate other "results" outputs in the output directory
         persist_all_request_data(context, output_manager)
