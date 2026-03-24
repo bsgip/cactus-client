@@ -9,11 +9,7 @@ This is a set of tools for evaluating CSIP-Aus server test procedures defined at
 
 `pip install -e .[dev,test]`
 
-### Admin plugins
 
-Plugins can be developed using [apluggy](https://github.com/nextline-dev/apluggy), a simple async wrapper around pytest's [pluggy](https://github.com/pytest-dev/pluggy).
-
-See [`plugins.py`](src/cactus_client/admin/plugins.py) for the current list of exposed hookspecs. Plugins are registered via setuptools entry points under the `cactus_client.admin` group.
 
 ## Quickstart
 
@@ -183,3 +179,28 @@ cactus report
 ```
 
 This scans the configured `output_dir` and shows a table of every test procedure with its most recent PASS/FAIL result and timestamp. The same report is printed automatically at the end of `cactus autorun`.
+
+
+### Admin plugins
+
+Some test procedures include `admin_instruction` steps — directives for an out-of-band admin agent to perform setup on the server under test (e.g. registering end devices, issuing DER controls). These are handled by plugins loaded at runtime.
+
+Plugins are built using [apluggy](https://github.com/nextline-dev/apluggy), a simple async wrapper around pytest's [pluggy](https://github.com/pytest-dev/pluggy). See [`plugins.py`](src/cactus_client/admin/plugins.py) for the hookspecs your plugin can implement:
+
+| Hook | When called |
+|------|-------------|
+| `admin_setup` | Once before any test steps run |
+| `admin_teardown` | Once after all steps complete (or on failure) — always runs |
+| `admin_instruction` | Once per admin instruction, before the first attempt of the owning step |
+
+Plugins are discovered automatically via setuptools entry points — no code changes to `cactus-client` required:
+
+```toml
+# pyproject.toml
+[project.entry-points."cactus_client.admin"]
+my-plugin = "my_package.plugin:MyServerPlugin"
+```
+
+Install your plugin alongside `cactus-client` (`pip install -e .`) and it will be loaded on next invocation.
+
+**Reference implementation:** [cactus-client-envoy](https://github.com/bsgip/cactus-client-envoy) is a full worked example — it implements all three hooks against a local [Envoy](https://github.com/bsgip/envoy) CSIP-Aus server via direct database access, and includes setup scripts and a complete quickstart guide.
