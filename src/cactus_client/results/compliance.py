@@ -55,8 +55,13 @@ def scan_output_dir(output_dir: Path) -> dict[TestProcedureId, RunRecord]:
     return latest
 
 
-def render_compliance_report(console: Console, output_dir: Path) -> None:
-    """Print a Rich table showing the latest result for every known test procedure."""
+def render_compliance_report(
+    console: Console, output_dir: Path, include: list[TestProcedureId] | None = None
+) -> None:
+    """Print a Rich table showing the latest result for each test procedure.
+
+    If *include* is given, only those IDs are shown (in the order supplied).
+    Otherwise every known test procedure is listed."""
     latest_runs = scan_output_dir(output_dir)
 
     table = Table(title="Compliance Report")
@@ -64,7 +69,7 @@ def render_compliance_report(console: Console, output_dir: Path) -> None:
     table.add_column("Result")
     table.add_column("Run #")
 
-    for tp_id in TestProcedureId:
+    for tp_id in (include if include is not None else TestProcedureId):
         record = latest_runs.get(tp_id)
         if record is None:
             table.add_row(str(tp_id), "[dim]NOT RUN[/dim]", "-")

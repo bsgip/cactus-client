@@ -118,7 +118,7 @@ def run_action(args: argparse.Namespace) -> None:
         console.print_exception()
         sys.exit(1)
 
-    render_compliance_report(console, Path(global_config.output_dir))
+    render_compliance_report(console, Path(global_config.output_dir), include=[r.test_id for r in records])
 
     passed = sum(1 for r in records if r.status == AutorunStatus.PASSED)
     failed = sum(1 for r in records if r.status == AutorunStatus.FAILED)

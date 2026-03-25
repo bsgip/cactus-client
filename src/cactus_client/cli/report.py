@@ -2,6 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from cactus_test_definitions.server.test_procedures import TestProcedureId
 from rich.console import Console
 
 from cactus_client.error import ConfigException
@@ -21,6 +22,13 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         required=False,
         help=f"Override the config location. Defaults to {CONFIG_CWD} and then {CONFIG_HOME}",
     )
+    report_parser.add_argument(
+        "--include",
+        required=False,
+        nargs="+",
+        metavar="ID",
+        help="Only show results for these test procedure IDs.",
+    )
 
 
 def run_action(args: argparse.Namespace) -> None:
@@ -36,4 +44,12 @@ def run_action(args: argparse.Namespace) -> None:
         console.print("output_dir is not configured. Have you run [b]cactus setup[/b]", style="red")
         sys.exit(1)
 
-    render_compliance_report(console, Path(global_config.output_dir))
+    include: list[TestProcedureId] | None = None
+    if args.include:
+        unknown = [id_str for id_str in args.include if id_str not in TestProcedureId]
+        if unknown:
+            console.print(f"[red]Unrecognised test procedure ID(s): {', '.join(unknown)}[/red]")
+            sys.exit(1)
+        include = [TestProcedureId(id_str) for id_str in args.include]
+
+    render_compliance_report(console, Path(global_config.output_dir), include=include)
