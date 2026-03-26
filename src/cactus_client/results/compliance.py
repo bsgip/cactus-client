@@ -55,9 +55,7 @@ def scan_output_dir(output_dir: Path) -> dict[TestProcedureId, RunRecord]:
     return latest
 
 
-def render_compliance_report(
-    console: Console, output_dir: Path, include: list[TestProcedureId] | None = None
-) -> None:
+def render_compliance_report(console: Console, output_dir: Path, include: list[TestProcedureId] | None = None) -> None:
     """Print a Rich table showing the latest result for each test procedure.
 
     If *include* is given, only those IDs are shown (in the order supplied).
