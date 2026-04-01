@@ -1,6 +1,7 @@
 from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_test_definitions.server.test_procedures import ClientType
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
     EndDeviceResponse,
@@ -11,9 +12,17 @@ from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import ResourceStore, StoredResource
 
+VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX = "/edev/0"
 
-def match_end_device_on_lfdi_caseless(resource_store: ResourceStore, lfdi: str) -> StoredResource | None:
-    """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None"""
+
+def match_end_device_on_lfdi_caseless(
+    resource_store: ResourceStore, lfdi: str, is_aggregator: bool = False
+) -> StoredResource | None:
+    """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None.
+
+    If is_aggregator is True, the virtual aggregator placeholder device at /edev/0 is excluded from matching.
+    Aggregator clients always see edev/0 regardless of whether a real device has been registered.
+    """
     end_devices = resource_store.get_for_type(CSIPAusResource.EndDevice)
     if not end_devices:
         return None
@@ -22,8 +31,15 @@ def match_end_device_on_lfdi_caseless(resource_store: ResourceStore, lfdi: str) 
     for edev in end_devices:
         edev_resource = cast(EndDeviceResponse, edev.resource)
 
-        if edev_resource.lFDI is not None and (edev_resource.lFDI.casefold() == lfdi_folded):
-            return edev
+        if edev_resource.lFDI is None or edev_resource.lFDI.casefold() != lfdi_folded:
+            continue
+
+        if is_aggregator and (
+            edev_resource.href is not None and edev_resource.href.endswith(VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX)
+        ):
+            continue
+
+        return edev
 
     return None
 
@@ -40,7 +56,9 @@ def check_end_device(
     client_config = context.client_config(step)
 
     # Start by finding a loose candidate match - then we can drill into the specifics
-    matched_edev = match_end_device_on_lfdi_caseless(resource_store, client_config.lfdi)
+    matched_edev = match_end_device_on_lfdi_caseless(
+        resource_store, client_config.lfdi, is_aggregator=client_config.type == ClientType.AGGREGATOR
+    )
     if matched_edev is None:
         if matches is True:
             return CheckResult(False, f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.")

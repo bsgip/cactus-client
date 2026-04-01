@@ -1,0 +1,64 @@
+# One test procedure ID per line. Lines starting with # are ignored.
+# This list excludes slow tests:
+#   - readings insertions: S-ALL-04, S-ALL-06, S-ALL-07, S-ALL-47
+#   - DER controls with long durations: S-ALL-44, S-ALL-45
+#   - wait steps: S-ALL-41, S-ALL-42, S-ALL-46, S-ALL-50
+# Run with: cactus autorun --include-file include_short.txt --timeout 20
+
+S-ALL-01
+S-ALL-02
+S-ALL-03
+S-ALL-05
+S-ALL-07
+S-ALL-08
+S-ALL-09
+S-ALL-10
+S-ALL-11
+S-ALL-12
+S-ALL-13
+S-ALL-14
+S-ALL-15
+S-ALL-16
+S-ALL-17
+S-ALL-18
+S-ALL-19
+S-ALL-20
+S-ALL-21
+S-ALL-22
+S-ALL-23
+S-ALL-24
+S-ALL-25
+S-ALL-26
+S-ALL-27
+S-ALL-28
+S-ALL-29
+S-ALL-30
+S-ALL-31
+S-ALL-32
+S-ALL-33
+S-ALL-34
+S-ALL-35
+S-ALL-36
+S-ALL-37
+S-ALL-38
+S-ALL-39
+S-ALL-40
+S-ALL-42
+S-ALL-43
+S-ALL-44
+S-ALL-45
+S-ALL-47
+S-ALL-48
+S-ALL-49
+S-ALL-51
+S-ALL-52
+S-ALL-53
+S-ALL-54
+S-ALL-55
+S-ALL-56
+S-ALL-57
+S-OPT-01
+S-OPT-02
+S-OPT-03
+S-OPT-04
+S-OPT-05

@@ -1,0 +1,14 @@
+# One test procedure ID per line. Lines starting with # are ignored.
+# Tests requiring longer timeouts due to readings insertions, DER control durations, or wait steps.
+# Excludes S-ALL-50 (simulate-client 72h).
+# Run with: cactus autorun --include-file include_long.txt --timeout 720
+
+# Add readings (8 mins each, 4 sets of 1 min for site and device)
+S-ALL-04
+S-ALL-06
+
+# Explicit long controls
+S-ALL-41
+
+# Explicit wait
+S-ALL-46

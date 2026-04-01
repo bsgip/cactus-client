@@ -5,6 +5,7 @@ from enum import StrEnum, auto
 from typing import Any, Callable, TypeVar
 
 import yaml
+from cactus_test_definitions.variable_expressions import BaseExpression
 from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, Group, RenderableType
@@ -28,10 +29,22 @@ logger = logging.getLogger(__name__)
 AnyType = TypeVar("AnyType")
 
 
+def _sanitize_parameters(params: Any) -> Any:
+    """Recursively replaces BaseExpression instances with their human-readable string form."""
+    if isinstance(params, BaseExpression):
+        return f"$({params.expression_representation()})"
+    if isinstance(params, dict):
+        return {k: _sanitize_parameters(v) for k, v in params.items()}
+    if isinstance(params, list):
+        return [_sanitize_parameters(v) for v in params]
+    return params
+
+
 class PanelFocus(StrEnum):
     Logs = auto()
     Warnings = auto()
     Requests = auto()
+    Steps = auto()
 
 
 CURRENT_FOCUS: PanelFocus | None = None
@@ -149,7 +162,7 @@ def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
     return Group(table_responses, active_request_line)
 
 
-def generate_step_progress(context: ExecutionContext) -> RenderableType:
+def generate_step_progress(context: ExecutionContext, height: int) -> RenderableType:
     step_grid = Table(
         title=f"[b]{context.test_procedure_id}[/] Steps",
         caption=f"[b]{len(context.steps._items)}[/] steps in queue.",
@@ -158,7 +171,34 @@ def generate_step_progress(context: ExecutionContext) -> RenderableType:
         expand=True,
         title_justify="left",
     )
-    for step in context.test_procedure.steps:
+
+    steps = context.test_procedure.steps
+    n = len(steps)
+    max_rows = max(0, height - 4)  # budget for title, caption, and borders
+
+    current_id = context.progress.current_step_execution.source.id if context.progress.current_step_execution else None
+
+    if n <= max_rows:
+        window_start, window_end = 0, n
+    else:
+        current_idx = next((i for i, s in enumerate(steps) if s.id == current_id), 0)
+        visible = max_rows - 2  # reserve two rows for up/down summary lines
+        half = visible // 2
+        window_start = max(0, min(current_idx - half, n - visible))
+        window_end = window_start + visible
+        # Recover a slot when only one boundary needs a summary line
+        if window_start == 0:
+            window_end = min(n, window_end + 1)
+        elif window_end >= n:
+            window_start = max(0, window_start - 1)
+
+    prefix_count = window_start
+    suffix_count = n - window_end
+
+    if prefix_count > 0:
+        step_grid.add_row("", f"[dim]▲ {prefix_count} more[/]", "")
+
+    for step in steps[window_start:window_end]:
         step_progress = context.progress.progress_by_step_id.get(step.id, None)
         step_result = step_progress.result if step_progress else None
         step_style = None
@@ -170,16 +210,16 @@ def generate_step_progress(context: ExecutionContext) -> RenderableType:
         elif step_result is not None and not step_result.is_passed():
             dot = "x"
             step_style = "red"
-        elif (
-            context.progress.current_step_execution is not None
-            and context.progress.current_step_execution.source.id == step.id
-        ):
+        elif current_id is not None and current_id == step.id:
             dot = Spinner("dots")
 
         if step_progress is not None:
             started = context_relative_time(context, step_progress.created_at)
 
         step_grid.add_row(dot, f"[b]{step.id}[/]", started, style=step_style)
+
+    if suffix_count > 0:
+        step_grid.add_row("", f"[dim]▼ {suffix_count} more[/]", "")
 
     return step_grid
 
@@ -218,7 +258,7 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
 
     action_raw: dict[str, Any] = {
         "type": se.source.action.type,
-        "parameters": se.source.action.parameters,
+        "parameters": _sanitize_parameters(se.source.action.parameters),
     }
     yaml_columns = [
         Group(
@@ -228,7 +268,7 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
         )
     ]
     for check in se.source.checks or []:
-        check_raw = {"type": check.type, "parameters": check.parameters}
+        check_raw = {"type": check.type, "parameters": _sanitize_parameters(check.parameters)}
         yaml_columns.append(
             Group(
                 "[b]Check[/]",
@@ -287,8 +327,9 @@ def render_unfocused_tui(context: ExecutionContext, run_id: int, console_height:
         Layout(name="steps"),
         Layout(name="active-step", ratio=2, minimum_size=60),
     )
+    step_progress_height = console_height - HEADER_HEIGHT - footer_height - warnings_height
     layout["steps"].split(
-        Layout(generate_step_progress(context), name="step-progress", ratio=2),
+        Layout(generate_step_progress(context, step_progress_height), name="step-progress", ratio=2),
         Layout(generate_warnings(context, warnings_height), name="warnings-list", size=warnings_height),
     )
 
@@ -317,6 +358,8 @@ def render_tui(context: ExecutionContext, run_id: int, console_height: int) -> R
         return render_focused_panel(context, run_id, generate_active_step_logs(context, console_height - HEADER_HEIGHT))
     elif CURRENT_FOCUS == PanelFocus.Warnings:
         return render_focused_panel(context, run_id, generate_warnings(context, console_height - HEADER_HEIGHT))
+    elif CURRENT_FOCUS == PanelFocus.Steps:
+        return render_focused_panel(context, run_id, generate_step_progress(context, console_height - HEADER_HEIGHT))
     return render_unfocused_tui(context, run_id, console_height)
 
 
@@ -333,6 +376,8 @@ async def run_tui(console: Console, context: ExecutionContext, run_id: int, refr
                 key = keypress.key_pressed()
                 if key == "q":
                     CURRENT_FOCUS = None
+                elif key == "s":
+                    CURRENT_FOCUS = PanelFocus.Steps
                 elif key == "w":
                     CURRENT_FOCUS = PanelFocus.Warnings
                 elif key == "l":

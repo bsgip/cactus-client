@@ -5,6 +5,7 @@ import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_test_definitions.server.test_procedures import ClientType
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
     EndDeviceResponse,
@@ -193,6 +194,88 @@ def test_check_end_device(
         assert len(context.warnings.warnings) > 0
     else:
         assert len(context.warnings.warnings) == 0
+
+
+@pytest.mark.parametrize(
+    "client_type, edevs, client_lfdi, matches, expected_result",
+    [
+        # Aggregator: only edev/0 - matches_client:false should pass
+        (
+            ClientType.AGGREGATOR,
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
+            "ABC123",
+            False,
+            True,
+        ),
+        # Aggregator: only edev/0 - matches_client:true should fail-
+        (
+            ClientType.AGGREGATOR,
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
+            "ABC123",
+            True,
+            False,
+        ),
+        # Aggregator: edev/0 plus real registered device - matches_client:false should fail
+        (
+            ClientType.AGGREGATOR,
+            [
+                generate_class_instance(EndDeviceResponse, seed=101, lFDI="ABC123", href="/path/edev/0"),
+                generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", href="/path/edev/1"),
+            ],
+            "ABC123",
+            False,
+            False,
+        ),
+        # Aggregator: edev/0 plus real registered device - matches_client:true should pass
+        (
+            ClientType.AGGREGATOR,
+            [
+                generate_class_instance(EndDeviceResponse, seed=101, lFDI="ABC123", href="/path/edev/0"),
+                generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", href="/path/edev/1"),
+            ],
+            "ABC123",
+            True,
+            True,
+        ),
+        # Device client: edev/0 - matches_client:false should fail
+        (
+            ClientType.DEVICE,
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
+            "ABC123",
+            False,
+            False,
+        ),
+        # Device client: edev/0 - matches_client:true should pass
+        (
+            ClientType.DEVICE,
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
+            "ABC123",
+            True,
+            True,
+        ),
+    ],
+)
+def test_check_end_device_aggregator_virtual_edev(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    assert_check_result: Callable[[CheckResult, bool], None],
+    client_type: ClientType,
+    edevs: list[EndDeviceResponse],
+    client_lfdi: str,
+    matches: bool,
+    expected_result: bool,
+):
+
+    context, step = testing_contexts_factory(mock.Mock())
+    context.clients_by_alias[step.client_alias].client_config = generate_class_instance(
+        ClientConfig, lfdi=client_lfdi, type=client_type
+    )
+
+    store = context.discovered_resources(step)
+    for edev in edevs:
+        store.append_resource(CSIPAusResource.EndDevice, None, edev)
+
+    result = check_end_device({"matches_client": matches}, step, context)
+    assert_check_result(result, expected_result)
 
 
 @pytest.mark.parametrize(
