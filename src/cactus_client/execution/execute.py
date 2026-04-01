@@ -10,6 +10,7 @@ from cactus_client.check import execute_checks
 from cactus_client.check.sep2 import is_invalid_resource
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, ExecutionResult, StepExecution
+from cactus_client.model.parameter import resolve_variable_expressions_from_parameters
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -81,16 +82,18 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
 async def _fire_admin_instructions(context: ExecutionContext, current_step: StepExecution) -> None:
     """Fire each admin instruction for the step via the plugin manager, logging unhandled instructions."""
     pm = get_plugin_manager()
+    admin_context = context.to_admin_context()
     for instr in current_step.source.admin_instructions or []:
+        client_config = admin_context.client_config_for(instr.client)
+        resolved_params = await resolve_variable_expressions_from_parameters(client_config, instr.parameters)
+        instr = replace(instr, parameters=resolved_params)
         logger.info(
             "[admin-instruction] step=%s type=%s params=%s",
             current_step.source.id,
             instr.type,
             instr.parameters,
         )
-        results = await pm.ahook.admin_instruction(
-            instruction=instr, step=current_step, context=context.to_admin_context()
-        )
+        results = await pm.ahook.admin_instruction(instruction=instr, step=current_step, context=admin_context)
         if not any(r is not None for r in results):
             logger.info(
                 "[admin-instruction] no plugin handled type=%s in step=%s",

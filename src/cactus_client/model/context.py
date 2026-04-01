@@ -138,6 +138,12 @@ class AdminContext:
     dcap_path: str
     client_configs: dict[str, ClientConfig]  # alias → config
 
+    def client_config_for(self, client: str | None) -> ClientConfig:
+        """Returns the ClientConfig for the given client alias, or the first client if alias is None."""
+        if client is None:
+            return next(iter(self.client_configs.values()))
+        return self.client_configs[client]
+
 
 @dataclass
 class ExecutionContext:
