@@ -33,7 +33,7 @@ async def action_refresh_resource(
     if len(matching_resources) == 0:
         raise CactusClientException(f"Expected matching resources to refresh for resource {resource_type}. None found.")
 
-    for sr in matching_resources:
+    for sr in matching_resources[:]:
         href = sr.resource.href
 
         if href is None:  # Skip resources without a href
@@ -52,7 +52,11 @@ async def action_refresh_resource(
             else:
                 # If not expected to fail, actually request the resource and upsert in the resource store
                 fetched_resource = await get_resource_for_step(type(sr.resource), step, context, href)
-                resource_store.upsert_resource(resource_type, sr.id.parent_id(), fetched_resource)
+                if fetched_resource is None:
+                    # Likely a 204 No Content has been returned so may need to remove any existing resources
+                    resource_store.delete_resource(sr.id)
+                else:
+                    resource_store.upsert_resource(resource_type, sr.id.parent_id(), fetched_resource)
 
         except RequestException as exc:
             # We will bundle up RequestException as a "retryable" failure

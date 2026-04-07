@@ -67,6 +67,50 @@ async def test_action_refresh_resource_happy_path(testing_contexts_factory):
 
 
 @pytest.mark.asyncio
+async def test_action_refresh_resource_existing_resource_now_none(testing_contexts_factory):
+    """Makes sure when a get_resource_for_step returns None and resource exists it gets deleted."""
+
+    # Arrange
+    context: ExecutionContext
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+
+    # Create multiple EndDevices in the store
+    edev1 = generate_class_instance(EndDeviceResponse, href="/edev/1", postRate=60)
+    edev2 = generate_class_instance(EndDeviceResponse, href="/edev/2", postRate=60)
+    resource_store.upsert_resource(CSIPAusResource.EndDevice, None, edev1)
+    resource_store.upsert_resource(CSIPAusResource.EndDevice, None, edev2)
+
+    with mock.patch("cactus_client.action.refresh_resource.get_resource_for_step") as mock_get:
+        # Return none from the function
+        mock_get.return_value = None
+
+        resolved_params = {"resource": CSIPAusResource.EndDevice.value}
+        current_contents = resource_store.get_for_type(CSIPAusResource.EndDevice)
+        assert len(current_contents) == 2
+
+        # Act
+        result = await action_refresh_resource(resolved_params, step, context)
+
+        # Assert
+        assert isinstance(result, ActionResult)
+        assert result.completed
+
+        # Verify get_resource_for_step was called twice
+        assert mock_get.call_count == 2
+
+        # Check first call in detail
+        first_call_args = mock_get.call_args_list[0]
+        assert first_call_args[0][0] == EndDeviceResponse
+        assert first_call_args[0][2] == context
+        assert first_call_args[0][3] == "/edev/1"
+
+        # Verify both resources were deleted
+        stored_edevs = resource_store.get_for_type(CSIPAusResource.EndDevice)
+        assert len(stored_edevs) == 0
+
+
+@pytest.mark.asyncio
 async def test_action_refresh_resource_expect_rejection(testing_contexts_factory):
 
     # Arrange

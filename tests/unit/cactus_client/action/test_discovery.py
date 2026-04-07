@@ -239,6 +239,42 @@ async def test_discover_resource_singular_resources(
 
 
 @pytest.mark.parametrize(
+    "resource, matched_parents",
+    [(CSIPAusResource.DefaultDERControl, 1)],
+)
+@mock.patch("cactus_client.action.discovery.get_resource_for_step")
+@mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
+@pytest.mark.asyncio
+async def test_discover_resource_singular_resource_no_content(
+    mock_paginate_list_resource_items: mock.MagicMock,
+    mock_get_resource_for_step: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    resource: CSIPAusResource,
+    matched_parents: int,
+):
+    """
+    Discover singular resources via parent link (e.g. DefaultDERControl), with no-content returned
+
+    Tests 1-to-1 parent-child relationships. Uses get_resource_for_step, not pagination.
+    """
+    # Arrange
+    context, step, resource_store, _, _ = setup_discovery_test(testing_contexts_factory, resource, matched_parents)
+    mock_get_resource_for_step.return_value = None
+
+    # Act
+    await discover_resource(resource, step, context, None)
+
+    # Assert
+    added_resources = resource_store.get_for_type(resource)
+    assert [sr.resource for sr in added_resources] == []
+
+    mock_get_resource_for_step.assert_called()
+    mock_paginate_list_resource_items.assert_not_called()
+
+    assert len(context.warnings.warnings) == 0
+
+
+@pytest.mark.parametrize(
     "list_resource, child_resource, num_parents, items_per_parent",
     [
         (CSIPAusResource.MirrorUsagePointList, CSIPAusResource.MirrorUsagePoint, 1, [3]),

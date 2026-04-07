@@ -161,6 +161,10 @@ async def discover_resource(
         for parent_sr in resource_store.get_for_type(parent_resource):
             href = parent_sr.resource_link_hrefs.get(resource, None)
             if href:
+                resource_for_step = await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href)
+                # This caters for a no content 204 response
+                if resource_for_step is None:
+                    continue
                 resource_store.append_resource(
                     resource,
                     parent_sr.id,
@@ -168,7 +172,7 @@ async def discover_resource(
                         step,
                         context,
                         href,
-                        await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href),
+                        resource_for_step,
                     ),
                 )
 

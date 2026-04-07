@@ -33,7 +33,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestException
+from cactus_client.error import RequestException, StateException
 
 
 @dataclass
@@ -186,6 +186,28 @@ async def test_get_resource_for_step_success(aiohttp_client, testing_contexts_fa
     assert isinstance(result, DeviceCapabilityResponse)
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
+
+    # Assert - contents of trackers
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_resource_for_step_no_content(aiohttp_client, testing_contexts_factory):
+    """Does get_resource_for_step handle parsing the XML and returning the correct data"""
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.GET, "/foo/bar", [RouteBehaviour.no_content_location(HTTPStatus.NO_CONTENT, "/foo/bar/baz")]
+            )
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        result = await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
+
+    # Assert - contents of response
+    assert result is None
 
     # Assert - contents of trackers
     assert len(execution_context.warnings.warnings) == 0
@@ -435,6 +457,35 @@ async def test_submit_and_refetch_resource_for_step_failure_refetch_request(aioh
                 execution_context,
                 HTTPMethod.DELETE,
                 "/foo",
+                generate_class_instance(DeviceCapabilityResponse),
+            )
+
+
+@mock.patch("cactus_client.action.server.get_resource_for_step")
+@pytest.mark.asyncio
+async def test_submit_and_refetch_resource_for_step_returned_resource_none(
+    mock_get_resource_for_step, aiohttp_client, testing_contexts_factory
+):
+    """Does submit_and_refetch_resource_for_step abort if the refetch request fails"""
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(HTTPMethod.PUT, "/foo/bar", [RouteBehaviour.no_content_location(HTTPStatus.OK, "/foo/bar")]),
+            TestingAppRoute(
+                HTTPMethod.GET, "/foo/bar", [RouteBehaviour.no_content_location(HTTPStatus.NO_CONTENT, "/foo/bar")]
+            ),
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        mock_get_resource_for_step.return_value = None
+
+        with pytest.raises(StateException):
+            await submit_and_refetch_resource_for_step(
+                DeviceCapabilityResponse,
+                step_execution,
+                execution_context,
+                HTTPMethod.PUT,
+                "/foo/bar",
                 generate_class_instance(DeviceCapabilityResponse),
             )
 

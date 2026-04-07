@@ -63,6 +63,9 @@ class ServerResponse:
     def is_success(self) -> bool:
         return self.status >= 200 and self.status < 300
 
+    def is_no_content(self) -> bool:
+        return self.status == 204
+
     def is_client_error(self) -> bool:
         return self.status >= 400 and self.status < 500
 
