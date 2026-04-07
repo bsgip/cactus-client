@@ -13,7 +13,7 @@ from cactus_client.action.discovery import (
     calculate_wait_next_polling_window,
     discover_resource,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientException, StateException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
@@ -87,6 +87,31 @@ async def test_discover_resource_dcap(
     else:
         assert len(context.warnings.warnings) == 1
         assert len(stored_resources) == 0
+
+
+@mock.patch("cactus_client.action.discovery.get_resource_for_step")
+@mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
+@pytest.mark.asyncio
+async def test_discover_resource_dcap_no_content(
+    mock_paginate_list_resource_items: mock.MagicMock,
+    mock_get_resource_for_step: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """DeviceCapability when a no-content is returned"""
+
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    mock_get_resource_for_step.return_value = None
+
+    with pytest.raises(StateException):
+        await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
+
+    # Assert
+    stored_resources = context.discovered_resources(step).get_for_type(CSIPAusResource.DeviceCapability)
+    mock_get_resource_for_step.assert_called_once_with(DeviceCapabilityResponse, step, context, context.dcap_path)
+    mock_paginate_list_resource_items.assert_not_called()
+
+    assert len(stored_resources) == 0
 
 
 @pytest.mark.parametrize(
