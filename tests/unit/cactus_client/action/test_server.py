@@ -470,7 +470,9 @@ async def test_submit_and_refetch_resource_for_step_returned_resource_none(
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.PUT, "/foo/bar", [RouteBehaviour.no_content_location(HTTPStatus.OK, "/foo/bar")]),
+            TestingAppRoute(
+                HTTPMethod.PUT, "/foo/bar", [RouteBehaviour.no_content_location(HTTPStatus.OK, "/foo/bar")]
+            ),
             TestingAppRoute(
                 HTTPMethod.GET, "/foo/bar", [RouteBehaviour.no_content_location(HTTPStatus.NO_CONTENT, "/foo/bar")]
             ),

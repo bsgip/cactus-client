@@ -120,12 +120,7 @@ async def discover_resource(
         resource_store.append_resource(
             CSIPAusResource.DeviceCapability,
             None,
-            check_item_for_href(
-                step,
-                context,
-                context.dcap_path,
-                dcap_resource
-            ),
+            check_item_for_href(step, context, context.dcap_path, dcap_resource),
         )
         return
 
