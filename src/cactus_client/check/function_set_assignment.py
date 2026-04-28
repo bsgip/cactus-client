@@ -1,6 +1,7 @@
 from typing import Any
 
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_test_definitions.server.test_procedures import ClientType
 
 from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
@@ -21,7 +22,9 @@ def check_function_set_assignment(
     client_config = context.client_config(step)
 
     if matches_client_edev:
-        matched_edev = match_end_device_on_lfdi_caseless(store, client_config.lfdi)
+        matched_edev = match_end_device_on_lfdi_caseless(
+            store, client_config.lfdi, is_aggregator=client_config.type == ClientType.AGGREGATOR
+        )
         if matched_edev is None:
             return CheckResult(False, f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.")
     else:
