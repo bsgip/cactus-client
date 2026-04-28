@@ -5,6 +5,7 @@ import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_test_definitions.server.test_procedures import ClientType
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceResponse,
 )
@@ -14,6 +15,8 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
 )
 
 from cactus_client.check.function_set_assignment import check_function_set_assignment
+from cactus_client.check.end_device import VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX
+from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 
@@ -288,3 +291,52 @@ def test_check_function_set_assignment(
     # Assert
     assert_check_result(result, expected_result)
     assert len(context.warnings.warnings) == 0
+
+
+def test_check_function_set_assignment_aggregator_skips_virtual_edev(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    assert_check_result: Callable[[CheckResult, bool], None],
+):
+    """Aggregator clients always see a virtual /edev/0 device with their LFDI. When matches_client_edev=True,
+    the check must skip /edev/0 and match the real registered device so FSAs stored under it are found."""
+    context, step = testing_contexts_factory(mock.Mock())
+
+    # Override client_config to AGGREGATOR type
+    client_alias = step.client_alias
+    original_cc = context.clients_by_alias[client_alias].client_config
+    aggregator_config = generate_class_instance(
+        ClientConfig, optional_is_none=True, lfdi=original_cc.lfdi, type=ClientType.AGGREGATOR
+    )
+    context.clients_by_alias[client_alias].client_config = aggregator_config
+
+    store = context.discovered_resources(step)
+
+    # Virtual aggregator device at /edev/0 — same LFDI, should be skipped
+    virtual_edev = store.append_resource(
+        CSIPAusResource.EndDevice,
+        None,
+        generate_class_instance(
+            EndDeviceResponse, seed=1, lFDI=original_cc.lfdi, href=VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX
+        ),
+    )
+
+    # Real registered device at /edev/10 — same LFDI, FSA lives here
+    real_edev = store.append_resource(
+        CSIPAusResource.EndDevice,
+        None,
+        generate_class_instance(EndDeviceResponse, seed=2, lFDI=original_cc.lfdi, href="/edev/10"),
+    )
+    fsal = store.append_resource(
+        CSIPAusResource.FunctionSetAssignmentsList,
+        real_edev.id,
+        generate_class_instance(FunctionSetAssignmentsListResponse, seed=3),
+    )
+    store.append_resource(
+        CSIPAusResource.FunctionSetAssignments,
+        fsal.id,
+        generate_class_instance(FunctionSetAssignmentsResponse, seed=4),
+    )
+
+    result = check_function_set_assignment({"matches_client_edev": True, "minimum_count": 1}, step, context)
+
+    assert_check_result(result, True)
