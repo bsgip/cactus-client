@@ -37,6 +37,8 @@ class ClientConfigKey(StrEnum):
     PEN = auto()
     PIN = auto()
     MAXW = auto()
+    NMI = auto()
+    NMI_2 = auto()
     USER_AGENT = auto()
 
 
@@ -87,6 +89,10 @@ def print_client_value(console: Console, client: ClientConfig | None, config_key
             value = client.type
         case ClientConfigKey.MAXW:
             value = client.max_watts
+        case ClientConfigKey.NMI:
+            value = client.nmi
+        case ClientConfigKey.NMI_2:
+            value = client.nmi_2
         case ClientConfigKey.PEN:
             value = client.pen
         case ClientConfigKey.PIN:
@@ -130,6 +136,10 @@ def update_client_value(
                 return replace(client, type=ClientType(new_value))
             case ClientConfigKey.MAXW:
                 return replace(client, max_watts=int(new_value))
+            case ClientConfigKey.NMI:
+                return replace(client, nmi=new_value)
+            case ClientConfigKey.NMI_2:
+                return replace(client, nmi_2=new_value)
             case ClientConfigKey.PEN:
                 return replace(client, pen=int(new_value))
             case ClientConfigKey.PIN:
@@ -175,6 +185,10 @@ def print_client(console: Console, client: ClientConfig) -> None:
         "max_watts",
         str(client.max_watts),
         "When registering a [b]DERCapability[/] and [b]DERSettings[/], use this value for max watts.",
+    )
+    table.add_row("nmi", client.nmi, "Any valid NMI for [b]ConnectionPoint[/] registration ($(valid_nmi_1))")
+    table.add_row(
+        "nmi_2", client.nmi_2, "Any other  valid NMI for tests that update a [b]ConnectionPoint[/] ($(valid_nmi_2))"
     )
     table.add_row("pen", str(client.pen), "The IANA private enterprise number of this client. Used for [b]mRID's[/]")
     table.add_row(

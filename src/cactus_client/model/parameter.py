@@ -34,6 +34,10 @@ async def resolve_variable(client_config: ClientConfig, v: NamedVariable | Expre
                 return utc_now()
             case NamedVariableType.DERSETTING_SET_MAX_W:
                 return client_config.max_watts
+            case NamedVariableType.NMI_1:
+                return client_config.nmi
+            case NamedVariableType.NMI_2:
+                return client_config.nmi_2
         raise UnresolvableVariableError(f"Unable to resolve NamedVariable of type {v.variable} ({int(v.variable)})")
     elif isinstance(v, Expression):
         lhs = await resolve_variable(client_config, v.lhs_operand)
