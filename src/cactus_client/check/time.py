@@ -63,6 +63,9 @@ def check_poll_rate(resolved_parameters: dict[str, Any], step: StepExecution, co
     resource_store = context.discovered_resources(step)
     resources = resource_store.get_for_type(resource_type)
 
+    if not resources:
+        return CheckResult(False, f"No discovered {resource_type} resource found to check poll rate.")
+
     # Check poll rate for each resource (should only be one though)
     for sr in resources:
         if not hasattr(sr.resource, "pollRate"):
