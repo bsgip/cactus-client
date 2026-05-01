@@ -15,6 +15,12 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
 )
 from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
+from envoy_schema.server.schema.sep2.pricing import (
+    ConsumptionTariffIntervalListResponse,
+    RateComponentListResponse,
+    TariffProfileListResponse,
+    TimeTariffIntervalListResponse,
+)
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
 from cactus_client.action.server import (
@@ -25,7 +31,7 @@ from cactus_client.action.server import (
 from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_client.model.resource import RESOURCE_SEP2_TYPES, ResourceStore
+from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CombinedTimeTariffIntervalListResponse, ResourceStore
 from cactus_client.time import utc_now
 
 DISCOVERY_LIST_PAGE_SIZE = 3  # We want something suitably small (to ensure pagination is tested)
@@ -90,6 +96,21 @@ def get_list_item_callback(
         case CSIPAusResource.SubscriptionList:
             get_list_items = lambda list_: cast(SubscriptionListResponse, list_).subscriptions  # type: ignore # noqa: E731
             list_item_type = CSIPAusResource.Subscription
+        case CSIPAusResource.TariffProfileList:
+            get_list_items = lambda list_: cast(TariffProfileListResponse, list_).TariffProfile  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.TariffProfile
+        case CSIPAusResource.RateComponentList:
+            get_list_items = lambda list_: cast(RateComponentListResponse, list_).RateComponent  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.RateComponent
+        case CSIPAusResource.TimeTariffIntervalList:
+            get_list_items = lambda list_: cast(TimeTariffIntervalListResponse, list_).TimeTariffInterval  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.TimeTariffInterval
+        case CSIPAusResource.CombinedTimeTariffIntervalList:
+            get_list_items = lambda list_: cast(CombinedTimeTariffIntervalListResponse, list_).TimeTariffInterval  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.TimeTariffInterval
+        case CSIPAusResource.ConsumptionTariffIntervalList:
+            get_list_items = lambda list_: cast(ConsumptionTariffIntervalListResponse, list_).ConsumptionTariffInterval  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.ConsumptionTariffInterval
 
     if get_list_items is None or list_item_type is None:
         raise CactusClientException(f"resource {list_resource} has no registered get_list_items function.")
