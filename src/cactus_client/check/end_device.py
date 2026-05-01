@@ -15,6 +15,12 @@ from cactus_client.model.resource import ResourceStore, StoredResource
 VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX = "/edev/0"
 
 
+def is_checksum_valid(pin: int) -> bool:
+    # SEP2 PINs are 6 digits: the first 5 are the raw PIN, the last digit is a checksum
+    # equal to the sum of the first 5 digits mod 10. e.g. raw 12345 → 1+2+3+4+5=15 → checksum 5 → PIN 123455
+    return pin % 10 == sum(int(d) for d in str(pin // 10)) % 10
+
+
 def match_end_device_on_lfdi_caseless(
     resource_store: ResourceStore, lfdi: str, is_aggregator: bool = False
 ) -> StoredResource | None:
@@ -82,6 +88,8 @@ def check_end_device(
                 return CheckResult(
                     False, f"{edev.href} has a Registration with with PIN {actual_pin} but expected {client_config.pin}"
                 )
+            if not is_checksum_valid(actual_pin):
+                return CheckResult(False, f"{actual_pin} does not have a valid checksum")
 
     # Check for more specifics
     if edev.sFDI != client_config.sfdi:
