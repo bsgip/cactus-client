@@ -8,7 +8,7 @@ from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource
 
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestException
+from cactus_client.error import RequestException, StateException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
@@ -164,14 +164,28 @@ async def client_error_or_empty_list_request_for_step(
 
 async def get_resource_for_step(
     t: type[AnyResourceType], step: StepExecution, context: ExecutionContext, href: str
-) -> AnyResourceType:
-    """Makes a GET request for a particular href and parses the resulting XML into an expected type (t). Raises a
-    RequestException if the connection fails, returns an error or fails to parse to t"""
+) -> AnyResourceType | None:
+    """Makes a GET request for a particular href and parses the resulting XML into an expected type (t).
+
+    Args:
+        t: model class the response body should parse to
+        step: data object for step execution
+        context: context object for test execution
+        href: url path of the resource
+
+    Returns:
+        parsed xml model of type t or None if No Content (204)
+
+    Raises:
+        RequestException if the connection fails, returns an error or fails to parse to t
+    """
     # Make the raw request
     response = await request_for_step(step, context, href, HTTPMethod.GET)
 
     if not response.is_success():
         raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
+    if response.is_no_content():
+        return None
 
     return parse_type_response(t, response)
 
@@ -236,6 +250,8 @@ async def submit_and_refetch_resource_for_step(
 
     # Check the returned resource matches the submitted resource
     returned_resource = await get_resource_for_step(t, step, context, refetch_href)
+    if returned_resource is None:
+        raise StateException("No matching resource found for submitted request on server.")
     changes = get_property_changes(submitted_resource, returned_resource)
     if changes:
         context.warnings.log_step_warning(
@@ -341,7 +357,7 @@ async def fetch_list_page(
     """
     page_href = list_href + build_paging_params(start=start, limit=limit)
     latest_list = await get_resource_for_step(list_type, step, context, page_href)
-    latest_items = item_callback(latest_list)
+    latest_items = item_callback(latest_list) if latest_list is not None else None
     if latest_items is None:
         latest_items = []  # pydantic-xml can parse a missing/empty list as None
 

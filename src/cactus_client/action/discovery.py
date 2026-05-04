@@ -28,7 +28,7 @@ from cactus_client.action.server import (
     get_resource_for_step,
     paginate_list_resource_items,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientException, StateException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CombinedTimeTariffIntervalListResponse, ResourceStore
@@ -132,16 +132,16 @@ async def discover_resource(
     # We need to also check if the parent resource is a list type and this resource is a member of that list
     parent_resource = context.resource_tree.parent_resource(resource)
     if parent_resource is None:
+        dcap_resource = await get_resource_for_step(DeviceCapabilityResponse, step, context, context.dcap_path)
+        if dcap_resource is None:
+            # Unlikely but included for completeness
+            raise StateException(f"{context.dcap_path} returned no content")
+
         # We have device capability - this is a special case
         resource_store.append_resource(
             CSIPAusResource.DeviceCapability,
             None,
-            check_item_for_href(
-                step,
-                context,
-                context.dcap_path,
-                await get_resource_for_step(DeviceCapabilityResponse, step, context, context.dcap_path),
-            ),
+            check_item_for_href(step, context, context.dcap_path, dcap_resource),
         )
         return
 
@@ -182,6 +182,10 @@ async def discover_resource(
         for parent_sr in resource_store.get_for_type(parent_resource):
             href = parent_sr.resource_link_hrefs.get(resource, None)
             if href:
+                resource_for_step = await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href)
+                # This caters for a no content 204 response
+                if resource_for_step is None:
+                    continue
                 resource_store.append_resource(
                     resource,
                     parent_sr.id,
@@ -189,7 +193,7 @@ async def discover_resource(
                         step,
                         context,
                         href,
-                        await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href),
+                        resource_for_step,
                     ),
                 )
 

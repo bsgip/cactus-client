@@ -20,3 +20,9 @@ class NotificationException(CactusClientException):
     """Something went wrong when interacting with the remote CACTUS Client Notification server."""
 
     pass
+
+
+class StateException(CactusClientException):
+    """A irreconcilable state difference between the server and CactusClient was found."""
+
+    pass
