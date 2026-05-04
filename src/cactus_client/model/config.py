@@ -62,6 +62,8 @@ class ClientConfig:
     pen: int  # Private Enterprise Number that this client will utilise
     pin: int  # Registration PIN that this client will treat as "valid" (6-digit SEP2 form, includes checksum)
     max_watts: int  # How many watts will be registered by this client (eg setMaxW rtgMaxW) with the utility server
+    nmi: str = "41020000002"  # Any valid NMI for ConnectionPoint registration
+    nmi_2: str = "41020000026"  # Any other valid nmi for tests that update a ConnectionPoint
     user_agent: str | None = None  # What User-Agent header should be sent by this client (if any)
 
 

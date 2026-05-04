@@ -37,6 +37,16 @@ from envoy_schema.server.schema.sep2.pub_sub import (
     Subscription,
     SubscriptionListResponse,
 )
+from envoy_schema.server.schema.sep2.pricing import (
+    ConsumptionTariffIntervalListResponse,
+    ConsumptionTariffIntervalResponse,
+    RateComponentListResponse,
+    RateComponentResponse,
+    TariffProfileListResponse,
+    TariffProfileResponse,
+    TimeTariffIntervalListResponse,
+    TimeTariffIntervalResponse,
+)
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from treelib import Tree
 
@@ -46,6 +56,10 @@ from cactus_client.time import utc_now
 logger = logging.getLogger(__name__)
 
 AnyType = TypeVar("AnyType")
+
+
+class CombinedTimeTariffIntervalListResponse(TimeTariffIntervalListResponse):
+    """CSIP-Aus extension of TimeTariffIntervalList combining all intervals across RateComponents for a TariffProfile."""
 
 
 RESOURCE_SEP2_TYPES: dict[CSIPAusResource, type[Resource]] = {
@@ -72,6 +86,15 @@ RESOURCE_SEP2_TYPES: dict[CSIPAusResource, type[Resource]] = {
     CSIPAusResource.DERSettings: DERSettings,
     CSIPAusResource.DERStatus: DERStatus,
     CSIPAusResource.Notification: Notification,  # Not in the resource tree
+    CSIPAusResource.TariffProfileList: TariffProfileListResponse,
+    CSIPAusResource.TariffProfile: TariffProfileResponse,
+    CSIPAusResource.RateComponentList: RateComponentListResponse,
+    CSIPAusResource.RateComponent: RateComponentResponse,
+    CSIPAusResource.CombinedTimeTariffIntervalList: CombinedTimeTariffIntervalListResponse,
+    CSIPAusResource.TimeTariffIntervalList: TimeTariffIntervalListResponse,
+    CSIPAusResource.TimeTariffInterval: TimeTariffIntervalResponse,
+    CSIPAusResource.ConsumptionTariffIntervalList: ConsumptionTariffIntervalListResponse,
+    CSIPAusResource.ConsumptionTariffInterval: ConsumptionTariffIntervalResponse,
 }
 
 
@@ -106,6 +129,25 @@ class CSIPAusResourceTree:
         self.tree.create_node(identifier=CSIPAusResource.DERCapability, parent=CSIPAusResource.DER)
         self.tree.create_node(identifier=CSIPAusResource.DERSettings, parent=CSIPAusResource.DER)
         self.tree.create_node(identifier=CSIPAusResource.DERStatus, parent=CSIPAusResource.DER)
+        self.tree.create_node(
+            identifier=CSIPAusResource.TariffProfileList, parent=CSIPAusResource.FunctionSetAssignments
+        )
+        self.tree.create_node(identifier=CSIPAusResource.TariffProfile, parent=CSIPAusResource.TariffProfileList)
+        self.tree.create_node(identifier=CSIPAusResource.RateComponentList, parent=CSIPAusResource.TariffProfile)
+        self.tree.create_node(identifier=CSIPAusResource.RateComponent, parent=CSIPAusResource.RateComponentList)
+        self.tree.create_node(
+            identifier=CSIPAusResource.CombinedTimeTariffIntervalList, parent=CSIPAusResource.TariffProfile
+        )
+        self.tree.create_node(identifier=CSIPAusResource.TimeTariffIntervalList, parent=CSIPAusResource.RateComponent)
+        self.tree.create_node(
+            identifier=CSIPAusResource.TimeTariffInterval, parent=CSIPAusResource.TimeTariffIntervalList
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.ConsumptionTariffIntervalList, parent=CSIPAusResource.TimeTariffInterval
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.ConsumptionTariffInterval, parent=CSIPAusResource.ConsumptionTariffIntervalList
+        )
 
     def discover_resource_plan(self, target_resources: list[CSIPAusResource]) -> list[CSIPAusResource]:
         """Given a list of resource targets - calculate the ordered sequence of requests required
@@ -392,6 +434,7 @@ def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> d
             return resource_link_hrefs_from_links(
                 [
                     (CSIPAusResource.DERProgramList, fsa.DERProgramListLink),
+                    (CSIPAusResource.TariffProfileList, fsa.TariffProfileListLink),
                 ]
             )
         case CSIPAusResource.DERProgram:
@@ -409,6 +452,32 @@ def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> d
                     (CSIPAusResource.DERCapability, der.DERCapabilityLink),
                     (CSIPAusResource.DERSettings, der.DERSettingsLink),
                     (CSIPAusResource.DERStatus, der.DERStatusLink),
+                ]
+            )
+        case CSIPAusResource.TariffProfile:
+            tp = cast(TariffProfileResponse, resource)
+            # CombinedTimeTariffIntervalListLink uses ns="csipaus" so it's outside pydantic model_fields
+            return resource_link_hrefs_from_links(
+                [
+                    (CSIPAusResource.RateComponentList, tp.RateComponentListLink),
+                    (
+                        CSIPAusResource.CombinedTimeTariffIntervalList,
+                        getattr(tp, "CombinedTimeTariffIntervalListLink", None),
+                    ),
+                ]
+            )
+        case CSIPAusResource.RateComponent:
+            rc = cast(RateComponentResponse, resource)
+            return resource_link_hrefs_from_links(
+                [
+                    (CSIPAusResource.TimeTariffIntervalList, rc.TimeTariffIntervalListLink),
+                ]
+            )
+        case CSIPAusResource.TimeTariffInterval:
+            tti = cast(TimeTariffIntervalResponse, resource)
+            return resource_link_hrefs_from_links(
+                [
+                    (CSIPAusResource.ConsumptionTariffIntervalList, tti.ConsumptionTariffIntervalListLink),
                 ]
             )
         case _:
