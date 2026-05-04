@@ -18,6 +18,11 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.pricing import (
+    RateComponentResponse,
+    TariffProfileResponse,
+    TimeTariffIntervalResponse,
+)
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePointListResponse,
 )
@@ -522,6 +527,9 @@ SEP2_TYPES_WITH_LINKS: list[tuple[CSIPAusResource, type]] = [
     (CSIPAusResource.DER, DER),
     (CSIPAusResource.FunctionSetAssignments, FunctionSetAssignmentsResponse),
     (CSIPAusResource.DERProgram, DERProgramResponse),
+    (CSIPAusResource.TariffProfile, TariffProfileResponse),
+    (CSIPAusResource.RateComponent, RateComponentResponse),
+    (CSIPAusResource.TimeTariffInterval, TimeTariffIntervalResponse),
 ]
 
 
