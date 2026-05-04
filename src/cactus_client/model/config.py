@@ -60,7 +60,7 @@ class ClientConfig:
     lfdi: str  # Current 2030.5 LFDI that will be used for registering an EndDevice for this client
     sfdi: int  # Current 2030.5 SFDI that will be used for registering an EndDevice for this client
     pen: int  # Private Enterprise Number that this client will utilise
-    pin: int  # Registration PIN that this client will treat as "valid"
+    pin: int  # Registration PIN that this client will treat as "valid" (6-digit SEP2 form, includes checksum)
     max_watts: int  # How many watts will be registered by this client (eg setMaxW rtgMaxW) with the utility server
     nmi: str = "41020000002"  # Any valid NMI for ConnectionPoint registration
     nmi_2: str = "41020000026"  # Any other valid nmi for tests that update a ConnectionPoint

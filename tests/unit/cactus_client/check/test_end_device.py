@@ -12,10 +12,28 @@ from envoy_schema.server.schema.sep2.end_device import (
     RegistrationResponse,
 )
 
-from cactus_client.check.end_device import check_end_device, check_end_device_list
+from cactus_client.check.end_device import check_end_device, check_end_device_list, is_checksum_valid
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
+
+
+@pytest.mark.parametrize(
+    "pin, expected",
+    [
+        (123455, True),  # 1+2+3+4+5=15, checksum=5
+        (123450, False),  # 1+2+3+4+5=15, checksum should be 5, not 0
+        (12345, False),  # 1+2+3+4=10, checksum should be 0, not 5
+        (12340, True),  # 1+2+3+4=10, checksum=0
+        (11, True),  # 1, checksum=1
+        (10, False),  # 1, checksum should be 1, not 0
+        (0, True),  # 0, checksum=0
+        (99996, True),  # 9+9+9+9=36, checksum=6
+        (99999, False),  # 9+9+9+9=36, checksum should be 6, not 9
+    ],
+)
+def test_is_checksum_valid(pin: int, expected: bool):
+    assert is_checksum_valid(pin) == expected
 
 
 @pytest.mark.parametrize(
@@ -32,12 +50,12 @@ from cactus_client.model.execution import CheckResult, StepExecution
             [
                 (
                     generate_class_instance(EndDeviceResponse, lFDI="ABC123", sFDI=456),
-                    generate_class_instance(RegistrationResponse, pIN=789),
+                    generate_class_instance(RegistrationResponse, pIN=11),
                 )
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             False,
         ),  # Match with a pin
@@ -60,12 +78,12 @@ from cactus_client.model.execution import CheckResult, StepExecution
             [
                 (
                     generate_class_instance(EndDeviceResponse, lFDI="ABC123", sFDI=4567),
-                    generate_class_instance(RegistrationResponse, pIN=789),
+                    generate_class_instance(RegistrationResponse, pIN=11),
                 )
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             True,
         ),  # sfdi mismatch
@@ -74,12 +92,12 @@ from cactus_client.model.execution import CheckResult, StepExecution
             [
                 (
                     generate_class_instance(EndDeviceResponse, lFDI="abc123", sFDI=456),
-                    generate_class_instance(RegistrationResponse, pIN=789),
+                    generate_class_instance(RegistrationResponse, pIN=11),
                 )
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             False,
         ),  # Case mismatch on LFDI is OK
@@ -148,12 +166,12 @@ from cactus_client.model.execution import CheckResult, StepExecution
                 ),
                 (
                     generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", sFDI=456),
-                    generate_class_instance(RegistrationResponse, seed=202, pIN=789),
+                    generate_class_instance(RegistrationResponse, seed=202, pIN=11),
                 ),
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             False,
         ),  # Match multiple clients

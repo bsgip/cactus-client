@@ -122,3 +122,17 @@ async def test_check_poll_rate(resource_type, poll_rate, expected_poll_rate, sho
         )
 
         assert result.passed == should_pass
+
+
+@pytest.mark.asyncio
+async def test_check_poll_rate_no_resources_fails(testing_contexts_factory):
+    async with ClientSession() as session:
+        context, step = testing_contexts_factory(session)
+
+        result = check_poll_rate(
+            resolved_parameters={"resource": CSIPAusResource.DERProgramList, "poll_rate_seconds": 60},
+            step=step,
+            context=context,
+        )
+
+        assert result.passed is False

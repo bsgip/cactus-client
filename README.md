@@ -92,7 +92,7 @@ The DERSetting.setMaxW and DERCapability.rtgMaxW value to use (in Watts): 5000
 │ lfdi             │ 0F3078CFDDAEE28DC20B95635DC116CC2A6D877F      │
 │ sfdi             │ 40773583337                                   │
 │ max_watts        │ 5000                                          │
-│ pen              │ 12345                                         │
+│ pen              │ 123455                                        │
 │ pin              │ 111115                                        │
 │ user_agent       │ null                                          │
 └──────────────────┴───────────────────────────────────────────────┘
