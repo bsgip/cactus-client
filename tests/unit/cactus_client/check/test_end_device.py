@@ -50,12 +50,12 @@ def test_is_checksum_valid(pin: int, expected: bool):
             [
                 (
                     generate_class_instance(EndDeviceResponse, lFDI="ABC123", sFDI=456),
-                    generate_class_instance(RegistrationResponse, pIN=789),
+                    generate_class_instance(RegistrationResponse, pIN=11),
                 )
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             False,
         ),  # Match with a pin
@@ -78,12 +78,12 @@ def test_is_checksum_valid(pin: int, expected: bool):
             [
                 (
                     generate_class_instance(EndDeviceResponse, lFDI="ABC123", sFDI=4567),
-                    generate_class_instance(RegistrationResponse, pIN=789),
+                    generate_class_instance(RegistrationResponse, pIN=11),
                 )
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             True,
         ),  # sfdi mismatch
@@ -92,12 +92,12 @@ def test_is_checksum_valid(pin: int, expected: bool):
             [
                 (
                     generate_class_instance(EndDeviceResponse, lFDI="abc123", sFDI=456),
-                    generate_class_instance(RegistrationResponse, pIN=789),
+                    generate_class_instance(RegistrationResponse, pIN=11),
                 )
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             False,
         ),  # Case mismatch on LFDI is OK
@@ -166,12 +166,12 @@ def test_is_checksum_valid(pin: int, expected: bool):
                 ),
                 (
                     generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", sFDI=456),
-                    generate_class_instance(RegistrationResponse, seed=202, pIN=789),
+                    generate_class_instance(RegistrationResponse, seed=202, pIN=11),
                 ),
             ],
             "ABC123",
             456,
-            789,
+            11,
             True,
             False,
         ),  # Match multiple clients
