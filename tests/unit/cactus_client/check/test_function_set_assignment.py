@@ -312,7 +312,7 @@ def test_check_function_set_assignment_aggregator_skips_virtual_edev(
     store = context.discovered_resources(step)
 
     # Virtual aggregator device at /edev/0 — same LFDI, should be skipped
-    virtual_edev = store.append_resource(
+    store.append_resource(
         CSIPAusResource.EndDevice,
         None,
         generate_class_instance(

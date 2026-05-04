@@ -21,15 +21,15 @@ from cactus_client.model.execution import CheckResult, StepExecution
 @pytest.mark.parametrize(
     "pin, expected",
     [
-        (123455, True),   # 1+2+3+4+5=15, checksum=5
+        (123455, True),  # 1+2+3+4+5=15, checksum=5
         (123450, False),  # 1+2+3+4+5=15, checksum should be 5, not 0
-        (12345, False),   # 1+2+3+4=10, checksum should be 0, not 5
-        (12340, True),    # 1+2+3+4=10, checksum=0
-        (11, True),       # 1, checksum=1
-        (10, False),      # 1, checksum should be 1, not 0
-        (0, True),        # 0, checksum=0
-        (99996, True),    # 9+9+9+9=36, checksum=6
-        (99999, False),   # 9+9+9+9=36, checksum should be 6, not 9
+        (12345, False),  # 1+2+3+4=10, checksum should be 0, not 5
+        (12340, True),  # 1+2+3+4=10, checksum=0
+        (11, True),  # 1, checksum=1
+        (10, False),  # 1, checksum should be 1, not 0
+        (0, True),  # 0, checksum=0
+        (99996, True),  # 9+9+9+9=36, checksum=6
+        (99999, False),  # 9+9+9+9=36, checksum should be 6, not 9
     ],
 )
 def test_is_checksum_valid(pin: int, expected: bool):
