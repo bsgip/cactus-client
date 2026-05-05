@@ -120,7 +120,6 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
                     )
 
     for idx, comms in enumerate(context.responses.responses):
-
         # We don't have EVERYTHING logged - so we try and reconstitute as much as possible
         client_alias = comms.client_alias
         if isinstance(comms, ServerResponse):

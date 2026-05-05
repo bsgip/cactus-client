@@ -177,7 +177,7 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
                 CSIPAusResource.DERControl,
                 generate_class_instance(
                     DERControlResponse,
-                    mRID=f"ABC123{VALID_SERVER_PEN+1}",
+                    mRID=f"ABC123{VALID_SERVER_PEN + 1}",
                     DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True),
                 ),
             ),
@@ -213,7 +213,8 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
             sr(
                 CSIPAusResource.MirrorUsagePoint,
                 generate_class_instance(
-                    MirrorUsagePoint, mRID="not validated"  # MUPs don't need the server PEN to match
+                    MirrorUsagePoint,
+                    mRID="not validated",  # MUPs don't need the server PEN to match
                 ),
             ),
             True,

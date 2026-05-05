@@ -67,7 +67,7 @@ def render_compliance_report(console: Console, output_dir: Path, include: list[T
     table.add_column("Result")
     table.add_column("Run #")
 
-    for tp_id in (include if include is not None else TestProcedureId):
+    for tp_id in include if include is not None else TestProcedureId:
         record = latest_runs.get(tp_id)
         if record is None:
             table.add_row(str(tp_id), "[dim]NOT RUN[/dim]", "-")

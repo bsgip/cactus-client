@@ -33,7 +33,6 @@ def check_function_set_assignment(
     fsas = store.get_for_type(CSIPAusResource.FunctionSetAssignments)
     matches_found = 0
     for fsa_sr in fsas:
-
         # We might be ONLY looking at FSA's that are a direct descendent of this EndDevice
         if matched_edev is not None:
             if not fsa_sr.id.is_descendent_of(matched_edev.id):

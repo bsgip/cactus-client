@@ -50,7 +50,7 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             + " This is a problem with the test definition itself."
         )
 
-    match (action_info.type):
+    match action_info.type:
         case "no-op":
             return await action_noop()
         case "discovery":

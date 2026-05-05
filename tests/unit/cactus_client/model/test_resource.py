@@ -18,13 +18,13 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering_mirror import (
+    MirrorUsagePointListResponse,
+)
 from envoy_schema.server.schema.sep2.pricing import (
     RateComponentResponse,
     TariffProfileResponse,
     TimeTariffIntervalResponse,
-)
-from envoy_schema.server.schema.sep2.metering_mirror import (
-    MirrorUsagePointListResponse,
 )
 from treelib.exceptions import NodeIDAbsentError
 

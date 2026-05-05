@@ -1,7 +1,8 @@
 import apluggy
+from cactus_test_definitions.server.test_procedures import AdminInstruction
+
 from cactus_client.model.context import AdminContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_test_definitions.server.test_procedures import AdminInstruction
 
 project_name = "cactus_client.admin"
 hookspec = apluggy.HookspecMarker(project_name)

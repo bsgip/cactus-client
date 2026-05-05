@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from enum import auto, Enum
+from enum import Enum, auto
 from pathlib import Path
 
 from cactus_test_definitions.csipaus import CSIPAusVersion

@@ -62,7 +62,7 @@ def test_check_der_program_combinations_no_fsa(
     resource_store = context.discovered_resources(step)
 
     for i, primacy in enumerate(stored_programs):
-        derp = generate_class_instance(DERProgramResponse, primacy=primacy, href=f"/derp/{i+1}")
+        derp = generate_class_instance(DERProgramResponse, primacy=primacy, href=f"/derp/{i + 1}")
         resource_store.upsert_resource(CSIPAusResource.DERProgram, None, derp)
 
     # Act
@@ -95,9 +95,9 @@ def test_check_der_program_fsa_index_order_independence(
     # Arrange - Create FSAs and DERPrograms
     fsa_data = []
     for i in range(3):
-        fsa = generate_class_instance(FunctionSetAssignmentsResponse, href=f"/fsa/{i+1}")
-        derp_list = generate_class_instance(DERProgramListResponse, href=f"/fsa/{i+1}/derp")
-        derp = generate_class_instance(DERProgramResponse, primacy=1, href=f"/fsa/{i+1}/derp/1")
+        fsa = generate_class_instance(FunctionSetAssignmentsResponse, href=f"/fsa/{i + 1}")
+        derp_list = generate_class_instance(DERProgramListResponse, href=f"/fsa/{i + 1}/derp")
+        derp = generate_class_instance(DERProgramResponse, primacy=1, href=f"/fsa/{i + 1}/derp/1")
         fsa_data.append((fsa, derp_list, derp))
 
     # First context: add in order 0, 1, 2
@@ -152,11 +152,11 @@ def test_check_der_program_fsa_index_negatives(
     #              - DERP H (primacy 32)
     #              - DERP I (primacy 33)
     for i in range(3):
-        fsa = generate_class_instance(FunctionSetAssignmentsResponse, href=f"/fsa/{i+1}")
-        derp_list = generate_class_instance(DERProgramListResponse, href=f"/fsa/{i+1}/derp")
-        derp1 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 1, href=f"/fsa/{i+1}/derp/1")
-        derp2 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 2, href=f"/fsa/{i+1}/derp/2")
-        derp3 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 3, href=f"/fsa/{i+1}/derp/3")
+        fsa = generate_class_instance(FunctionSetAssignmentsResponse, href=f"/fsa/{i + 1}")
+        derp_list = generate_class_instance(DERProgramListResponse, href=f"/fsa/{i + 1}/derp")
+        derp1 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 1, href=f"/fsa/{i + 1}/derp/1")
+        derp2 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 2, href=f"/fsa/{i + 1}/derp/2")
+        derp3 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 3, href=f"/fsa/{i + 1}/derp/3")
 
         fsa_sr = store.append_resource(CSIPAusResource.FunctionSetAssignments, None, fsa)
         derp_list_sr = store.append_resource(CSIPAusResource.DERProgramList, fsa_sr.id, derp_list)

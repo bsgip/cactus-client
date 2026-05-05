@@ -117,7 +117,6 @@ def check_end_device_list(
     matches_found = 0
     edev_lists = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
     for edev_list_sr in edev_lists:
-
         if matches_poll_rate is not None:
             if cast(EndDeviceListResponse, edev_list_sr.resource).pollRate != matches_poll_rate:
                 continue

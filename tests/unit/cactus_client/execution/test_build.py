@@ -66,7 +66,6 @@ async def test_build_execution_context_s_all_01(
     generate_testing_key_cert, notification_uri: str | None, no_deprecation_warnings
 ):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         generate_testing_key_cert(key_file, cert_file)
@@ -97,7 +96,6 @@ async def test_build_execution_context_s_all_01(
 @pytest.mark.asyncio
 async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         with open(key_file, "wb") as f:
@@ -115,7 +113,6 @@ async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_
 @pytest.mark.asyncio
 async def test_build_execution_context_missing_certs(no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
@@ -128,7 +125,6 @@ async def test_build_execution_context_missing_certs(no_deprecation_warnings):
 @pytest.mark.asyncio
 async def test_build_execution_context_bad_client_reference(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         generate_testing_key_cert(key_file, cert_file)
@@ -145,7 +141,6 @@ async def test_build_execution_context_bad_client_reference(generate_testing_key
 @pytest.mark.asyncio
 async def test_build_execution_context_bad_test_id(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         generate_testing_key_cert(key_file, cert_file)

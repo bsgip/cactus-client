@@ -2,11 +2,10 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from assertical.fake.generator import generate_class_instance
-from multidict import CIMultiDict
-from rich.console import Console
-
 from cactus_test_definitions.server.actions import Action
 from cactus_test_definitions.server.test_procedures import Step, TestProcedure, TestProcedureId
+from multidict import CIMultiDict
+from rich.console import Console
 
 from cactus_client.model.config import ServerConfig
 from cactus_client.model.context import ExecutionContext
@@ -16,7 +15,6 @@ from cactus_client.model.progress import ProgressTracker, ResponseTracker, Warni
 from cactus_client.model.resource import CSIPAusResourceTree
 from cactus_client.results.common import ResultsEvaluation
 from cactus_client.results.console import render_console
-
 from tests.conftest import make_client_context
 
 

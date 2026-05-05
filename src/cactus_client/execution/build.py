@@ -78,7 +78,6 @@ def build_clients_by_alias(
         # web service that may or may not use HTTPS.
         notifications: NotificationsContext | None = None
         if notification_uri:
-
             notifications = NotificationsContext(
                 session=ClientSession(notification_uri if notification_uri.endswith("/") else notification_uri + "/"),
                 endpoints_by_sub_alias={},

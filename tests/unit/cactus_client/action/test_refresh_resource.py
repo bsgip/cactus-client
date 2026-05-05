@@ -150,7 +150,6 @@ async def test_action_refresh_resource_expect_rejection_or_empty_list_success(
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_or_empty_list_request_for_step"
     ) as mock_client_error_or_empty_list_request_for_step:
-
         # Mock response indicating client error (therefore the action is receiving what is expected)
         mock_client_error_or_empty_list_request_for_step.return_value = generate_class_instance(ErrorResponse)
         resolved_params = {"resource": list_resource.value, "expect_rejection_or_empty": True}
@@ -192,7 +191,6 @@ async def test_action_refresh_resource_expect_rejection_or_empty_non_list_succes
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_request_for_step"
     ) as mock_client_error_request_for_step:
-
         # Mock response indicating client error (therefore the action is receiving what is expected)
         mock_client_error_request_for_step.return_value = generate_class_instance(ErrorResponse)
         resolved_params = {"resource": non_list_resource.value, "expect_rejection_or_empty": True}
@@ -231,7 +229,6 @@ async def test_action_refresh_resource_expect_rejection_or_empty_list_failure(
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_or_empty_list_request_for_step"
     ) as mock_client_error_or_empty_list_request_for_step:
-
         mock_client_error_or_empty_list_request_for_step.side_effect = RequestException("mock exception")
         resolved_params = {"resource": list_resource.value, "expect_rejection_or_empty": True}
 
@@ -273,7 +270,6 @@ async def test_action_refresh_resource_expect_rejection_or_empty_non_list_failur
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_request_for_step"
     ) as mock_client_error_request_for_step:
-
         # Mock response indicating client error (therefore the action is receiving what is expected)
         mock_client_error_request_for_step.side_effect = RequestException("mock exception")
         resolved_params = {"resource": non_list_resource.value, "expect_rejection_or_empty": True}

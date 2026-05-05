@@ -27,7 +27,6 @@ from cactus_client.sep2 import hex_binary_equal
 
 @dataclass(frozen=True)
 class MirrorUsagePointMrids:
-
     mup_mrid: str
     mmr_mrids: dict[CSIPAusReadingType, str]
 

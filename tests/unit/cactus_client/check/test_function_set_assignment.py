@@ -14,8 +14,8 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 
-from cactus_client.check.function_set_assignment import check_function_set_assignment
 from cactus_client.check.end_device import VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX
+from cactus_client.check.function_set_assignment import check_function_set_assignment
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution

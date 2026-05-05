@@ -32,11 +32,6 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePoint,
     MirrorUsagePointListResponse,
 )
-from envoy_schema.server.schema.sep2.pub_sub import (
-    Notification,
-    Subscription,
-    SubscriptionListResponse,
-)
 from envoy_schema.server.schema.sep2.pricing import (
     ConsumptionTariffIntervalListResponse,
     ConsumptionTariffIntervalResponse,
@@ -46,6 +41,11 @@ from envoy_schema.server.schema.sep2.pricing import (
     TariffProfileResponse,
     TimeTariffIntervalListResponse,
     TimeTariffIntervalResponse,
+)
+from envoy_schema.server.schema.sep2.pub_sub import (
+    Notification,
+    Subscription,
+    SubscriptionListResponse,
 )
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from treelib import Tree
@@ -408,7 +408,7 @@ def resource_link_hrefs_from_links(links: Iterable[tuple[CSIPAusResource, Link |
 def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> dict[CSIPAusResource, str]:
     """Given a raw XML resource and its type - extract all the subordinate Link resources found in that resource. Any
     optional / missing Links will NOT be encoded."""
-    match (type):
+    match type:
         case CSIPAusResource.DeviceCapability:
             dcap = cast(DeviceCapabilityResponse, resource)
             return resource_link_hrefs_from_links(

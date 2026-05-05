@@ -72,7 +72,6 @@ def generate_scrolling_table(
         items_to_render = items[-max_rows:]
 
     for i in range(max_rows - len(items_to_render)):
-
         if not items_to_render and i == (max_rows // 2):
             table.add_row("There isn't anything here...")
         else:
@@ -369,9 +368,7 @@ async def run_tui(console: Console, context: ExecutionContext, run_id: int, refr
 
     refresh_rate = timedelta(milliseconds=refresh_rate_ms).total_seconds()
     with Live(console=console, screen=True, transient=True, auto_refresh=False) as live, keypress.activate_keypress():
-
         while True:
-
             try:
                 key = keypress.key_pressed()
                 if key == "q":

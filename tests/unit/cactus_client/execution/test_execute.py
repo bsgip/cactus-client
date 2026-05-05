@@ -2,6 +2,7 @@ import unittest.mock as mock
 from datetime import timedelta
 from pathlib import Path
 
+import apluggy
 import pytest
 from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
@@ -22,7 +23,6 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
-import apluggy
 from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
 from cactus_client.error import CactusClientException
 from cactus_client.execution.execute import execute_for_context, setup_and_teardown, validate_all_resources

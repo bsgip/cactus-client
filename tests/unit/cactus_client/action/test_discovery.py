@@ -7,6 +7,8 @@ from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
+from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse, EndDeviceResponse
+
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
     action_discovery,
@@ -17,7 +19,6 @@ from cactus_client.error import CactusClientException
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
-from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse, EndDeviceListResponse
 
 
 def setup_discovery_test(testing_contexts_factory, resource: CSIPAusResource, matched_parents: int):

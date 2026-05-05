@@ -74,7 +74,7 @@ def get_list_item_callback(
         list_item_type: A CSIPAusResource matching the type of the child list items"""
     get_list_items: Callable[[Resource], list[Resource] | None] | None = None
     list_item_type: CSIPAusResource | None = None
-    match (list_resource):
+    match list_resource:
         case CSIPAusResource.MirrorUsagePointList:
             get_list_items = lambda list_: cast(MirrorUsagePointListResponse, list_).mirrorUsagePoints  # type: ignore # noqa: E731
             list_item_type = CSIPAusResource.MirrorUsagePoint

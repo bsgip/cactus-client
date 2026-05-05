@@ -8,7 +8,7 @@ from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERControlResponse as DERControl
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.event import EventStatusType
-from envoy_schema.server.schema.sep2.response import ResponseType, DERControlResponse
+from envoy_schema.server.schema.sep2.response import DERControlResponse, ResponseType
 
 from cactus_client.action.server import (
     client_error_request_for_step,
