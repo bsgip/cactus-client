@@ -1,15 +1,18 @@
-[tool.black]
+[tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "S", "C90", "B"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src/"]
 testpaths = "tests"
-
-[tool.isort]
-profile = "black"
-
-[tool.bandit]
-exclude_dirs = ["tests"]
 
 [tool.mypy]
 exclude = ["tests", "build"]
@@ -58,12 +61,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "bandit",
-    "black",
     "coverage",
-    "flake8",
-    "flake8-bugbear",
     "mypy",
+    "ruff",
     "types-PyYAML",
     "lxml-stubs",
     "types-reportlab",
