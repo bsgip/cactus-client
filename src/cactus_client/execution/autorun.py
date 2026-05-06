@@ -12,7 +12,7 @@ from cactus_test_definitions.server.test_procedures import (
     get_test_procedure,
 )
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.execution.run import run_entrypoint
 from cactus_client.model.config import ClientConfig, GlobalConfig, RunConfig
 
@@ -48,7 +48,7 @@ def resolve_test_list(
 
     Include sources are merged and deduplicated (preserving order). If no include source is
     provided, all known test IDs are used in enum definition order. Exclude is always applied
-    last. Raises ConfigException for any unrecognised test ID."""
+    last. Raises ConfigError for any unrecognised test ID."""
 
     # Build the raw include list
     include_ids: list[str] = []
@@ -58,13 +58,13 @@ def resolve_test_list(
         try:
             include_ids.extend(_load_id_file(include_file))
         except OSError as exc:
-            raise ConfigException(f"Could not read include file '{include_file}': {exc}")
+            raise ConfigError(f"Could not read include file '{include_file}': {exc}")
 
     # Validate all supplied IDs up-front
     all_supplied = include_ids + (exclude or [])
     unknown = [id_str for id_str in all_supplied if id_str not in TestProcedureId]
     if unknown:
-        raise ConfigException(f"Unrecognised test procedure ID(s): {', '.join(unknown)}")
+        raise ConfigError(f"Unrecognised test procedure ID(s): {', '.join(unknown)}")
 
     if include_ids:
         # Deduplicate while preserving order
@@ -136,7 +136,7 @@ async def autorun_entrypoint(
     logged and execution continues. Returns a list of AutorunRecord for each attempted test."""
 
     if not global_config.clients:
-        raise ConfigException("No clients are configured.")
+        raise ConfigError("No clients are configured.")
 
     test_ids = resolve_test_list(include, include_file, exclude)
     records: list[AutorunRecord] = []
@@ -162,7 +162,7 @@ async def autorun_entrypoint(
 
         try:
             passed = await run_entrypoint(global_config, run_config)
-        except ConfigException as exc:
+        except ConfigError as exc:
             logger.error("Config error running %s: %s", test_id, exc)
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.ERROR, note=str(exc)))
             continue

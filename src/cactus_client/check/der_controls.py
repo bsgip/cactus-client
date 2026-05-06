@@ -9,7 +9,7 @@ from envoy_schema.server.schema.sep2.der import (
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower
 from envoy_schema.server.schema.sep2.response import ResponseType
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import StoredResource
@@ -83,7 +83,7 @@ def check_default_der_control(  # noqa: C901 # This complexity is from the long 
         if derp_primacy is not None:
             parent_derp_sr = resource_store.get_ancestor_of(CSIPAusResource.DERProgram, dderc_sr.id)
             if parent_derp_sr is None:
-                raise CactusClientException(f"DERControl {dderc.href} {dderc.mRID} has no link to a parent DERProgram")
+                raise CactusClientError(f"DERControl {dderc.href} {dderc.mRID} has no link to a parent DERProgram")
             if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
                 continue
 
@@ -188,7 +188,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
         if derp_primacy is not None:
             parent_derp_sr = resource_store.get_ancestor_of(CSIPAusResource.DERProgram, derc_sr.id)
             if parent_derp_sr is None:
-                raise CactusClientException(f"DERControl {derc.href} {derc.mRID} has no link to a parent DERProgram")
+                raise CactusClientError(f"DERControl {derc.href} {derc.mRID} has no link to a parent DERProgram")
             if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
                 continue
 

@@ -13,7 +13,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.check.end_device import match_end_device_on_lfdi_caseless
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.time import utc_now
@@ -28,14 +28,14 @@ def generate_end_device_request(
     # in the request body belongs to the context client, not the executing client. This lets us generate the
     # "LFDI doesn't match certificate" mismatch the server should reject.
     client_config = context.clients_by_alias[step.client_resources_alias].client_config
-    deviceCategory = f"{DeviceCategory.PHOTOVOLTAIC_SYSTEM.value:02X}"
+    device_category = f"{DeviceCategory.PHOTOVOLTAIC_SYSTEM.value:02X}"
 
     return EndDeviceRequest(
         changedTime=int(utc_now().timestamp()),
         postRate=60,
         lFDI=force_lfdi if force_lfdi else client_config.lfdi,
         sFDI=client_config.sfdi,
-        deviceCategory=deviceCategory,
+        deviceCategory=device_category,
     )
 
 
@@ -52,7 +52,7 @@ async def action_insert_end_device(
 
     list_edevs = [sr for sr in edev_list_resources if sr.resource.href]
     if len(list_edevs) != 1:
-        raise CactusClientException(
+        raise CactusClientError(
             f"Expected only a single {CSIPAusResource.EndDeviceList} href but found {len(list_edevs)}."
         )
 
@@ -85,11 +85,11 @@ async def action_upsert_connection_point(
     client_config = context.client_config(step)
     parent_edev = match_end_device_on_lfdi_caseless(resource_store, client_config.lfdi)
     if parent_edev is None:
-        raise CactusClientException(f"Expected an already discovered EndDevice with LFDI {client_config.lfdi}.")
+        raise CactusClientError(f"Expected an already discovered EndDevice with LFDI {client_config.lfdi}.")
 
     cp_link = cast(EndDeviceResponse, parent_edev.resource).ConnectionPointLink
     if cp_link is None or not cp_link.href:
-        raise CactusClientException(
+        raise CactusClientError(
             f"No ConnectionPointLink on EndDevice {parent_edev.resource.href} with LFDI {client_config.lfdi}."
         )
 
@@ -120,7 +120,7 @@ async def action_upsert_connection_point(
             ConnectionPointRequest, step, context, HTTPMethod.PUT, href, cp_request
         )
         if cp_id != inserted_cp.id:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"Expected connectionPointId for href {href}  to be {cp_id} but got {inserted_cp.id}."
             )
 

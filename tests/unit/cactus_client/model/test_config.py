@@ -5,24 +5,24 @@ import pytest
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.server.test_procedures import ClientType
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import ClientConfig, GlobalConfig, ServerConfig, load_config
 
 
 def test_load_config_errors():
     with tempfile.TemporaryDirectory() as tempdirname:
         missing_path = Path(tempdirname) / Path("file.dne")
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             load_config(missing_path)
 
         empty_path = Path(tempdirname) / Path("file.empty")
         empty_path.write_text("")
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             load_config(empty_path)
 
         malformed_path = Path(tempdirname) / Path("file.mangled")
         malformed_path.write_text("abc=123\nthis is clearly not a yaml file\nlorem ipsum")
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             load_config(malformed_path)
 
 

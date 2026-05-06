@@ -102,7 +102,7 @@ async def _fire_admin_instructions(context: ExecutionContext, current_step: Step
             )
 
 
-async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
+async def _execute_steps(context: ExecutionContext) -> ExecutionResult:  # noqa: C901
     """Inner execution loop extracted from execute_for_context to allow CancelledError handling at the top level."""
     while (upcoming_step := context.steps.peek_next_no_wait(now := utc_now())) is not None:
         # Sometimes the next step will have a "not before" time - in which case we delay until that time has passed

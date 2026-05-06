@@ -8,7 +8,7 @@ from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.execution.build import build_execution_context
 from cactus_client.model.config import (
     ClientConfig,
@@ -105,7 +105,7 @@ async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_
 
         _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass
 
@@ -117,7 +117,7 @@ async def test_build_execution_context_missing_certs(no_deprecation_warnings):
         cert_file = Path(tempdirname) / "my.cert"
         _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass
 
@@ -133,7 +133,7 @@ async def test_build_execution_context_bad_client_reference(generate_testing_key
 
         run_config = replace(run_config, client_ids=["bad-client-id"])
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass
 
@@ -149,6 +149,6 @@ async def test_build_execution_context_bad_test_id(generate_testing_key_cert):
 
         run_config = replace(run_config, test_procedure_id="foo")
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass

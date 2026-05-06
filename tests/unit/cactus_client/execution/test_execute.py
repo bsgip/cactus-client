@@ -24,7 +24,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
 from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.execution.execute import execute_for_context, setup_and_teardown, validate_all_resources
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.context import AdminContext, ClientContext, ExecutionContext
@@ -79,7 +79,7 @@ def handle_mock_execute_action(current_step: StepExecution, context: ExecutionCo
         else:
             return ActionResult.done()
     elif action_type == ACTION_EXCEPTION:
-        raise CactusClientException("mocked exception")
+        raise CactusClientError("mocked exception")
     elif action_type == ACTION_FAIL_ONCE:
         # Returns failed on first attempt, done on subsequent - tests retriable action failures
         if current_step.attempts == 0:
@@ -105,7 +105,7 @@ def handle_mock_execute_checks(current_step: StepExecution, context: ExecutionCo
         else:
             return CheckResult(True, None)
     elif check_type == CHECK_EXCEPTION:
-        raise CactusClientException("mocked exception")
+        raise CactusClientError("mocked exception")
     else:
         raise NotImplementedError(f"Unsupported check type {check_type}")
 

@@ -15,7 +15,7 @@ from cactus_client.cli.common import (
     rich_cert_file_value,
     rich_key_file_value,
 )
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     CONFIG_CWD,
     CONFIG_HOME,
@@ -70,7 +70,7 @@ def find_client(config: GlobalConfig, client_id: str) -> ClientConfig | None:
     return None
 
 
-def print_client_value(console: Console, client: ClientConfig | None, config_key: ClientConfigKey) -> None:
+def print_client_value(console: Console, client: ClientConfig | None, config_key: ClientConfigKey) -> None:  # noqa: C901
     if client is None:
         console.print("client does not exist", style="red")
         sys.exit(1)
@@ -111,7 +111,7 @@ def print_client_value(console: Console, client: ClientConfig | None, config_key
     console.print(table)
 
 
-def update_client_value(
+def update_client_value(  # noqa: C901
     console: Console, client: ClientConfig, config_key: ClientConfigKey, new_value: str
 ) -> ClientConfig:
     try:
@@ -294,7 +294,7 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         config, config_path = load_config(config_file_override)
-    except ConfigException:
+    except ConfigError:
         console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
         sys.exit(1)
 

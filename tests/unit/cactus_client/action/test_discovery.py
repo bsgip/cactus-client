@@ -15,7 +15,7 @@ from cactus_client.action.discovery import (
     calculate_wait_next_polling_window,
     discover_resource,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
@@ -71,7 +71,7 @@ async def test_discover_resource_dcap(
     if has_href:
         await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
     else:
-        with pytest.raises(CactusClientException):
+        with pytest.raises(CactusClientError):
             await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
 
     # Assert
@@ -144,7 +144,7 @@ async def test_discover_resource_list_containers(
     if has_href or matched_parents == 0:
         await discover_resource(resource, step, context, None)
     else:
-        with pytest.raises(CactusClientException):
+        with pytest.raises(CactusClientError):
             await discover_resource(resource, step, context, None)
 
     # Assert
@@ -219,7 +219,7 @@ async def test_discover_resource_singular_resources(
     if has_href or matched_parents == 0:
         await discover_resource(resource, step, context, None)
     else:
-        with pytest.raises(CactusClientException):
+        with pytest.raises(CactusClientError):
             await discover_resource(resource, step, context, None)
 
     # Assert

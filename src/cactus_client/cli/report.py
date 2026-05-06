@@ -5,7 +5,7 @@ from pathlib import Path
 from cactus_test_definitions.server.test_procedures import TestProcedureId
 from rich.console import Console
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, load_config
 from cactus_client.results.compliance import render_compliance_report
 
@@ -36,7 +36,7 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         global_config, _ = load_config(args.config_file)
-    except ConfigException:
+    except ConfigError:
         console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
         sys.exit(1)
 

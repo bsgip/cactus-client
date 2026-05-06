@@ -11,7 +11,7 @@ from cactus_client.check.end_device import check_end_device, check_end_device_li
 from cactus_client.check.function_set_assignment import check_function_set_assignment
 from cactus_client.check.mup import check_mirror_usage_point
 from cactus_client.check.time import check_poll_rate, check_time_synced
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.parameter import resolve_variable_expressions_from_parameters
@@ -19,7 +19,7 @@ from cactus_client.model.parameter import resolve_variable_expressions_from_para
 logger = logging.getLogger(__name__)
 
 
-async def execute_checks(step: StepExecution, context: ExecutionContext) -> CheckResult:
+async def execute_checks(step: StepExecution, context: ExecutionContext) -> CheckResult:  # noqa: C901
     """Given a step and context - execute all post action checks - returning the first failure (or a passing result)"""
 
     if not step.source.checks:
@@ -31,7 +31,7 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
             resolved_params = await resolve_variable_expressions_from_parameters(client_config, check.parameters)
         except Exception as exc:
             logger.error(f"Exception resolving parameters for check {check.type} in {step.source.id}", exc_info=exc)
-            raise CactusClientException(
+            raise CactusClientError(
                 f"There was an error parsing parameters for check {check.type} in {step.source.id}."
                 + " This is a problem with the test definition itself."
             )
@@ -62,7 +62,7 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
                 last_result = check_der_control_responses(resolved_params, step, context)
             case _:
                 logger.error(f"Unrecognised check type {check.type} in step {step.source.id}")
-                raise CactusClientException(
+                raise CactusClientError(
                     f"Unrecognised check type {check.type} in step {step.source.id}."
                     + " This is a problem with the test definition itself."
                 )

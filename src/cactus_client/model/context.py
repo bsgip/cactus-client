@@ -11,7 +11,7 @@ from cactus_test_definitions.server.test_procedures import (
     TestProcedureId,
 )
 
-from cactus_client.error import NotificationException
+from cactus_client.error import NotificationError
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.http import NotificationEndpoint
@@ -205,10 +205,10 @@ class ExecutionContext:
     def notifications_context(self, step: StepExecution) -> NotificationsContext:
         """Convenience function for accessing the NotificationsContext for a specific step (based on client alias)
 
-        Can raise NotificationException if a notification uri isn't configured."""
+        Can raise NotificationError if a notification uri isn't configured."""
         client = self.clients_by_alias[step.client_resources_alias]
         if client.notifications is None:
-            raise NotificationException(
+            raise NotificationError(
                 f"No NotificationContext for client {step.client_resources_alias}."
                 + " Has a notification_uri been configured?"
             )

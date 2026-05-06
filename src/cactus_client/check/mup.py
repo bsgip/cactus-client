@@ -17,7 +17,7 @@ from envoy_schema.server.schema.sep2.types import (
     UomType,
 )
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
@@ -55,7 +55,7 @@ def generate_mmr_mrids(
     """Generates mrids for all MirrorMeterReadings that lives under a MirrorUsagePoint with mup_mrid"""
     if mmr_mrids:
         if len(mmr_mrids) != len(reading_types):
-            raise CactusClientException(
+            raise CactusClientError(
                 "Test definition error. Parameter mmr_mrids has a different length to reading_types"
             )
         return dict(((rt, raw_mrid[:32]) for rt, raw_mrid in zip(reading_types, mmr_mrids)))
@@ -84,7 +84,7 @@ def generate_mup_mrids(
     return MirrorUsagePointMrids(mup_mrid=mup_mrid, mmr_mrids=mmr_mrids_by_rt)
 
 
-def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindType, DataQualifierType]:
+def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindType, DataQualifierType]:  # noqa: C901
     """Generates a CSIP-Aus compliant set of reading type values based on the associated test definition enum"""
     match rt:
         case CSIPAusReadingType.ActivePowerAverage:
@@ -124,7 +124,7 @@ def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindT
             return (UomType.VOLTAGE, KindType.POWER, DataQualifierType.MINIMUM)
 
         case _:
-            raise CactusClientException(f"No ReadingType mapping configured for {rt}. This is a test definition error.")
+            raise CactusClientError(f"No ReadingType mapping configured for {rt}. This is a test definition error.")
 
 
 def generate_role_flags(location: CSIPAusReadingLocation) -> RoleFlagsType:
@@ -135,12 +135,12 @@ def generate_role_flags(location: CSIPAusReadingLocation) -> RoleFlagsType:
             return RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_PREMISES_AGGREGATION_POINT
 
         case _:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"No CSIPAusReadingLocation mapping configured for {location}. This is a test definition error."
             )
 
 
-def find_mrids_matching(
+def find_mrids_matching(  # noqa: C901
     store: ResourceStore,
     role_flags: RoleFlagsType | None,
     mrids: MirrorUsagePointMrids | None,
@@ -184,7 +184,7 @@ def find_mrids_matching(
             comparison_reading_type_value: list[tuple[UomType, KindType, DataQualifierType]] = []
             for mmr in resource.mirrorMeterReadings or []:
                 if mmr.readingType is None:
-                    raise CactusClientException(f"MirrorMeterReading {mmr.href} {mmr.mRID} has no readingType")
+                    raise CactusClientError(f"MirrorMeterReading {mmr.href} {mmr.mRID} has no readingType")
                 comparison_reading_type_value.append(
                     (
                         mmr.readingType.uom or UomType.NOT_APPLICABLE,

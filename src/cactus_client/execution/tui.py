@@ -162,7 +162,7 @@ def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
     return Group(table_responses, active_request_line)
 
 
-def generate_step_progress(context: ExecutionContext, height: int) -> RenderableType:
+def generate_step_progress(context: ExecutionContext, height: int) -> RenderableType:  # noqa: C901
     step_grid = Table(
         title=f"[b]{context.test_procedure_id}[/] Steps",
         caption=f"[b]{len(context.steps._items)}[/] steps in queue.",

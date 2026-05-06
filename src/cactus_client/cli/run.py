@@ -8,7 +8,7 @@ from cactus_test_definitions.server.test_procedures import (
 )
 from rich.console import Console
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.execution.run import run_entrypoint
 from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, RunConfig, load_config
 
@@ -60,7 +60,7 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         global_config, _ = load_config(config_file_override)
-    except ConfigException:
+    except ConfigError:
         Console().print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
         sys.exit(1)
 
@@ -81,7 +81,7 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         test_passed = asyncio.run(run_entrypoint(global_config=global_config, run_config=run_config))
-    except ConfigException as exc:
+    except ConfigError as exc:
         Console().print(f"There is a problem with your configuration and the test couldn't start: {exc}.", style="red")
         sys.exit(1)
     except Exception:

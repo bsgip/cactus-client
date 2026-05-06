@@ -1,22 +1,22 @@
-class CactusClientException(Exception):
+class CactusClientError(Exception):
     """General base exception for anything the CactusClient might raise"""
 
     pass
 
 
-class ConfigException(CactusClientException):
+class ConfigError(CactusClientError):
     """Something is wrong/missing with the current Cactus Client configuration"""
 
     pass
 
 
-class RequestException(CactusClientException):
+class RequestError(CactusClientError):
     """Something went wrong when accessing the remote CSIP-Aus utility server"""
 
     pass
 
 
-class NotificationException(CactusClientException):
+class NotificationError(CactusClientError):
     """Something went wrong when interacting with the remote CACTUS Client Notification server."""
 
     pass

@@ -8,7 +8,7 @@ from cactus_client.constants import (
     CACTUS_TEST_DEFINITIONS_VERSION,
     ENVOY_SCHEMA_VERSION,
 )
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import RunConfig
 
 RUN_ID_FILE_NAME = Path(".runid")  # Stores an incrementing integer
@@ -119,7 +119,7 @@ class RunOutputManager:
 
         # Start initialising the run output directory with the default metadata files
         if self.run_output_dir.exists():
-            raise ConfigException(
+            raise ConfigError(
                 f"{self.run_output_dir.absolute()} already exists. Check {run_id_file.absolute()} value. Aborting!"
             )
 

@@ -29,7 +29,7 @@ from cactus_client.action.server import (
     get_resource_for_step,
     paginate_list_resource_items,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CombinedTimeTariffIntervalListResponse, ResourceStore
@@ -60,7 +60,7 @@ def check_item_for_href(step: StepExecution, context: ExecutionContext, href: st
     return item
 
 
-def get_list_item_callback(
+def get_list_item_callback(  # noqa: C901
     list_resource: CSIPAusResource,
 ) -> tuple[Callable[[Resource], list[Resource] | None], CSIPAusResource]:
     """Generates a callback that when executed (with a Resource) will generate the list of child items that belong
@@ -68,7 +68,7 @@ def get_list_item_callback(
 
     list_resource: Should be a list type CSIPAusResource
 
-    raises CactusClientException if list_resource is unsupported
+    raises CactusClientError if list_resource is unsupported
 
     returns a tuple:
         callback: A callable that takes a Resource and returns a list of child Resources (or None)
@@ -114,7 +114,7 @@ def get_list_item_callback(
             list_item_type = CSIPAusResource.ConsumptionTariffInterval
 
     if get_list_items is None or list_item_type is None:
-        raise CactusClientException(f"resource {list_resource} has no registered get_list_items function.")
+        raise CactusClientError(f"resource {list_resource} has no registered get_list_items function.")
 
     return (get_list_items, list_item_type)
 

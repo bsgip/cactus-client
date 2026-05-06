@@ -221,7 +221,7 @@ from cactus_client.model.execution import CheckResult, StepExecution
         ),
     ],
 )
-def test_check_function_set_assignment(
+def test_check_function_set_assignment(  # noqa: C901
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
     under_client_edev: (

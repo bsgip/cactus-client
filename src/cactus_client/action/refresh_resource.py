@@ -9,7 +9,7 @@ from cactus_client.action.server import (
     client_error_request_for_step,
     get_resource_for_step,
 )
-from cactus_client.error import CactusClientException, RequestException
+from cactus_client.error import CactusClientError, RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
@@ -31,7 +31,7 @@ async def action_refresh_resource(
     matching_resources: list[StoredResource] = resource_store.get_for_type(resource_type)
 
     if len(matching_resources) == 0:
-        raise CactusClientException(f"Expected matching resources to refresh for resource {resource_type}. None found.")
+        raise CactusClientError(f"Expected matching resources to refresh for resource {resource_type}. None found.")
 
     for sr in matching_resources:
         href = sr.resource.href
@@ -54,8 +54,8 @@ async def action_refresh_resource(
                 fetched_resource = await get_resource_for_step(type(sr.resource), step, context, href)
                 resource_store.upsert_resource(resource_type, sr.id.parent_id(), fetched_resource)
 
-        except RequestException as exc:
-            # We will bundle up RequestException as a "retryable" failure
+        except RequestError as exc:
+            # We will bundle up RequestError as a "retryable" failure
             logger.error(f"Request error refreshing {href}", exc_info=exc)
             return ActionResult.failed(f"Request error: {exc}")
 

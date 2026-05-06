@@ -51,7 +51,7 @@ from envoy_schema.server.schema.sep2.pub_sub import (
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from treelib import Tree
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -246,7 +246,7 @@ class StoredResource:
             member_of_list = None
 
         if not resource.href:
-            raise CactusClientException(f"Received a {resource_type} under {parent} with no href.")
+            raise CactusClientError(f"Received a {resource_type} under {parent} with no href.")
 
         return StoredResource(
             id=StoredResourceId.from_parent(parent, resource.href),
@@ -290,15 +290,15 @@ class ResourceStore:
         """Updates the store so that future calls to get (for type) will return their current value(s) PLUS this new
         value.
 
-        raises a CactusClientException if resource is missing a href
-        raises a CactusClientException if a resource with the same unique ID is already stored.
+        raises a CactusClientError if resource is missing a href
+        raises a CactusClientError if a resource with the same unique ID is already stored.
 
         Returns the StoredResource that was inserted"""
         new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 
         duplicate = self.id_store.get(new_resource.id, None)
         if duplicate is not None:
-            raise CactusClientException(f"Resource store already has {type} {new_resource.id}. Cannot append a copy.")
+            raise CactusClientError(f"Resource store already has {type} {new_resource.id}. Cannot append a copy.")
         self.id_store[new_resource.id] = new_resource
 
         existing_resources_of_type = self.resource_store.get(type, None)
@@ -315,7 +315,7 @@ class ResourceStore:
         """Similar to append_resource but if a resource with the same href+parent already exists, it will be
         replaced.
 
-        raises a CactusClientException if resource is missing a href"""
+        raises a CactusClientError if resource is missing a href"""
 
         new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 
@@ -351,7 +351,7 @@ class ResourceStore:
                 try:
                     resource_list.remove(deleted_item)
                 except ValueError:
-                    raise CactusClientException(
+                    raise CactusClientError(
                         f"Couldn't find {id} in the {deleted_item.resource_type} store. This is a bug with the tests."
                     )
 

@@ -28,7 +28,7 @@ from envoy_schema.server.schema.sep2.pricing import (
 )
 from treelib.exceptions import NodeIDAbsentError
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.resource import (
     RESOURCE_SEP2_TYPES,
     CSIPAusResourceTree,
@@ -223,12 +223,12 @@ def test_ResourceStore_requires_hrefs(bad_href):
     """Cant add a Resource to the store that doesn't have a HREF"""
     s = ResourceStore(CSIPAusResourceTree())
 
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(
             CSIPAusResource.DeviceCapability, None, generate_class_instance(DeviceCapabilityResponse, href=bad_href)
         )
 
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.upsert_resource(
             CSIPAusResource.DeviceCapability, None, generate_class_instance(DeviceCapabilityResponse, href=bad_href)
         )
@@ -267,7 +267,7 @@ def test_ResourceStore():
     assert list(s.resources()) == [sr1]
 
     # We can't append the same resource again
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(CSIPAusResource.DER, None, r1)
 
     # We can append a different resource though
@@ -292,7 +292,7 @@ def test_ResourceStore():
     assert CSIPAusResource.DERList in sr3.resource_link_hrefs
 
     # We can't append the same resource again
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(CSIPAusResource.EndDevice, sr1.id, r3)
 
     sr4 = s.append_resource(CSIPAusResource.EndDevice, sr1.id, r4)

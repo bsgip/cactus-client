@@ -31,7 +31,7 @@ from cactus_client.check.mup import (
     generate_reading_type_values,
     generate_role_flags,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 
@@ -122,7 +122,7 @@ def test_generate_mup_mrids():
 
 
 def test_generate_reading_type_values_bad_value():
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         generate_reading_type_values("not a valid value")
 
 
@@ -135,7 +135,7 @@ def test_generate_reading_type_values():
 
 
 def test_generate_role_flags_bad_value():
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         generate_role_flags("not a valid value")
 
 
@@ -170,7 +170,7 @@ def test_generate_mmr_mrids_basic():
     assert result3[rts[0]] == "012345678901234567890123ABCDEF01"
 
     # Error case: mismatched lengths raise an error
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         generate_mmr_mrids(mup_mrid, rts, pen, ["mrid1", "mrid2"])
 
 

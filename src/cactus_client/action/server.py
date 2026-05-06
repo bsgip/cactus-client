@@ -9,7 +9,7 @@ from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource
 
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestException
+from cactus_client.error import RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
@@ -50,7 +50,7 @@ async def _single_request(
         except Exception as exc:
             logger.error(f"Caught exception attempting to {method} {path}", exc_info=exc)
             await context.responses.clear_active_request()
-            raise RequestException(f"Caught exception attempting to {method} {path}: {exc}")
+            raise RequestError(f"Caught exception attempting to {method} {path}: {exc}")
 
         await context.responses.log_response_body(response, step.client_alias)
         await context.responses.clear_active_request()
@@ -61,7 +61,7 @@ async def request_for_step(
     step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
 ) -> ServerResponse:
     """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
-    logs the actions in the various context trackers. Raises a RequestException on connection failure.
+    logs the actions in the various context trackers. Raises a RequestError on connection failure.
 
     Retries up to 3 times on 429 responses with delays of 5, 15, 30 seconds."""
     await context.progress.add_log(step, f"Requesting {method} {path}")
@@ -93,7 +93,7 @@ def parse_type_response(t: type[AnyResourceType], response: ServerResponse) -> A
     except Exception as exc:
         logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
         logger.error(response.body)
-        raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+        raise RequestError(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
 
 
 def parse_error_response(
@@ -121,7 +121,7 @@ async def client_error_request_for_step(
     response = await request_for_step(step, context, path, method, sep2_xml_body)
 
     if not response.is_client_error():
-        raise RequestException(
+        raise RequestError(
             f"Received status {response.status} but expected 4XX requesting {response.method} {path}."
         )
 
@@ -138,7 +138,7 @@ async def client_error_or_empty_list_request_for_step(
 ) -> ErrorResponse | AnyListType | None:
     """Similar to client_error_request_for_step but also allows a successful response if it's an empty sep2 List.
 
-    Raises a RequestException if the response is neither a 4xx nor an empty List.
+    Raises a RequestError if the response is neither a 4xx nor an empty List.
     Returns None if the error response body could not be parsed as a valid ErrorResponse XML."""
 
     # Fire off the request and if it fails, handle the error response.
@@ -147,7 +147,7 @@ async def client_error_or_empty_list_request_for_step(
         return parse_error_response(step, context, response)
 
     if not response.is_success():
-        raise RequestException(f"Received status {response.status} (expected 4XX) requesting {response.method} {path}.")
+        raise RequestError(f"Received status {response.status} (expected 4XX) requesting {response.method} {path}.")
 
     # At this point - we're assuming we've got a List response
     list_data = parse_type_response(t, response)
@@ -156,7 +156,7 @@ async def client_error_or_empty_list_request_for_step(
             step, f"{method} {path} yielded a List that's missing either the 'all' or 'results' attribute."
         )
     elif list_data.all_ != 0 or list_data.results != 0:
-        raise RequestException(
+        raise RequestError(
             f"{method} {path} should've returned an error or empty List but instead got a List with "
             f"'all'={list_data.all_} 'results'={list_data.results}"
         )
@@ -167,12 +167,12 @@ async def get_resource_for_step(
     t: type[AnyResourceType], step: StepExecution, context: ExecutionContext, href: str
 ) -> AnyResourceType:
     """Makes a GET request for a particular href and parses the resulting XML into an expected type (t). Raises a
-    RequestException if the connection fails, returns an error or fails to parse to t"""
+    RequestError if the connection fails, returns an error or fails to parse to t"""
     # Make the raw request
     response = await request_for_step(step, context, href, HTTPMethod.GET)
 
     if not response.is_success():
-        raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
+        raise RequestError(f"Received status {response.status} requesting {response.method} {href}.")
 
     return parse_type_response(t, response)
 
@@ -180,11 +180,11 @@ async def get_resource_for_step(
 async def delete_and_check_resource_for_step(step: StepExecution, context: ExecutionContext, href: str) -> None:
     """Makes a DELETE request for a particular href and then performs a followup GET expecting a 404/401/403 error.
 
-    Raises a RequestException if the connection fails, returns an error or succeeds on the refetch."""
+    Raises a RequestError if the connection fails, returns an error or succeeds on the refetch."""
     # Make the delete request
     delete_response = await request_for_step(step, context, href, HTTPMethod.DELETE)
     if not delete_response.is_success():
-        raise RequestException(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
+        raise RequestError(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
 
     # There might be a refetch delay
     if context.server_config.refetch_delay_ms:
@@ -195,7 +195,7 @@ async def delete_and_check_resource_for_step(step: StepExecution, context: Execu
     # Try and refetch it - it should now be "deleted" so we'll accept a few different error statuses as a pass
     refetch_response = await request_for_step(step, context, href, HTTPMethod.GET)
     if refetch_response.status not in {HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}:
-        raise RequestException(f"Refetching {href} yielded {delete_response.status}. Expected it to be deleted.")
+        raise RequestError(f"Refetching {href} yielded {delete_response.status}. Expected it to be deleted.")
 
 
 async def submit_and_refetch_resource_for_step(
@@ -218,13 +218,13 @@ async def submit_and_refetch_resource_for_step(
         step, context, href, method, sep2_xml_body=resource_to_sep2_xml(submitted_resource)
     )
     if not response.is_success():
-        raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
+        raise RequestError(f"Received status {response.status} requesting {response.method} {href}.")
 
     if no_location_header:
         refetch_href = href
     else:
         if not response.location:
-            raise RequestException(
+            raise RequestError(
                 f"{response.status} response from {response.method} {href} did not return an expected 'Location' header"
             )
         refetch_href = response.location
@@ -306,7 +306,7 @@ async def paginate_list_resource_items(
         # Safety valve in case a server misbehaves and keeps sending us more data
         pages_requested += 1
         if pages_requested >= max_pages_requested:
-            raise RequestException(
+            raise RequestError(
                 f"Paginating {list_href} exceeded max pages {max_pages_requested} at page size {page_size}."
             )
 

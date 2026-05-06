@@ -18,7 +18,7 @@ def is_resolvable_variable(v: Any) -> bool:
     return isinstance(v, NamedVariable) or isinstance(v, Expression) or isinstance(v, Constant)
 
 
-async def resolve_variable(client_config: ClientConfig, v: NamedVariable | Expression | Constant) -> Any:
+async def resolve_variable(client_config: ClientConfig, v: NamedVariable | Expression | Constant) -> Any:  # noqa: C901
     """Attempts to resolve the specified variable
 
     raises UnresolvableVariableError if any errors are encountered

@@ -7,7 +7,7 @@ from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 
 
-def check_der_program(
+def check_der_program(  # noqa: C901
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> CheckResult:
     """Checks whether there is a DERProgram in the resource store which matches the check criteria"""

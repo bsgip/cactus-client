@@ -12,7 +12,7 @@ from cactus_client.cli.common import (
     parse_bool,
     rich_cert_file_value,
 )
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     CONFIG_CWD,
     CONFIG_HOME,
@@ -50,7 +50,7 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     server_parser.add_argument("new_value", help="The new value for config_key", nargs="?")
 
 
-def update_server_key(
+def update_server_key(  # noqa: C901
     console: Console, config: GlobalConfig, config_key: ServerConfigKey, new_value: str
 ) -> ServerConfig:
 
@@ -156,7 +156,7 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         config, config_path = load_config(config_file_override)
-    except ConfigException:
+    except ConfigError:
         console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
         sys.exit(1)
 

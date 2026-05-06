@@ -5,7 +5,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.execution.autorun import AutorunStatus, autorun_entrypoint
 from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, load_config
 from cactus_client.results.compliance import render_compliance_report
@@ -72,7 +72,7 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         global_config, _ = load_config(args.config_file)
-    except ConfigException:
+    except ConfigError:
         console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
         sys.exit(1)
 
@@ -111,7 +111,7 @@ def run_action(args: argparse.Namespace) -> None:
                 strict=strict,
             )
         )
-    except ConfigException as exc:
+    except ConfigError as exc:
         console.print(f"Configuration error: {exc}", style="red")
         sys.exit(1)
     except Exception:

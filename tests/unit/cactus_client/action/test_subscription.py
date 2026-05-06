@@ -45,7 +45,7 @@ from cactus_client.action.subscription import (
     parse_combined_resource,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import (
     AnnotationNamespace,
     ExecutionContext,
@@ -235,7 +235,7 @@ def test_parse_combined_resource_edge_cases(xsi_type: str, source, expected):
 
 @pytest.mark.parametrize("bad_type", [None, "", "DERControlButDNE"])
 def test_parse_combined_resource_bad_type(bad_type):
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         parse_combined_resource(bad_type, generate_class_instance(NotificationResourceCombined))
 
 

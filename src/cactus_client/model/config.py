@@ -6,7 +6,7 @@ import yaml
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
 from dataclass_wizard import YAMLWizard
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 
 CONFIG_FILE_NAME = Path(".cactus.yaml")  # Name of the config
 
@@ -113,7 +113,7 @@ class GlobalConfig(YAMLWizard):  # type: ignore
 
 
 def resolve_config_path() -> Path:
-    """Attempts to resolve a config file path for the global config (or raises ConfigException on failure)"""
+    """Attempts to resolve a config file path for the global config (or raises ConfigError on failure)"""
 
     if Path.exists(CONFIG_CWD):
         return CONFIG_CWD
@@ -121,7 +121,7 @@ def resolve_config_path() -> Path:
     if Path.exists(CONFIG_HOME):
         return CONFIG_HOME
 
-    raise ConfigException(f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir.")
+    raise ConfigError(f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir.")
 
 
 def load_config(config_file_path_override: str | None) -> tuple[GlobalConfig, Path]:
@@ -138,9 +138,9 @@ def load_config(config_file_path_override: str | None) -> tuple[GlobalConfig, Pa
     try:
         config = GlobalConfig.from_yaml_file(cfg_path)
     except Exception as exc:
-        raise ConfigException(f"Error reading config {exc}")
+        raise ConfigError(f"Error reading config {exc}")
 
     if not isinstance(config, GlobalConfig):
-        raise ConfigException(f"Received an invalid type for config: {type(config)}. This is likely a corrupted file.")
+        raise ConfigError(f"Received an invalid type for config: {type(config)}. This is likely a corrupted file.")
 
     return config, cfg_path

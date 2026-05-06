@@ -26,7 +26,7 @@ from cactus_client.action.subscription import (
     action_notifications,
 )
 from cactus_client.action.wait import action_wait
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.parameter import resolve_variable_expressions_from_parameters
@@ -34,8 +34,8 @@ from cactus_client.model.parameter import resolve_variable_expressions_from_para
 logger = logging.getLogger(__name__)
 
 
-async def execute_action(step: StepExecution, context: ExecutionContext) -> ActionResult:
-    """Given a step and context - execute the appropriate action for that step (or raise a CactusClientException)"""
+async def execute_action(step: StepExecution, context: ExecutionContext) -> ActionResult:  # noqa: C901
+    """Given a step and context - execute the appropriate action for that step (or raise a CactusClientError)"""
 
     action_info = step.source.action
 
@@ -45,10 +45,10 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
         resolved_params = await resolve_variable_expressions_from_parameters(client_config, action_info.parameters)
     except Exception as exc:
         logger.error(f"Exception resolving parameters for action in step: {step.source.id}", exc_info=exc)
-        raise CactusClientException(
+        raise CactusClientError(
             f"There was an error parsing parameters for the action in step: {step.source.id}."
             + " This is a problem with the test definition itself."
-        )
+        ) from exc
 
     match action_info.type:
         case "no-op":
@@ -92,7 +92,7 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
 
         case _:
             logger.error(f"Unrecognised action type {action_info.type} in step {step.source.id}")
-            raise CactusClientException(
+            raise CactusClientError(
                 f"Unrecognised action type {action_info.type} in step {step.source.id}."
                 + " This is a problem with the test definition itself."
             )
