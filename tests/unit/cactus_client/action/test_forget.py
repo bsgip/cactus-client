@@ -1,5 +1,5 @@
 import unittest.mock as mock
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 from aiohttp import ClientSession

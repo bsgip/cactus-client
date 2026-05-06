@@ -1,8 +1,9 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource

@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Generator, Iterable, Optional, TypeVar, cast
+from typing import Optional, TypeVar, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
 from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse

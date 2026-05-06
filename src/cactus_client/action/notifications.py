@@ -192,7 +192,7 @@ async def collect_notifications_for_subscription(
         if collected_response.notifications is None:
             continue
         all_collected_notifications.extend(
-            (SubscriptionNotification(n, endpoint) for n in collected_response.notifications)
+            SubscriptionNotification(n, endpoint) for n in collected_response.notifications
         )
 
     return all_collected_notifications

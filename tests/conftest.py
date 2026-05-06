@@ -1,7 +1,7 @@
 import warnings
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest

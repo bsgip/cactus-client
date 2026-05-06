@@ -1,5 +1,6 @@
 import re
-from typing import Callable, cast
+from collections.abc import Callable
+from typing import cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERControlResponse

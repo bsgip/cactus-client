@@ -99,9 +99,9 @@ async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         with open(key_file, "wb") as f:
-            f.write("clearly junk".encode())
+            f.write(b"clearly junk")
         with open(cert_file, "wb") as f:
-            f.write("clearly junk".encode())
+            f.write(b"clearly junk")
 
         _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
 

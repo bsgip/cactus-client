@@ -36,13 +36,13 @@ def test_RunOutputManager():
             assert om_1_copy.file_path(file) != om_1.file_path(file)
 
         # version metadata should be constant
-        with open(om_1.file_path(RunOutputFile.VersionsMetadata), "r") as fp1:
-            with open(om_2.file_path(RunOutputFile.VersionsMetadata), "r") as fp2:
+        with open(om_1.file_path(RunOutputFile.VersionsMetadata)) as fp1:
+            with open(om_2.file_path(RunOutputFile.VersionsMetadata)) as fp2:
                 assert fp1.read() == fp2.read()
 
         # We write the expected test procedure id
-        with open(om_1.file_path(RunOutputFile.TestProcedureId), "r") as fp1:
+        with open(om_1.file_path(RunOutputFile.TestProcedureId)) as fp1:
             assert fp1.read() == run_config_1.test_procedure_id
 
-        with open(om_2.file_path(RunOutputFile.TestProcedureId), "r") as fp1:
+        with open(om_2.file_path(RunOutputFile.TestProcedureId)) as fp1:
             assert fp1.read() == run_config_2.test_procedure_id

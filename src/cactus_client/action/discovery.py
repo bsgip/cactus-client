@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
 from envoy_schema.server.schema.sep2.der import (

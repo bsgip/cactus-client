@@ -1,7 +1,7 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from enum import IntEnum
 from http import HTTPMethod
-from typing import Callable
 
 import pytest
 from aiohttp import ClientSession

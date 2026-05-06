@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from cactus_test_definitions.server.test_procedures import Step
 

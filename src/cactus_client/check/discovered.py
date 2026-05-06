@@ -39,7 +39,7 @@ def do_links_check(links: list[CSIPAusResource], step: StepExecution, context: E
             if not parent_stored_resources:
                 missing_parent_lists.append(resource)
 
-        elif not any((resource in sr.resource_link_hrefs for sr in parent_stored_resources)):
+        elif not any(resource in sr.resource_link_hrefs for sr in parent_stored_resources):
             # Other resources need to check for any number of Link.href references that point to our type
             # eg: DER.DERSettingsLink.href -> DERSettings
             missing_parent_links.append(resource)

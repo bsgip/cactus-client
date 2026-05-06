@@ -2,10 +2,10 @@ import logging
 import ssl
 import urllib
 import urllib.parse
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from ssl import SSLContext
-from typing import AsyncIterator
 
 from aiohttp import ClientSession, TCPConnector
 from cactus_test_definitions.server.test_procedures import (
@@ -52,7 +52,7 @@ def build_clients_by_alias(
     if not configured_clients:
         raise ConfigException("No clients have been created (client config is empty).")
 
-    client_config_by_id = dict(((cfg.id, cfg) for cfg in configured_clients))
+    client_config_by_id = dict((cfg.id, cfg) for cfg in configured_clients)
 
     if len(run_client_ids) != len(tp.preconditions.required_clients):
         raise ConfigException(

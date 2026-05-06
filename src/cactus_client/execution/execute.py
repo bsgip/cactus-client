@@ -1,8 +1,8 @@
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from typing import AsyncIterator
 
 from cactus_client.action import execute_action
 from cactus_client.admin import get_plugin_manager

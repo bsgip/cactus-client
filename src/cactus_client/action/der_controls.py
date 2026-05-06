@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import datetime
 from http import HTTPMethod
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERControlResponse as DERControl
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_edev_lfdi_for_der_control(
-    step: StepExecution, context: ExecutionContext, der_ctl: StoredResource, der_control_href: Optional[str]
-) -> Optional[str]:
+    step: StepExecution, context: ExecutionContext, der_ctl: StoredResource, der_control_href: str | None
+) -> str | None:
     """Helper function to reduce duplicate code. Checks for a non None parent end device lfdi given a DER control"""
     resource_store = context.discovered_resources(step)
     edev = resource_store.get_ancestor_of(CSIPAusResource.EndDevice, der_ctl.id)

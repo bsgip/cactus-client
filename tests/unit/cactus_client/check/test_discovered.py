@@ -1,5 +1,6 @@
 import unittest.mock as mock
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from aiohttp import ClientSession
@@ -119,8 +120,8 @@ def test_check_discovered(
 ):
 
     # In case we typo the test parameters - we don't want to let something slip
-    assert all((r in CSIPAusResource for r in resolved_params.get("links", []))), "Checking inputs to ensure validity"
-    assert all((r in CSIPAusResource for r in resolved_params.get("resources", []))), "Checking to ensure validity"
+    assert all(r in CSIPAusResource for r in resolved_params.get("links", [])), "Checking inputs to ensure validity"
+    assert all(r in CSIPAusResource for r in resolved_params.get("resources", [])), "Checking to ensure validity"
 
     context, step = testing_contexts_factory(mock.Mock())
 

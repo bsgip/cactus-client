@@ -1,5 +1,5 @@
 import unittest.mock as mock
-from typing import Callable
+from collections.abc import Callable
 
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance

@@ -1,7 +1,7 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from http import HTTPMethod, HTTPStatus
-from typing import AsyncIterator
 
 import pytest
 from aiohttp import ClientSession, web

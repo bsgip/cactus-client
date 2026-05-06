@@ -1,6 +1,6 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable
 
 import pytest
 from aiohttp import ClientSession

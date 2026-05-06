@@ -61,7 +61,7 @@ def generate_mmr_mrids(
         return dict(((rt, raw_mrid[:32]) for rt, raw_mrid in zip(reading_types, mmr_mrids)))
 
     # Otherwise continue to derive more hashed mrids
-    return dict(((rt, generate_hashed_mrid(mup_mrid + str(rt), pen)) for rt in reading_types))
+    return dict((rt, generate_hashed_mrid(mup_mrid + str(rt), pen)) for rt in reading_types)
 
 
 def generate_mup_mrids(

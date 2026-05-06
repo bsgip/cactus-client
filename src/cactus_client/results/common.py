@@ -26,8 +26,8 @@ class ResultsEvaluation:
 
     def __init__(self, context: ExecutionContext, execute_result: ExecutionResult) -> None:
         self.total_warnings = len(context.warnings.warnings)
-        self.total_xsd_errors = sum((bool(r.xsd_errors) for r in context.responses.responses))
-        self.total_steps_passed = sum((sr.is_passed() for sr in context.progress.all_results))
+        self.total_xsd_errors = sum(bool(r.xsd_errors) for r in context.responses.responses)
+        self.total_steps_passed = sum(sr.is_passed() for sr in context.progress.all_results)
         self.total_steps = len(context.test_procedure.steps)
 
         self.all_steps_evaluated = len(context.progress.all_results) == self.total_steps

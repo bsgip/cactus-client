@@ -1,8 +1,9 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import timedelta
 from enum import StrEnum, auto
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import yaml
 from cactus_test_definitions.variable_expressions import BaseExpression

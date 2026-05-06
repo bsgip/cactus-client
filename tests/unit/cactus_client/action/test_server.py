@@ -1,10 +1,11 @@
 import unittest.mock as mock
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from itertools import product
-from typing import AsyncIterator, cast
+from typing import cast
 
 import pytest
 from aiohttp import ClientSession, web
@@ -44,13 +45,13 @@ class RouteBehaviour:
 
     @staticmethod
     def xml(status: HTTPStatus, file_name: str) -> "RouteBehaviour":
-        with open("tests/data/" + file_name, "r") as fp:
+        with open("tests/data/" + file_name) as fp:
             raw_xml = fp.read()
         return RouteBehaviour(status, raw_xml.encode(), {"Content-Type": MIME_TYPE_SEP2})
 
     @staticmethod
     def no_content_location(status: HTTPStatus, location: str) -> "RouteBehaviour":
-        return RouteBehaviour(status, bytes(), {"Location": location})
+        return RouteBehaviour(status, b"", {"Location": location})
 
 
 @dataclass
@@ -99,8 +100,8 @@ async def test_delete_and_check_resource_for_step_success(
     aiohttp_client, testing_contexts_factory, refetch_status: bool, refetch_delay: int
 ):
     """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
-    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
-    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, b"", {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
         execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
@@ -135,8 +136,8 @@ async def test_delete_and_check_resource_for_step_refetch_bad_response(
     aiohttp_client, testing_contexts_factory, refetch_status
 ):
     """Does delete_and_check_resource_for_step Raise exceptions if the refetch doesn't behave as expected"""
-    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
-    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, b"", {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
@@ -161,8 +162,8 @@ async def test_delete_and_check_resource_for_step_delete_bad_response(
     aiohttp_client, testing_contexts_factory, delete_status
 ):
     """Does delete_and_check_resource_for_step Raise exceptions if the delete doesn't behave as expected"""
-    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(delete_status, bytes(), {})])
-    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.NOT_FOUND, bytes(), {})])
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(delete_status, b"", {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.NOT_FOUND, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
@@ -300,7 +301,7 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.PUT, "/foo", [RouteBehaviour(HTTPStatus.NO_CONTENT, bytes(), {})]),
+            TestingAppRoute(HTTPMethod.PUT, "/foo", [RouteBehaviour(HTTPStatus.NO_CONTENT, b"", {})]),
             TestingAppRoute(HTTPMethod.GET, "/foo", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]),
         ],
     ) as session:
@@ -336,7 +337,7 @@ async def test_submit_and_refetch_resource_for_step_failure_no_location_header(
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.PUT, "/foo", [RouteBehaviour(HTTPStatus.NO_CONTENT, bytes(), {})]),
+            TestingAppRoute(HTTPMethod.PUT, "/foo", [RouteBehaviour(HTTPStatus.NO_CONTENT, b"", {})]),
             TestingAppRoute(HTTPMethod.GET, "/foo", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]),
         ],
     ) as session:
@@ -397,7 +398,7 @@ async def test_submit_and_refetch_resource_for_step_failure_initial_request(aioh
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.POST, "/foo", [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, bytes(), {})]),
+            TestingAppRoute(HTTPMethod.POST, "/foo", [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, b"", {})]),
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
@@ -422,7 +423,7 @@ async def test_submit_and_refetch_resource_for_step_failure_refetch_request(aioh
         [
             TestingAppRoute(HTTPMethod.DELETE, "/foo", [RouteBehaviour.no_content_location(HTTPStatus.OK, "/foo/bar")]),
             TestingAppRoute(
-                HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, bytes(), {})]
+                HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, b"", {})]
             ),
         ],
     ) as session:
