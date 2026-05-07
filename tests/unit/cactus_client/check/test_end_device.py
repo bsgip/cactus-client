@@ -12,7 +12,11 @@ from envoy_schema.server.schema.sep2.end_device import (
     RegistrationResponse,
 )
 
-from cactus_client.check.end_device import check_end_device, check_end_device_list, is_checksum_valid
+from cactus_client.check.end_device import (
+    check_end_device,
+    check_end_device_list,
+    is_checksum_valid,
+)
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
@@ -41,9 +45,25 @@ def test_is_checksum_valid(pin: int, expected: bool):
     [
         # Empty store checks
         ({"matches_client": True}, [], "ABC123", 456, 789, False, False),
-        ({"matches_client": True, "matches_pin": True}, [], "ABC123", 456, 789, False, False),
+        (
+            {"matches_client": True, "matches_pin": True},
+            [],
+            "ABC123",
+            456,
+            789,
+            False,
+            False,
+        ),
         ({"matches_client": False}, [], "ABC123", 456, 789, True, False),
-        ({"matches_client": False, "matches_pin": True}, [], "ABC123", 456, 789, True, False),
+        (
+            {"matches_client": False, "matches_pin": True},
+            [],
+            "ABC123",
+            456,
+            789,
+            True,
+            False,
+        ),
         # Store has data
         (
             {"matches_client": True, "matches_pin": True},
@@ -233,27 +253,21 @@ def test_check_end_device(
             True,
             False,
         ),
-        # Aggregator: edev/0 plus real registered device - matches_client:false should fail
+        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based, not href-based)
         (
             ClientType.AGGREGATOR,
-            [
-                generate_class_instance(EndDeviceResponse, seed=101, lFDI="ABC123", href="/path/edev/0"),
-                generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", href="/path/edev/1"),
-            ],
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
             "ABC123",
             False,
-            False,
+            True,
         ),
-        # Aggregator: edev/0 plus real registered device - matches_client:true should pass
+        # Aggregator: virtual device at a non-standard path - matches_client:true should fail
         (
             ClientType.AGGREGATOR,
-            [
-                generate_class_instance(EndDeviceResponse, seed=101, lFDI="ABC123", href="/path/edev/0"),
-                generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", href="/path/edev/1"),
-            ],
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
             "ABC123",
             True,
-            True,
+            False,
         ),
         # Device client: edev/0 - matches_client:false should fail
         (
@@ -302,14 +316,44 @@ def test_check_end_device_aggregator_virtual_edev(
         ([], None, None, None, None, True),
         ([], 0, 10, None, None, True),
         ([], 1, 10, None, None, False),
-        ([(generate_class_instance(EndDeviceListResponse, pollRate=123), [])], 1, 1, 0, None, False),
-        ([(generate_class_instance(EndDeviceListResponse, pollRate=123), [])], 1, 1, 123, None, True),
-        ([(generate_class_instance(EndDeviceListResponse, pollRate=None), [])], 1, 1, 123, None, False),
+        (
+            [(generate_class_instance(EndDeviceListResponse, pollRate=123), [])],
+            1,
+            1,
+            0,
+            None,
+            False,
+        ),
+        (
+            [(generate_class_instance(EndDeviceListResponse, pollRate=123), [])],
+            1,
+            1,
+            123,
+            None,
+            True,
+        ),
+        (
+            [(generate_class_instance(EndDeviceListResponse, pollRate=None), [])],
+            1,
+            1,
+            123,
+            None,
+            False,
+        ),
         (
             [
-                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), []),
-                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), []),
-                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), []),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None),
+                    [],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0),
+                    [],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456),
+                    [],
+                ),
             ],
             1,
             1,
@@ -319,10 +363,22 @@ def test_check_end_device_aggregator_virtual_edev(
         ),
         (
             [
-                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456), []),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456),
+                    [],
+                ),
             ],
             1,
             1,
@@ -332,10 +388,22 @@ def test_check_end_device_aggregator_virtual_edev(
         ),
         (
             [
-                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456), []),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456),
+                    [],
+                ),
             ],
             1,
             1,
@@ -345,10 +413,22 @@ def test_check_end_device_aggregator_virtual_edev(
         ),
         (
             [
-                (generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456), ["sub1"]),
-                (generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456), []),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=101, pollRate=None),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=202, pollRate=0),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=303, pollRate=456),
+                    ["sub1"],
+                ),
+                (
+                    generate_class_instance(EndDeviceListResponse, seed=404, pollRate=456),
+                    [],
+                ),
             ],
             3,
             3,
