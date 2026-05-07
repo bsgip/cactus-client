@@ -22,8 +22,8 @@ jobs:
         with:
           python-version: ${{ matrix.pyver }}
       - name: Install linters
-        run: pip install ruff bandit ty
-        
+        run: pip install .[dev]
+
       - name: Lint (ruff)
         run: ruff check .
       - name: Format check
