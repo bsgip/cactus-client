@@ -141,6 +141,7 @@ async def test_action_respond_der_controls_with_previous_responses(
         assert mock_request_for_step.call_count == 1
 
         call = mock_request_for_step.call_args_list[0]
+        assert expected_status is not None
         assert f"<status>{int(expected_status)}</status>" in call.kwargs["sep2_xml_body"]
 
         # Verify the new tag was added

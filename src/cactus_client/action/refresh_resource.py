@@ -59,7 +59,7 @@ async def action_refresh_resource(
                 resource_store.upsert_resource(resource_type, sr.id.parent_id(), fetched_resource)
 
         except RequestError as exc:
-            # We will bundle up RequestException as a "retryable" failure
+            # We will bundle up RequestError as a "retryable" failure
             logger.error(f"Request error refreshing {href}", exc_info=exc)
             return ActionResult.failed(f"Request error: {exc}")
 

@@ -29,7 +29,7 @@ from cactus_client.admin.plugins import (
     hookimpl,
     project_name,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.execution.execute import (
     execute_for_context,
     setup_and_teardown,
@@ -88,7 +88,7 @@ def handle_mock_execute_action(current_step: StepExecution, context: ExecutionCo
         else:
             return ActionResult.done()
     elif action_type == ACTION_EXCEPTION:
-        raise CactusClientException("mocked exception")
+        raise CactusClientError("mocked exception")
     elif action_type == ACTION_FAIL_ONCE:
         # Returns failed on first attempt, done on subsequent - tests retriable action failures
         if current_step.attempts == 0:
@@ -114,7 +114,7 @@ def handle_mock_execute_checks(current_step: StepExecution, context: ExecutionCo
         else:
             return CheckResult(True, None)
     elif check_type == CHECK_EXCEPTION:
-        raise CactusClientException("mocked exception")
+        raise CactusClientError("mocked exception")
     else:
         raise NotImplementedError(f"Unsupported check type {check_type}")
 
@@ -613,6 +613,8 @@ async def test_execute_for_context_action_exception(
     assert_step_result(context.progress, "2", False)
     assert_step_result(context.progress, "3", None)
 
+    assert context.progress.progress_by_step_id["1"].result
+    assert context.progress.progress_by_step_id["2"].result
     assert context.progress.progress_by_step_id["1"].result.exc is None
     assert context.progress.progress_by_step_id["2"].result.exc is not None
 
@@ -960,7 +962,7 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
             responses=ResponseTracker(),
             warnings=WarningTracker(),
             progress=ProgressTracker(),
-            steps=[],
+            steps=StepExecutionList(),
         )
 
         validate_all_resources(context)

@@ -191,6 +191,7 @@ async def test_action_upsert_mup(testing_contexts_factory):
         sent_reading_type_tuples = [
             (mmr.readingType.uom, mmr.readingType.kind, mmr.readingType.dataQualifier)
             for mmr in sent_request.mirrorMeterReadings
+            if mmr.readingType is not None
         ]
         expected_reading_type_tuples = [generate_reading_type_values(rt) for rt in resolved_params["reading_types"]]
         assert set(sent_reading_type_tuples) == set(expected_reading_type_tuples)
@@ -281,7 +282,7 @@ async def test_action_insert_readings(
         expected_next_time = base_time.replace(second=0, microsecond=0) + timedelta(seconds=60)
         # Should be either the expected time or later (if minimum wait)
         if expected_repeat:
-            assert result.not_before >= expected_next_time
+            assert result.not_before and result.not_before >= expected_next_time
 
         # Verify request
         mock_request.assert_called_once()
@@ -302,6 +303,7 @@ async def test_action_insert_readings(
         assert reading.value == value_to_sep2(expected_value, pow10_multiplier)
 
         expected_timestamp = int(base_time.replace(second=0, microsecond=0).timestamp()) + repeat_number * post_rate
+        assert reading.timePeriod
         assert reading.timePeriod.start == expected_timestamp
         assert reading.timePeriod.duration == post_rate
 

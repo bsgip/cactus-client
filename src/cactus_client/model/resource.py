@@ -333,8 +333,8 @@ class ResourceStore:
         """Updates the store so that future calls to get (for type) will return their current value(s) PLUS this new
         value.
 
-        raises a CactusClientException if resource is missing a href
-        raises a CactusClientException if a resource with the same unique ID is already stored.
+        raises a CactusClientError if resource is missing a href
+        raises a CactusClientError if a resource with the same unique ID is already stored.
 
         Returns the StoredResource that was inserted"""
         new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
@@ -358,7 +358,7 @@ class ResourceStore:
         """Similar to append_resource but if a resource with the same href+parent already exists, it will be
         replaced.
 
-        raises a CactusClientException if resource is missing a href"""
+        raises a CactusClientError if resource is missing a href"""
 
         new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 

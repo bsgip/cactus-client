@@ -205,7 +205,7 @@ class ExecutionContext:
     def notifications_context(self, step: StepExecution) -> NotificationsContext:
         """Convenience function for accessing the NotificationsContext for a specific step (based on client alias)
 
-        Can raise NotificationException if a notification uri isn't configured."""
+        Can raise NotificationError if a notification uri isn't configured."""
         client = self.clients_by_alias[step.client_resources_alias]
         if client.notifications is None:
             raise NotificationError(

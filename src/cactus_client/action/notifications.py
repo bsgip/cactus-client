@@ -43,7 +43,7 @@ async def notifications_server_request(
     json_body: str | None = None,
 ) -> NotificationApiResponse:
     """Makes a request to the notification server (for the current context) - returns a raw response as string and
-    logs the actions in the various context trackers. Raises a NotificationException on connection failure."""
+    logs the actions in the various context trackers. Raises a NotificationError on connection failure."""
 
     await context.progress.add_log(step, f"Requesting {method} {path}")
 
@@ -76,7 +76,7 @@ async def fetch_notification_webhook_for_subscription(
 
     Will involve interacting with the remote notifications server.
 
-    Can raise NotificationException"""
+    Can raise NotificationError"""
 
     notification_context = context.notifications_context(step)
 
@@ -134,7 +134,7 @@ async def update_notification_webhook_for_subscription(
 
     Will involve interacting with the remote notifications server.
 
-    Can raise NotificationException"""
+    Can raise NotificationError"""
 
     notification_context = context.notifications_context(step)
 
@@ -167,7 +167,7 @@ async def collect_notifications_for_subscription(
 
     Will involve interacting with the remote notifications server.
 
-    Can raise NotificationException"""
+    Can raise NotificationError"""
 
     notification_context = context.notifications_context(step)
 

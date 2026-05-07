@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from enum import IntEnum
 from unittest import mock
 
 import pytest
@@ -166,7 +167,7 @@ def test_check_default_der_control_combinations(
     if set_grad_w is not None:
         dderc_kwargs["setGradW"] = set_grad_w
 
-    dderc = generate_class_instance(DefaultDERControl, **dderc_kwargs)
+    dderc = generate_class_instance(DefaultDERControl, **dderc_kwargs)  # type: ignore
     resource_store.upsert_resource(CSIPAusResource.DefaultDERControl, None, dderc)
 
     # Act
@@ -507,7 +508,7 @@ def test_check_der_control_all_parameters(
 def test_check_der_control_responses(
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
-    derc_tags: list[list[int]],
+    derc_tags: list[list[IntEnum]],
     min_count: int | None,
     max_count: int | None,
     sent_response_type: int,

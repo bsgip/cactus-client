@@ -6,7 +6,7 @@ from http import HTTPMethod, HTTPStatus
 from typing import TypeVar
 
 from envoy_schema.server.schema.sep2.error import ErrorResponse
-from envoy_schema.server.schema.sep2.identification import List, Resource
+from envoy_schema.server.schema.sep2.identification import List, Resource, SubscribableList
 
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import RequestError
@@ -20,7 +20,7 @@ RATE_LIMIT_RETRY_DELAYS = (5, 15, 30)  # seconds to wait between retries on 429
 logger = logging.getLogger(__name__)
 
 AnyResourceType = TypeVar("AnyResourceType", bound=Resource)
-AnyListType = TypeVar("AnyListType", bound=List)
+AnyListType = TypeVar("AnyListType", bound=List | SubscribableList)
 AnyType = TypeVar("AnyType")
 
 
@@ -65,7 +65,7 @@ async def request_for_step(
     sep2_xml_body: str | None = None,
 ) -> ServerResponse:
     """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
-    logs the actions in the various context trackers. Raises a RequestException on connection failure.
+    logs the actions in the various context trackers. Raises a RequestError on connection failure.
 
     Retries up to 3 times on 429 responses with delays of 5, 15, 30 seconds."""
     await context.progress.add_log(step, f"Requesting {method} {path}")
@@ -147,7 +147,7 @@ async def client_error_or_empty_list_request_for_step(
 ) -> ErrorResponse | AnyListType | None:
     """Similar to client_error_request_for_step but also allows a successful response if it's an empty sep2 List.
 
-    Raises a RequestException if the response is neither a 4xx nor an empty List.
+    Raises a RequestError if the response is neither a 4xx nor an empty List.
     Returns None if the error response body could not be parsed as a valid ErrorResponse XML."""
 
     # Fire off the request and if it fails, handle the error response.
@@ -177,7 +177,7 @@ async def get_resource_for_step(
     t: type[AnyResourceType], step: StepExecution, context: ExecutionContext, href: str
 ) -> AnyResourceType:
     """Makes a GET request for a particular href and parses the resulting XML into an expected type (t). Raises a
-    RequestException if the connection fails, returns an error or fails to parse to t"""
+    RequestError if the connection fails, returns an error or fails to parse to t"""
     # Make the raw request
     response = await request_for_step(step, context, href, HTTPMethod.GET)
 
@@ -190,7 +190,7 @@ async def get_resource_for_step(
 async def delete_and_check_resource_for_step(step: StepExecution, context: ExecutionContext, href: str) -> None:
     """Makes a DELETE request for a particular href and then performs a followup GET expecting a 404/401/403 error.
 
-    Raises a RequestException if the connection fails, returns an error or succeeds on the refetch."""
+    Raises a RequestError if the connection fails, returns an error or succeeds on the refetch."""
     # Make the delete request
     delete_response = await request_for_step(step, context, href, HTTPMethod.DELETE)
     if not delete_response.is_success():

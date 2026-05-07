@@ -108,7 +108,7 @@ class RunOutputManager:
     run_id: int  # Will be assigned at generation
     run_output_dir: Path
 
-    def __init__(self, base_output_dir: str, run_config: RunConfig) -> None:
+    def __init__(self, base_output_dir: str | Path, run_config: RunConfig) -> None:
         """Creates a new run output file manager from the specified output directory"""
 
         self.base_output_dir = Path(base_output_dir)

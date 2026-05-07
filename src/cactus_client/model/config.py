@@ -80,7 +80,7 @@ class RunConfig:
 
 @dataclass(frozen=True)
 class GlobalConfig(YAMLWizard):
-    output_dir: str | None = None  # Directory where all outputs will be dumped
+    output_dir: Path | str | None = None  # Directory where all outputs will be dumped
     server: ServerConfig | None = None  # The current server configuration
     clients: list[ClientConfig] | None = None  # All possible clients that have been previously configured
     runner: AutoRunConfig | None = None  # Optional config for the autorun cli
@@ -112,7 +112,7 @@ class GlobalConfig(YAMLWizard):
 
 
 def resolve_config_path() -> Path:
-    """Attempts to resolve a config file path for the global config (or raises ConfigException on failure)"""
+    """Attempts to resolve a config file path for the global config (or raises ConfigError on failure)"""
 
     if Path.exists(CONFIG_CWD):
         return CONFIG_CWD
@@ -123,7 +123,7 @@ def resolve_config_path() -> Path:
     raise ConfigError(f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir.")
 
 
-def load_config(config_file_path_override: str | None) -> tuple[GlobalConfig, Path]:
+def load_config(config_file_path_override: Path | str | None) -> tuple[GlobalConfig, Path]:
     """Main configuration entrypoint - if config_file_path_override is specified it will be used, otherwise local/home
     default locations will be checked.
 

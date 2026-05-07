@@ -48,7 +48,7 @@ def resolve_test_list(
 
     Include sources are merged and deduplicated (preserving order). If no include source is
     provided, all known test IDs are used in enum definition order. Exclude is always applied
-    last. Raises ConfigException for any unrecognised test ID."""
+    last. Raises ConfigError for any unrecognised test ID."""
 
     # Build the raw include list
     include_ids: list[str] = []

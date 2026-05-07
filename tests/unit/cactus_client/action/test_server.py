@@ -34,7 +34,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestException
+from cactus_client.error import RequestError
 
 
 @dataclass
@@ -97,7 +97,7 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
 )
 @pytest.mark.asyncio
 async def test_delete_and_check_resource_for_step_success(
-    aiohttp_client, testing_contexts_factory, refetch_status: bool, refetch_delay: int
+    aiohttp_client, testing_contexts_factory, refetch_status: HTTPStatus, refetch_delay: int
 ):
     """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
     delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, b"", {})])
@@ -141,7 +141,7 @@ async def test_delete_and_check_resource_for_step_refetch_bad_response(
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
@@ -167,7 +167,7 @@ async def test_delete_and_check_resource_for_step_delete_bad_response(
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
@@ -192,6 +192,7 @@ async def test_get_resource_for_step_success(aiohttp_client, testing_contexts_fa
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
+    assert result.EndDeviceListLink
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
@@ -217,7 +218,7 @@ async def test_get_resource_for_step_bad_request(aiohttp_client, testing_context
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
 
         # Assert - contents of trackers
@@ -241,7 +242,7 @@ async def test_get_resource_for_step_xml_failure(aiohttp_client, testing_context
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
 
         # Assert - contents of trackers
@@ -294,6 +295,7 @@ async def test_submit_and_refetch_resource_for_step_success(
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
+    assert result.EndDeviceListLink
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
@@ -350,6 +352,7 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
+    assert result.EndDeviceListLink
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
@@ -379,7 +382,7 @@ async def test_submit_and_refetch_resource_for_step_failure_no_location_header(
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await submit_and_refetch_resource_for_step(
                 DeviceCapabilityResponse,
                 step_execution,
@@ -451,7 +454,7 @@ async def test_submit_and_refetch_resource_for_step_failure_initial_request(aioh
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await submit_and_refetch_resource_for_step(
                 DeviceCapabilityResponse,
                 step_execution,
@@ -483,7 +486,7 @@ async def test_submit_and_refetch_resource_for_step_failure_refetch_request(aioh
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await submit_and_refetch_resource_for_step(
                 DeviceCapabilityResponse,
                 step_execution,
@@ -554,7 +557,7 @@ async def test_paginate_list_resource_items_handle_failure(aiohttp_client, testi
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await paginate_list_resource_items(
                 EndDeviceListResponse,
                 step_execution,
@@ -656,7 +659,7 @@ async def test_paginate_list_resource_items_too_many_requests(aiohttp_client, te
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await paginate_list_resource_items(
                 EndDeviceListResponse,
                 step_execution,
@@ -823,7 +826,7 @@ async def test_client_error_request_for_step_non_client_error(status_code, aioht
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await client_error_request_for_step(step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "body")
 
     # Assert - contents of trackers
@@ -898,7 +901,7 @@ async def test_client_error_or_empty_list_request_for_step_fail_not_empty(
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await client_error_or_empty_list_request_for_step(
                 list_type,
                 step_execution,
@@ -964,7 +967,7 @@ async def test_client_error_or_empty_list_request_for_step_non_client_error(
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await client_error_or_empty_list_request_for_step(
                 EndDeviceListResponse,
                 step_execution,

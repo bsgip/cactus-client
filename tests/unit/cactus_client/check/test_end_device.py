@@ -224,6 +224,7 @@ def test_check_end_device(
             sr_edev = None
 
         if reg is not None:
+            assert sr_edev is not None
             store.append_resource(CSIPAusResource.Registration, sr_edev.id, reg)
 
     result = check_end_device(resolved_params, step, context)

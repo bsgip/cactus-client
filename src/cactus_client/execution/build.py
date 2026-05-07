@@ -169,7 +169,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
     """Takes all the information from the user's configuration AND the supplied config for this run and generates
     an ExecutionContext that's ready to start a run.
 
-    Raises a ConfigException if there are any problems.
+    Raises a ConfigError if there are any problems.
 
     Returns the value as part of an async ContextManager that will cleanup all created resources when exited."""
 

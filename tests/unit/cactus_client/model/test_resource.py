@@ -28,7 +28,7 @@ from envoy_schema.server.schema.sep2.pricing import (
 )
 from treelib.exceptions import NodeIDAbsentError
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.resource import (
     RESOURCE_SEP2_TYPES,
     CSIPAusResourceTree,
@@ -129,7 +129,7 @@ def test_Notifications_raise_error():
     tree = CSIPAusResourceTree()
 
     with pytest.raises(NodeIDAbsentError):
-        tree.discover_resource_plan(CSIPAusResource.Notification)
+        tree.discover_resource_plan([CSIPAusResource.Notification])
 
     with pytest.raises(NodeIDAbsentError):
         tree.parent_resource(CSIPAusResource.Notification)
@@ -229,14 +229,14 @@ def test_ResourceStore_requires_hrefs(bad_href):
     """Cant add a Resource to the store that doesn't have a HREF"""
     s = ResourceStore(CSIPAusResourceTree())
 
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(
             CSIPAusResource.DeviceCapability,
             None,
             generate_class_instance(DeviceCapabilityResponse, href=bad_href),
         )
 
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.upsert_resource(
             CSIPAusResource.DeviceCapability,
             None,
@@ -277,7 +277,7 @@ def test_ResourceStore():
     assert list(s.resources()) == [sr1]
 
     # We can't append the same resource again
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(CSIPAusResource.DER, None, r1)
 
     # We can append a different resource though
@@ -302,7 +302,7 @@ def test_ResourceStore():
     assert CSIPAusResource.DERList in sr3.resource_link_hrefs
 
     # We can't append the same resource again
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(CSIPAusResource.EndDevice, sr1.id, r3)
 
     sr4 = s.append_resource(CSIPAusResource.EndDevice, sr1.id, r4)
@@ -584,7 +584,7 @@ SEP2_TYPES_WITH_LINKS: list[tuple[CSIPAusResource, type]] = [
 
 
 @pytest.mark.parametrize("resource, resource_type", SEP2_TYPES_WITH_LINKS)
-def test_generate_resource_link_hrefs_specific_type(resource: CSIPAusResource, resource_type: type):
+def test_generate_resource_link_hrefs_specific_type(resource: CSIPAusResource, resource_type: type[Resource]):
     """Ensure that the nominated "interesting" types work with generate_resource_link_hrefs"""
     result = generate_resource_link_hrefs(resource, generate_class_instance(resource_type, generate_relationships=True))
     assert_dict_type(CSIPAusResource, str, result)

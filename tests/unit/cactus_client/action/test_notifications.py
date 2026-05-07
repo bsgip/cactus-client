@@ -22,7 +22,7 @@ from cactus_client.action.notifications import (
     safely_delete_all_notification_webhooks,
     update_notification_webhook_for_subscription,
 )
-from cactus_client.error import NotificationException
+from cactus_client.error import NotificationError
 from cactus_client.model.context import (
     ExecutionContext,
     NotificationsContext,
@@ -166,7 +166,7 @@ async def test_notifications_server_request_status_error(aiohttp_client, testing
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(None, session)
-        with pytest.raises(NotificationException):
+        with pytest.raises(NotificationError):
             await fetch_notification_webhook_for_subscription(
                 step_execution,
                 execution_context,
@@ -190,7 +190,7 @@ async def test_notifications_server_request_parsing_error(aiohttp_client, testin
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(None, session)
-        with pytest.raises(NotificationException):
+        with pytest.raises(NotificationError):
             await fetch_notification_webhook_for_subscription(
                 step_execution,
                 execution_context,
@@ -367,7 +367,7 @@ async def test_collect_notifications_for_subscription_not_configured(aiohttp_cli
     ) as session:
         execution_context, step_execution = testing_contexts_factory(None, session)
 
-        with pytest.raises(NotificationException):
+        with pytest.raises(expected_exception=NotificationError):
             await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
 
 
@@ -415,7 +415,7 @@ async def test_collect_notifications_for_subscription_status_error(aiohttp_clien
             ),
         ]
 
-        with pytest.raises(NotificationException):
+        with pytest.raises(NotificationError):
             await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
 
 
@@ -446,7 +446,7 @@ async def test_collect_notifications_for_subscription_bad_response(aiohttp_clien
             )
         ]
 
-        with pytest.raises(NotificationException):
+        with pytest.raises(NotificationError):
             await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
 
 
@@ -506,7 +506,7 @@ async def test_update_notification_webhook_for_subscription_not_configured(aioht
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(None, session)
-        with pytest.raises(NotificationException):
+        with pytest.raises(NotificationError):
             await update_notification_webhook_for_subscription(step_execution, execution_context, "sub1", enabled=False)
 
 
@@ -543,7 +543,7 @@ async def test_update_notification_webhook_for_subscription_status_error(aiohttp
             ),
         ]
 
-        with pytest.raises(NotificationException):
+        with pytest.raises(NotificationError):
             await update_notification_webhook_for_subscription(step_execution, execution_context, "sub1", enabled=False)
 
     assert len(route1.request_bodies) == 1

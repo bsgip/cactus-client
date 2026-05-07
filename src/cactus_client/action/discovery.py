@@ -72,7 +72,7 @@ def get_list_item_callback(
 
     list_resource: Should be a list type CSIPAusResource
 
-    raises CactusClientException if list_resource is unsupported
+    raises CactusClientError if list_resource is unsupported
 
     returns a tuple:
         callback: A callable that takes a Resource and returns a list of child Resources (or None)

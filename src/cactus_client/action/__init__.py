@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 async def execute_action(step: StepExecution, context: ExecutionContext) -> ActionResult:  # noqa: C901
-    """Given a step and context - execute the appropriate action for that step (or raise a CactusClientException)"""
+    """Given a step and context - execute the appropriate action for that step (or raise a CactusClientError)"""
 
     action_info = step.source.action
 
