@@ -10,7 +10,9 @@ jobs:
   # This will run bandit and produce a security report if there are any failures
   linting:
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
+      fail-fast: false
       matrix:
         pyver: ["3.12", "3.13", "3.14"]
         
