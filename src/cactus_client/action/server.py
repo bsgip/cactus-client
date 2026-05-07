@@ -121,9 +121,7 @@ async def client_error_request_for_step(
     response = await request_for_step(step, context, path, method, sep2_xml_body)
 
     if not response.is_client_error():
-        raise RequestError(
-            f"Received status {response.status} but expected 4XX requesting {response.method} {path}."
-        )
+        raise RequestError(f"Received status {response.status} but expected 4XX requesting {response.method} {path}.")
 
     return parse_error_response(step, context, response)
 

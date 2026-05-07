@@ -91,9 +91,7 @@ async def fetch_notification_webhook_for_subscription(
         notification_context.session, step, context, uri.URI_MANAGE_ENDPOINT_LIST[1:], HTTPMethod.POST, json_body=None
     )
     if not response.is_success():
-        raise NotificationError(
-            f"Creating a new notification webhook raised a HTTP {response.status}: {response.body}"
-        )
+        raise NotificationError(f"Creating a new notification webhook raised a HTTP {response.status}: {response.body}")
 
     try:
         new_endpoint = CreateEndpointResponse.from_json(response.body)
@@ -185,9 +183,7 @@ async def collect_notifications_for_subscription(
                 raise Exception("Expected a singular response object. Received a list")
         except Exception as exc:
             logger.error(f"Exception parsing {response.body} into a CollectEndpointResponse", exc_info=exc)
-            raise NotificationError(
-                "The CollectEndpointResponse from the notification server appears to be invalid."
-            )
+            raise NotificationError("The CollectEndpointResponse from the notification server appears to be invalid.")
 
         if collected_response.notifications is None:
             continue

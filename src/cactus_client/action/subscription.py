@@ -99,15 +99,11 @@ async def action_create_subscription(
         )
     subscription_list_href = subscription_lists[0].resource.href
     if not subscription_list_href:
-        raise CactusClientError(
-            "SubscriptionList resource has no href attribute encoded. Cannot create subscription."
-        )
+        raise CactusClientError("SubscriptionList resource has no href attribute encoded. Cannot create subscription.")
 
     subscription_targets = store.get_for_type(resource)
     if len(subscription_targets) == 0:
-        raise CactusClientError(
-            f"Found no {resource} resource(s) but expected at least 1. Cannot create subscription."
-        )
+        raise CactusClientError(f"Found no {resource} resource(s) but expected at least 1. Cannot create subscription.")
 
     # Create a subscription
     for target in subscription_targets:
