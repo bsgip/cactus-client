@@ -3,7 +3,7 @@ import os
 from enum import StrEnum, auto
 from pathlib import Path
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     CONFIG_CWD,
     CONFIG_HOME,
@@ -50,7 +50,8 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     )
 
     server_parser.add_argument(
-        "working_dir", help="The directory to initialise as a working directory (will be created if it DNE)"
+        "working_dir",
+        help="The directory to initialise as a working directory (will be created if it DNE)",
     )
 
 
@@ -91,7 +92,7 @@ def run_action(args: argparse.Namespace) -> None:  # noqa: C901
     # Now try and update the config to use this working dir
     try:
         config, cfg_file = load_config(str(cfg_file.absolute()))
-    except ConfigException:
+    except ConfigError:
         print(f"Config file {cfg_file} is not readable / doesn't exist. It will be overridden.")
         config = GlobalConfig(output_dir=str(working_dir.absolute()))
 

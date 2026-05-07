@@ -2,6 +2,7 @@ import unittest.mock as mock
 from datetime import datetime, timezone
 from http import HTTPMethod
 from itertools import product
+from typing import cast
 
 import pytest
 from assertical.asserts.generator import assert_class_instance_equality
@@ -45,7 +46,7 @@ from cactus_client.action.subscription import (
     parse_combined_resource,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import (
     AnnotationNamespace,
     ExecutionContext,
@@ -129,7 +130,17 @@ async def test_action_create_subscription(
     assert new_sub_sr.resource is refetched_subscription
 
     mock_submit_and_refetch_resource_for_step.assert_has_calls(
-        [mock.call(Subscription, step, context, HTTPMethod.POST, sub_list_sr.id.href(), mock.ANY)] * len(targets)
+        [
+            mock.call(
+                Subscription,
+                step,
+                context,
+                HTTPMethod.POST,
+                sub_list_sr.id.href(),
+                mock.ANY,
+            )
+        ]
+        * len(targets)
     )
     for target in targets:
         mock_fetch_notification_webhook_for_subscription.assert_has_calls(
@@ -152,15 +163,21 @@ async def test_action_delete_subscription(
     sub_id = "MY sub id 2"
 
     sub1_sr = store.append_resource(
-        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=101, href="/othersub1")
+        CSIPAusResource.Subscription,
+        None,
+        generate_class_instance(Subscription, seed=101, href="/othersub1"),
     )
     context.resource_annotations(step, sub1_sr.id).alias = sub_id + "mismatch"
     sub2_sr = store.append_resource(
-        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=202, href="/target")
+        CSIPAusResource.Subscription,
+        None,
+        generate_class_instance(Subscription, seed=202, href="/target"),
     )
     context.resource_annotations(step, sub2_sr.id).alias = sub_id
     sub3_sr = store.append_resource(
-        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=303, href="/othersub2")
+        CSIPAusResource.Subscription,
+        None,
+        generate_class_instance(Subscription, seed=303, href="/othersub2"),
     )
 
     # Act
@@ -206,10 +223,16 @@ def test_parse_combined_resource(xsi_type: str, optional_is_none: bool, assertic
         (
             XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
             NotificationResourceCombined(
-                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST, pollRate=1234, all_=456, results=789
+                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+                pollRate=1234,
+                all_=456,
+                results=789,
             ),
             FunctionSetAssignmentsListResponse(
-                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST, pollRate=1234, all_=456, results=789
+                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+                pollRate=1234,
+                all_=456,
+                results=789,
             ),
         ),
         (
@@ -219,8 +242,8 @@ def test_parse_combined_resource(xsi_type: str, optional_is_none: bool, assertic
         ),
         (
             XSI_TYPE_DER_CONTROL_LIST,
-            NotificationResourceCombined(type=XSI_TYPE_DER_CONTROL_LIST, pollRate=1234, all_=456, results=789),
-            DERControlListResponse(type=XSI_TYPE_DER_CONTROL_LIST, pollRate=1234, all_=456, results=789),
+            NotificationResourceCombined(type=XSI_TYPE_DER_CONTROL_LIST, all_=456, results=789),
+            DERControlListResponse(type=XSI_TYPE_DER_CONTROL_LIST, all_=456, results=789),
         ),
     ],
 )
@@ -235,7 +258,7 @@ def test_parse_combined_resource_edge_cases(xsi_type: str, source, expected):
 
 @pytest.mark.parametrize("bad_type", [None, "", "DERControlButDNE"])
 def test_parse_combined_resource_bad_type(bad_type):
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         parse_combined_resource(bad_type, generate_class_instance(NotificationResourceCombined))
 
 
@@ -308,6 +331,7 @@ async def test_handle_notification_resource(mock_parse_combined_resource: mock.M
     assert context.resource_annotations(step, dercs[1].id).has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
     assert context.resource_annotations(step, dercs[2].id).has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
 
+    assert notification.resource
     mock_parse_combined_resource.assert_called_once_with(notification.resource.type, notification.resource)
 
     assert len(context.warnings.warnings) == 0
@@ -380,7 +404,7 @@ async def test_collect_and_validate_notification(
         headers=[CollectedHeader("Content-Type", MIME_TYPE_SEP2)],
         received_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
         remote="127.0.0.1",
-        body=notification.to_xml(),
+        body=cast(str, notification.to_xml()),
     )
 
     # Act
@@ -441,8 +465,20 @@ async def test_action_notification(
         mock_collect_notifications_for_subscription.assert_called_once_with(step, context, sub_id)
         mock_collect_and_validate_notification.assert_has_calls(
             [
-                mock.call(step, context, notification_endpoint1, collected_notification1, sub_id),
-                mock.call(step, context, notification_endpoint2, collected_notification2, sub_id),
+                mock.call(
+                    step,
+                    context,
+                    notification_endpoint1,
+                    collected_notification1,
+                    sub_id,
+                ),
+                mock.call(
+                    step,
+                    context,
+                    notification_endpoint2,
+                    collected_notification2,
+                    sub_id,
+                ),
             ]
         )
     else:

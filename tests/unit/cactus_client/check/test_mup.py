@@ -31,7 +31,7 @@ from cactus_client.check.mup import (
     generate_reading_type_values,
     generate_role_flags,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 
@@ -45,7 +45,10 @@ def assert_mrid(mrid: str, pen: int | None):
 
 
 def assert_mup_mrids(
-    m: MirrorUsagePointMrids, reading_types: list[CSIPAusReadingType], pen: int, check_mmr_pens: bool = True
+    m: MirrorUsagePointMrids,
+    reading_types: list[CSIPAusReadingType],
+    pen: int,
+    check_mmr_pens: bool = True,
 ):
     assert isinstance(m, MirrorUsagePointMrids)
     assert_mrid(m.mup_mrid, pen)
@@ -98,7 +101,10 @@ def test_generate_mup_mrids():
     cfg2 = generate_class_instance(ClientConfig, seed=202)
 
     rts_1 = [CSIPAusReadingType.ActivePowerMaximum, CSIPAusReadingType.FrequencyMaximum]
-    rts_2 = [CSIPAusReadingType.ActivePowerMaximum, CSIPAusReadingType.ActivePowerMinimum]
+    rts_2 = [
+        CSIPAusReadingType.ActivePowerMaximum,
+        CSIPAusReadingType.ActivePowerMinimum,
+    ]
 
     mup1 = generate_mup_mrids(CSIPAusReadingLocation.Device, rts_1, None, cfg1)
     assert_mup_mrids(mup1, rts_1, cfg1.pen)
@@ -122,8 +128,8 @@ def test_generate_mup_mrids():
 
 
 def test_generate_reading_type_values_bad_value():
-    with pytest.raises(CactusClientException):
-        generate_reading_type_values("not a valid value")
+    with pytest.raises(CactusClientError):
+        generate_reading_type_values("not a valid value")  # type: ignore
 
 
 def test_generate_reading_type_values():
@@ -135,8 +141,8 @@ def test_generate_reading_type_values():
 
 
 def test_generate_role_flags_bad_value():
-    with pytest.raises(CactusClientException):
-        generate_role_flags("not a valid value")
+    with pytest.raises(CactusClientError):
+        generate_role_flags("not a valid value")  # type: ignore
 
 
 def test_generate_role_flags_values():
@@ -148,7 +154,8 @@ def test_generate_role_flags_values():
 
 
 def test_generate_mmr_mrids_basic():
-    """Test that generate_mmr_mrids produces a consistent 32-character MRID with PEN suffix if mmr mrids not specified"""
+    """Test that generate_mmr_mrids produces a consistent 32-character MRID with PEN suffix if mmr mrids not
+    specified"""
     mup_mrid = "ABC123456789012345678901234567890"
     rts = [CSIPAusReadingType.ActivePowerAverage]
     pen = 12345678
@@ -170,7 +177,7 @@ def test_generate_mmr_mrids_basic():
     assert result3[rts[0]] == "012345678901234567890123ABCDEF01"
 
     # Error case: mismatched lengths raise an error
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         generate_mmr_mrids(mup_mrid, rts, pen, ["mrid1", "mrid2"])
 
 
@@ -219,7 +226,9 @@ def create_mirror_usage_point(
     for rt, mmr_mrid in reading_types:
         uom, kind, data_qualifier = generate_reading_type_values(rt)
         mmr = generate_class_instance(
-            MirrorMeterReading, mRID=mmr_mrid, readingType=ReadingType(uom=uom, kind=kind, dataQualifier=data_qualifier)
+            MirrorMeterReading,
+            mRID=mmr_mrid,
+            readingType=ReadingType(uom=uom, kind=kind, dataQualifier=data_qualifier),
         )
         mmrs.append(mmr)
 
@@ -239,10 +248,17 @@ def create_mirror_usage_point(
     [
         (
             CSIPAusReadingLocation.Device,
-            [CSIPAusReadingType.ActivePowerAverage, CSIPAusReadingType.ReactivePowerInstantaneous],
+            [
+                CSIPAusReadingType.ActivePowerAverage,
+                CSIPAusReadingType.ReactivePowerInstantaneous,
+            ],
             60,
         ),
-        (CSIPAusReadingLocation.Site, [CSIPAusReadingType.ActivePowerInstantaneous], 30),
+        (
+            CSIPAusReadingLocation.Site,
+            [CSIPAusReadingType.ActivePowerInstantaneous],
+            30,
+        ),
     ],
 )
 async def test_check_mirror_usage_point_full_chain(
@@ -287,7 +303,7 @@ async def test_check_mirror_usage_point_full_chain(
             context=context,
         )
 
-        assert result.passed, f"Expected check to pass but got: {result.message}"
+        assert result.passed, f"Expected check to pass but got: {result.description}"
 
 
 @pytest.mark.asyncio
@@ -303,7 +319,12 @@ async def test_check_mirror_usage_point_negative_cases(testing_contexts_factory)
     device_mup = create_mirror_usage_point(
         mrid=generated_mrids.mup_mrid,
         role_flags=generate_role_flags(CSIPAusReadingLocation.Device),
-        reading_types=[(device_reading_types[0], generated_mrids.mmr_mrids[device_reading_types[0]])],
+        reading_types=[
+            (
+                device_reading_types[0],
+                generated_mrids.mmr_mrids[device_reading_types[0]],
+            )
+        ],
         post_rate=60,
     )
 
@@ -384,12 +405,14 @@ async def test_find_mrids_matching_filters(testing_contexts_factory):
     device_flags = RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_DER | RoleFlagsType.IS_SUBMETER
     result = find_mrids_matching(resource_store, device_flags, None, None, None)
     assert len(result.matches) == 1
+    assert result.matches[0].resource is not None and isinstance(result.matches[0].resource, MirrorUsagePoint)
     assert result.matches[0].resource.mRID == device_mup.mRID
     assert len(result.rejection_details) == 1  # site_mup rejected
 
     # Filter by post_rate
     result = find_mrids_matching(resource_store, None, None, None, 60)
     assert len(result.matches) == 1
+    assert result.matches[0].resource is not None and isinstance(result.matches[0].resource, MirrorUsagePoint)
     assert result.matches[0].resource.mRID == device_mup.mRID
     assert len(result.rejection_details) == 1  # site_mup rejected
 
@@ -397,5 +420,6 @@ async def test_find_mrids_matching_filters(testing_contexts_factory):
     active_power_vals = [(UomType.REAL_POWER_WATT, KindType.POWER, DataQualifierType.AVERAGE)]
     result = find_mrids_matching(resource_store, None, None, active_power_vals, None)
     assert len(result.matches) == 1
+    assert result.matches[0].resource is not None and isinstance(result.matches[0].resource, MirrorUsagePoint)
     assert result.matches[0].resource.mRID == device_mup.mRID
     assert len(result.rejection_details) == 1  # site_mup rejected

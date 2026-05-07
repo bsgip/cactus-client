@@ -8,7 +8,7 @@ from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.execution.build import build_execution_context
 from cactus_client.model.config import (
     ClientConfig,
@@ -20,7 +20,11 @@ from cactus_client.model.context import ClientContext, ExecutionContext
 
 
 def generate_valid_config(
-    output_dir: str, key_file: str, cert_file: str, serca_file: str | None, notification_uri: str | None
+    output_dir: str,
+    key_file: str,
+    cert_file: str,
+    serca_file: str | None,
+    notification_uri: str | None,
 ) -> tuple[ClientConfig, GlobalConfig, RunConfig]:
     expected_client_config = ClientConfig(
         id="my-client1",
@@ -60,19 +64,21 @@ def generate_valid_config(
     return (expected_client_config, user_config, run_config)
 
 
-@pytest.mark.parametrize("notification_uri", [None, "http://notification.uri/path/", "http://notification.uri/path"])
+@pytest.mark.parametrize(
+    "notification_uri",
+    [None, "http://notification.uri/path/", "http://notification.uri/path"],
+)
 @pytest.mark.asyncio
 async def test_build_execution_context_s_all_01(
     generate_testing_key_cert, notification_uri: str | None, no_deprecation_warnings
 ):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         generate_testing_key_cert(key_file, cert_file)
 
         expected_client_config, user_config, run_config = generate_valid_config(
-            tempdirname, key_file, cert_file, None, notification_uri
+            tempdirname, str(key_file), str(cert_file), None, notification_uri
         )
 
         async with build_execution_context(user_config, run_config) as result:
@@ -88,6 +94,7 @@ async def test_build_execution_context_s_all_01(
             assert str(client_context.session._base_url) == "https://my.test.server:1234/"
 
             if notification_uri:
+                assert client_context.notifications is not None
                 assert client_context.notifications.endpoints_by_sub_alias == {}
                 assert str(client_context.notifications.session._base_url).startswith(notification_uri)
             else:
@@ -97,17 +104,16 @@ async def test_build_execution_context_s_all_01(
 @pytest.mark.asyncio
 async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         with open(key_file, "wb") as f:
-            f.write("clearly junk".encode())
+            f.write(b"clearly junk")
         with open(cert_file, "wb") as f:
-            f.write("clearly junk".encode())
+            f.write(b"clearly junk")
 
-        _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
+        _, user_config, run_config = generate_valid_config(tempdirname, str(key_file), str(cert_file), None, None)
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass
 
@@ -115,12 +121,11 @@ async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_
 @pytest.mark.asyncio
 async def test_build_execution_context_missing_certs(no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
-        _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
+        _, user_config, run_config = generate_valid_config(tempdirname, str(key_file), str(cert_file), None, None)
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass
 
@@ -128,16 +133,15 @@ async def test_build_execution_context_missing_certs(no_deprecation_warnings):
 @pytest.mark.asyncio
 async def test_build_execution_context_bad_client_reference(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         generate_testing_key_cert(key_file, cert_file)
 
-        _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
+        _, user_config, run_config = generate_valid_config(tempdirname, str(key_file), str(cert_file), None, None)
 
         run_config = replace(run_config, client_ids=["bad-client-id"])
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass
 
@@ -145,15 +149,14 @@ async def test_build_execution_context_bad_client_reference(generate_testing_key
 @pytest.mark.asyncio
 async def test_build_execution_context_bad_test_id(generate_testing_key_cert):
     with TemporaryDirectory() as tempdirname:
-
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
         generate_testing_key_cert(key_file, cert_file)
 
-        _, user_config, run_config = generate_valid_config(tempdirname, key_file, cert_file, None, None)
+        _, user_config, run_config = generate_valid_config(tempdirname, str(key_file), str(cert_file), None, None)
 
         run_config = replace(run_config, test_procedure_id="foo")
 
-        with pytest.raises(ConfigException):
+        with pytest.raises(ConfigError):
             async with build_execution_context(user_config, run_config):
                 pass

@@ -29,8 +29,14 @@ def test_sum_digits(n, expected):
 @pytest.mark.parametrize(
     "lfdi, expected_sfdi",
     [
-        ("3e4f45ab31edfe5b67e343e5e4562e31984e23e5", 167261211391),  # From 2030.5 standard example
-        ("854d10a201ca99e5e90d3c3e1f9bc1c3bd075f3b", 357827241281),  # Calculated from envoy example
+        (
+            "3e4f45ab31edfe5b67e343e5e4562e31984e23e5",
+            167261211391,
+        ),  # From 2030.5 standard example
+        (
+            "854d10a201ca99e5e90d3c3e1f9bc1c3bd075f3b",
+            357827241281,
+        ),  # Calculated from envoy example
     ],
 )
 def test_convert_lfdi_to_sfdi(lfdi: str, expected_sfdi: int):
@@ -92,7 +98,11 @@ def test_lfdi_from_cert_file():
         ("010", 16, True),
         ("000000f", 15, True),
         ("000000f", 15, True),
-        (RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_PREMISES_AGGREGATION_POINT, "00003", True),
+        (
+            RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_PREMISES_AGGREGATION_POINT,
+            "00003",
+            True,
+        ),
         (RoleFlagsType.IS_PREMISES_AGGREGATION_POINT, "00003", False),
     ],
 )
@@ -145,8 +155,18 @@ def test_hex_binary_equal(a, b, expected):
             False,
         ),
         (
-            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, generate_relationships=True),
-            generate_class_instance(EndDeviceResponse, seed=1, optional_is_none=False, generate_relationships=True),
+            generate_class_instance(
+                EndDeviceResponse,
+                seed=1,
+                optional_is_none=False,
+                generate_relationships=True,
+            ),
+            generate_class_instance(
+                EndDeviceResponse,
+                seed=1,
+                optional_is_none=False,
+                generate_relationships=True,
+            ),
             True,
         ),
         (
@@ -171,7 +191,12 @@ def test_hex_binary_equal(a, b, expected):
         ),
         (
             generate_class_instance(MirrorUsagePoint, seed=1, optional_is_none=True, mirrorMeterReadings=[]),
-            generate_class_instance(MirrorUsagePoint, seed=1, optional_is_none=False, generate_relationships=True),
+            generate_class_instance(
+                MirrorUsagePoint,
+                seed=1,
+                optional_is_none=False,
+                generate_relationships=True,
+            ),
             True,
         ),  # Don't compare lists
         (

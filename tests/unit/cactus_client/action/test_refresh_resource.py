@@ -16,7 +16,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
 )
 
 from cactus_client.action.refresh_resource import action_refresh_resource
-from cactus_client.error import RequestException
+from cactus_client.error import RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
 
@@ -80,7 +80,10 @@ async def test_action_refresh_resource_expect_rejection(testing_contexts_factory
     with mock.patch("cactus_client.action.refresh_resource.client_error_request_for_step") as mock_error:
         mock_error.return_value = mock.Mock()  # Return a mock error response
 
-        resolved_params = {"resource": CSIPAusResource.ConnectionPoint.value, "expect_rejection": True}
+        resolved_params = {
+            "resource": CSIPAusResource.ConnectionPoint.value,
+            "expect_rejection": True,
+        }
 
         # Act
         result = await action_refresh_resource(resolved_params, step, context)
@@ -97,7 +100,9 @@ async def test_action_refresh_resource_expect_rejection(testing_contexts_factory
 
 
 @pytest.mark.asyncio
-async def test_action_refresh_resource_expect_rejection_failure(testing_contexts_factory):
+async def test_action_refresh_resource_expect_rejection_failure(
+    testing_contexts_factory,
+):
 
     # Arrange
     context, step = testing_contexts_factory(mock.Mock())
@@ -108,9 +113,12 @@ async def test_action_refresh_resource_expect_rejection_failure(testing_contexts
     resource_store.upsert_resource(CSIPAusResource.ConnectionPoint, None, cp)
 
     with mock.patch("cactus_client.action.refresh_resource.client_error_request_for_step") as mock_error:
-        mock_error.side_effect = RequestException("mock exception abc")
+        mock_error.side_effect = RequestError("mock exception abc")
 
-        resolved_params = {"resource": CSIPAusResource.ConnectionPoint.value, "expect_rejection": True}
+        resolved_params = {
+            "resource": CSIPAusResource.ConnectionPoint.value,
+            "expect_rejection": True,
+        }
 
         # Act
         result = await action_refresh_resource(resolved_params, step, context)
@@ -150,10 +158,12 @@ async def test_action_refresh_resource_expect_rejection_or_empty_list_success(
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_or_empty_list_request_for_step"
     ) as mock_client_error_or_empty_list_request_for_step:
-
         # Mock response indicating client error (therefore the action is receiving what is expected)
         mock_client_error_or_empty_list_request_for_step.return_value = generate_class_instance(ErrorResponse)
-        resolved_params = {"resource": list_resource.value, "expect_rejection_or_empty": True}
+        resolved_params = {
+            "resource": list_resource.value,
+            "expect_rejection_or_empty": True,
+        }
 
         # Act
         result = await action_refresh_resource(resolved_params, step, context)
@@ -192,10 +202,12 @@ async def test_action_refresh_resource_expect_rejection_or_empty_non_list_succes
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_request_for_step"
     ) as mock_client_error_request_for_step:
-
         # Mock response indicating client error (therefore the action is receiving what is expected)
         mock_client_error_request_for_step.return_value = generate_class_instance(ErrorResponse)
-        resolved_params = {"resource": non_list_resource.value, "expect_rejection_or_empty": True}
+        resolved_params = {
+            "resource": non_list_resource.value,
+            "expect_rejection_or_empty": True,
+        }
 
         # Act
         result = await action_refresh_resource(resolved_params, step, context)
@@ -231,9 +243,11 @@ async def test_action_refresh_resource_expect_rejection_or_empty_list_failure(
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_or_empty_list_request_for_step"
     ) as mock_client_error_or_empty_list_request_for_step:
-
-        mock_client_error_or_empty_list_request_for_step.side_effect = RequestException("mock exception")
-        resolved_params = {"resource": list_resource.value, "expect_rejection_or_empty": True}
+        mock_client_error_or_empty_list_request_for_step.side_effect = RequestError("mock exception")
+        resolved_params = {
+            "resource": list_resource.value,
+            "expect_rejection_or_empty": True,
+        }
 
         # Act
         result = await action_refresh_resource(resolved_params, step, context)
@@ -273,10 +287,12 @@ async def test_action_refresh_resource_expect_rejection_or_empty_non_list_failur
     with mock.patch(
         "cactus_client.action.refresh_resource.client_error_request_for_step"
     ) as mock_client_error_request_for_step:
-
         # Mock response indicating client error (therefore the action is receiving what is expected)
-        mock_client_error_request_for_step.side_effect = RequestException("mock exception")
-        resolved_params = {"resource": non_list_resource.value, "expect_rejection_or_empty": True}
+        mock_client_error_request_for_step.side_effect = RequestError("mock exception")
+        resolved_params = {
+            "resource": non_list_resource.value,
+            "expect_rejection_or_empty": True,
+        }
 
         # Act
         result = await action_refresh_resource(resolved_params, step, context)

@@ -1,12 +1,17 @@
 import unittest.mock as mock
-from typing import Callable
+from collections.abc import Callable
 
 import apluggy
 import pytest
 from aiohttp import ClientSession
 from cactus_test_definitions.server.test_procedures import AdminInstruction
 
-from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
+from cactus_client.admin.plugins import (
+    AdminSpec,
+    DefaultAdminPlugin,
+    hookimpl,
+    project_name,
+)
 from cactus_client.model.context import AdminContext, ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 
@@ -94,7 +99,10 @@ async def test_provider_plugin_handles_instruction(
     class ProviderPlugin:
         @hookimpl
         async def admin_instruction(
-            self, instruction: AdminInstruction, step: StepExecution, context: AdminContext
+            self,
+            instruction: AdminInstruction,
+            step: StepExecution,
+            context: AdminContext,
         ) -> ActionResult | None:
             if instruction.type == "ensure-end-device":
                 return ActionResult.done()

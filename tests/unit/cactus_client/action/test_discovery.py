@@ -1,23 +1,27 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable
 
 import pytest
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.device_capability import DeviceCapabilityResponse
+from envoy_schema.server.schema.sep2.end_device import (
+    EndDeviceListResponse,
+    EndDeviceResponse,
+)
+
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
     action_discovery,
     calculate_wait_next_polling_window,
     discover_resource,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
-from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse, EndDeviceListResponse
 
 
 def setup_discovery_test(testing_contexts_factory, resource: CSIPAusResource, matched_parents: int):
@@ -70,7 +74,7 @@ async def test_discover_resource_dcap(
     if has_href:
         await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
     else:
-        with pytest.raises(CactusClientException):
+        with pytest.raises(CactusClientError):
             await discover_resource(CSIPAusResource.DeviceCapability, step, context, None)
 
     # Assert
@@ -105,7 +109,12 @@ async def test_discover_resource_dcap(
         (CSIPAusResource.MirrorUsagePointList, 2, True, False),
         (CSIPAusResource.MirrorUsagePointList, 2, False, True),
         (CSIPAusResource.SubscriptionList, 0, True, False),
-        (CSIPAusResource.SubscriptionList, 0, False, False),  # No warnings as there are no parents to fetch from
+        (
+            CSIPAusResource.SubscriptionList,
+            0,
+            False,
+            False,
+        ),  # No warnings as there are no parents to fetch from
     ],
 )
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
@@ -143,7 +152,7 @@ async def test_discover_resource_list_containers(
     if has_href or matched_parents == 0:
         await discover_resource(resource, step, context, None)
     else:
-        with pytest.raises(CactusClientException):
+        with pytest.raises(CactusClientError):
             await discover_resource(resource, step, context, None)
 
     # Assert
@@ -152,7 +161,8 @@ async def test_discover_resource_list_containers(
         assert [sr.resource for sr in added_resources] == fetched_resources
         assert all(sr.resource_type == resource for sr in added_resources)
         assert all(
-            added_sr.id.parent_id() == parent_sr.id for added_sr, parent_sr in zip(added_resources, stored_parents)
+            added_sr.id.parent_id() == parent_sr.id
+            for added_sr, parent_sr in zip(added_resources, stored_parents, strict=True)
         )
     else:
         assert len(added_resources) == 0
@@ -208,7 +218,9 @@ async def test_discover_resource_singular_resources(
 
     fetched_resources = [
         generate_class_instance(
-            expected_type, seed=idx * 101, href=None if not has_href else f"/{resource.value}/{idx}"
+            expected_type,
+            seed=idx * 101,
+            href=None if not has_href else f"/{resource.value}/{idx}",
         )
         for idx in range(matched_parents)
     ]
@@ -218,7 +230,7 @@ async def test_discover_resource_singular_resources(
     if has_href or matched_parents == 0:
         await discover_resource(resource, step, context, None)
     else:
-        with pytest.raises(CactusClientException):
+        with pytest.raises(CactusClientError):
             await discover_resource(resource, step, context, None)
 
     # Assert
@@ -227,7 +239,8 @@ async def test_discover_resource_singular_resources(
         assert [sr.resource for sr in added_resources] == fetched_resources
         assert all(sr.resource_type == resource for sr in added_resources)
         assert all(
-            added_sr.id.parent_id() == parent_sr.id for added_sr, parent_sr in zip(added_resources, stored_parents)
+            added_sr.id.parent_id() == parent_sr.id
+            for added_sr, parent_sr in zip(added_resources, stored_parents, strict=True)
         )
     else:
         assert len(added_resources) == 0
@@ -241,8 +254,18 @@ async def test_discover_resource_singular_resources(
 @pytest.mark.parametrize(
     "list_resource, child_resource, num_parents, items_per_parent",
     [
-        (CSIPAusResource.MirrorUsagePointList, CSIPAusResource.MirrorUsagePoint, 1, [3]),
-        (CSIPAusResource.MirrorUsagePointList, CSIPAusResource.MirrorUsagePoint, 2, [3, 2]),
+        (
+            CSIPAusResource.MirrorUsagePointList,
+            CSIPAusResource.MirrorUsagePoint,
+            1,
+            [3],
+        ),
+        (
+            CSIPAusResource.MirrorUsagePointList,
+            CSIPAusResource.MirrorUsagePoint,
+            2,
+            [3, 2],
+        ),
         (CSIPAusResource.EndDeviceList, CSIPAusResource.EndDevice, 1, [2]),
         (CSIPAusResource.EndDeviceList, CSIPAusResource.EndDevice, 2, [3, 2]),
         (CSIPAusResource.DERList, CSIPAusResource.DER, 1, [2]),
@@ -251,8 +274,18 @@ async def test_discover_resource_singular_resources(
         (CSIPAusResource.DERProgramList, CSIPAusResource.DERProgram, 2, [1, 3]),
         (CSIPAusResource.DERControlList, CSIPAusResource.DERControl, 1, [4]),
         (CSIPAusResource.DERControlList, CSIPAusResource.DERControl, 2, [2, 2]),
-        (CSIPAusResource.FunctionSetAssignmentsList, CSIPAusResource.FunctionSetAssignments, 1, [2]),
-        (CSIPAusResource.FunctionSetAssignmentsList, CSIPAusResource.FunctionSetAssignments, 2, [2, 2]),
+        (
+            CSIPAusResource.FunctionSetAssignmentsList,
+            CSIPAusResource.FunctionSetAssignments,
+            1,
+            [2],
+        ),
+        (
+            CSIPAusResource.FunctionSetAssignmentsList,
+            CSIPAusResource.FunctionSetAssignments,
+            2,
+            [2, 2],
+        ),
         (CSIPAusResource.SubscriptionList, CSIPAusResource.Subscription, 1, [1]),
         (CSIPAusResource.SubscriptionList, CSIPAusResource.Subscription, 2, [3, 1]),
     ],
@@ -296,7 +329,9 @@ async def test_discover_resource_paginated_items(
     child_items_by_parent = [
         [
             generate_class_instance(
-                child_type, seed=parent_idx * 100 + child_idx, href=f"/item/{parent_idx}/{child_idx}"
+                child_type,
+                seed=parent_idx * 100 + child_idx,
+                href=f"/item/{parent_idx}/{child_idx}",
             )
             for child_idx in range(items_per_parent[parent_idx])
         ]
@@ -420,7 +455,10 @@ async def test_discover_resource_with_list_limit(
     limited_items = [
         generate_class_instance(EndDeviceResponse, seed=idx, href=f"/edev/{idx}") for idx in range(list_limit)
     ]
-    fetch_list_page.return_value = (limited_items, list_limit)  # Return tuple: (items, all_attribute)
+    fetch_list_page.return_value = (
+        limited_items,
+        list_limit,
+    )  # Return tuple: (items, all_attribute)
 
     # Act
     await discover_resource(CSIPAusResource.EndDevice, step, context, list_limit)

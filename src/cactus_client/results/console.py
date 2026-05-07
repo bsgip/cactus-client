@@ -1,4 +1,3 @@
-from typing import Any
 from urllib.parse import urlparse
 
 from rich.console import Console, Group, RenderableType
@@ -18,13 +17,16 @@ from cactus_client.results.common import (
 )
 
 
-def style_str(success: bool, content: Any) -> str:
+def style_str(success: bool, content: object) -> str:
     color = "green" if success else "red"
     return f"[{color}]{content}[/{color}]"
 
 
 def render_console(  # noqa: C901
-    console: Console, context: ExecutionContext, results: ResultsEvaluation, output_manager: RunOutputManager
+    console: Console,
+    context: ExecutionContext,
+    results: ResultsEvaluation,
+    output_manager: RunOutputManager,
 ) -> None:
     """Renders a "results report" to the console output"""
 
@@ -47,10 +49,17 @@ def render_console(  # noqa: C901
     metadata_table.add_column()
     metadata_table.add_row("Completed", style_str(results.execution_complete, results.execution_complete))
     metadata_table.add_row(
-        "Steps", style_str(results.all_steps_passed, f"{results.total_steps_passed}/{results.total_steps} passed")
+        "Steps",
+        style_str(
+            results.all_steps_passed,
+            f"{results.total_steps_passed}/{results.total_steps} passed",
+        ),
     )
     metadata_table.add_row("Warnings", style_str(results.no_warnings, f"[b]{results.total_warnings}[/b]"))
-    metadata_table.add_row("XSD Errors", style_str(results.no_xsd_errors, f"[b]{results.total_xsd_errors}[/b]"))
+    metadata_table.add_row(
+        "XSD Errors",
+        style_str(results.no_xsd_errors, f"[b]{results.total_xsd_errors}[/b]"),
+    )
     metadata_table.add_row("Started", context.created_at.strftime("%Y-%m-%d %H:%M:%S"))
     metadata_table.add_row("Duration", str(results.created_at - context.created_at))
     panel_items.append(metadata_table)
@@ -132,7 +141,7 @@ def render_console(  # noqa: C901
                 url = f"Notification from '{response.remote}'"
                 status = ""
 
-            row: list[Any] = [f"{idx:03}", context_relative_time(context, request_time)]
+            row: list[str] = [f"{idx:03}", context_relative_time(context, request_time)]
             if is_multi_client:
                 row.append(response.client_alias)
             row.extend([response.method, url, status, xsd])
@@ -142,7 +151,13 @@ def render_console(  # noqa: C901
         panel_items.append(requests_table)
 
     if exception_steps:
-        exc_table = Table(title="Exceptions", title_justify="left", show_header=False, expand=True, style="red")
+        exc_table = Table(
+            title="Exceptions",
+            title_justify="left",
+            show_header=False,
+            expand=True,
+            style="red",
+        )
         for step_result in exception_steps:
             exc_table.add_row(step_result.step.id, str(step_result.exc))
         panel_items.append(exc_table)

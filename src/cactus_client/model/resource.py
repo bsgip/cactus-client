@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Generator, Iterable, Optional, TypeVar, cast
+from typing import Optional, TypeVar, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
 from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointResponse
@@ -32,11 +33,6 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePoint,
     MirrorUsagePointListResponse,
 )
-from envoy_schema.server.schema.sep2.pub_sub import (
-    Notification,
-    Subscription,
-    SubscriptionListResponse,
-)
 from envoy_schema.server.schema.sep2.pricing import (
     ConsumptionTariffIntervalListResponse,
     ConsumptionTariffIntervalResponse,
@@ -47,10 +43,15 @@ from envoy_schema.server.schema.sep2.pricing import (
     TimeTariffIntervalListResponse,
     TimeTariffIntervalResponse,
 )
+from envoy_schema.server.schema.sep2.pub_sub import (
+    Notification,
+    Subscription,
+    SubscriptionListResponse,
+)
 from envoy_schema.server.schema.sep2.time import TimeResponse
 from treelib import Tree
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,8 @@ AnyType = TypeVar("AnyType")
 
 
 class CombinedTimeTariffIntervalListResponse(TimeTariffIntervalListResponse):
-    """CSIP-Aus extension of TimeTariffIntervalList combining all intervals across RateComponents for a TariffProfile."""
+    """CSIP-Aus extension of TimeTariffIntervalList combining all intervals across RateComponents for a
+    TariffProfile."""
 
 
 RESOURCE_SEP2_TYPES: dict[CSIPAusResource, type[Resource]] = {
@@ -107,21 +109,46 @@ class CSIPAusResourceTree:
         self.tree = Tree()
         self.tree.create_node(identifier=CSIPAusResource.DeviceCapability, parent=None)
         self.tree.create_node(identifier=CSIPAusResource.Time, parent=CSIPAusResource.DeviceCapability)
-        self.tree.create_node(identifier=CSIPAusResource.MirrorUsagePointList, parent=CSIPAusResource.DeviceCapability)
-        self.tree.create_node(identifier=CSIPAusResource.EndDeviceList, parent=CSIPAusResource.DeviceCapability)
-        self.tree.create_node(identifier=CSIPAusResource.MirrorUsagePoint, parent=CSIPAusResource.MirrorUsagePointList)
+        self.tree.create_node(
+            identifier=CSIPAusResource.MirrorUsagePointList,
+            parent=CSIPAusResource.DeviceCapability,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.EndDeviceList,
+            parent=CSIPAusResource.DeviceCapability,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.MirrorUsagePoint,
+            parent=CSIPAusResource.MirrorUsagePointList,
+        )
         self.tree.create_node(identifier=CSIPAusResource.EndDevice, parent=CSIPAusResource.EndDeviceList)
         self.tree.create_node(identifier=CSIPAusResource.ConnectionPoint, parent=CSIPAusResource.EndDevice)
         self.tree.create_node(identifier=CSIPAusResource.Registration, parent=CSIPAusResource.EndDevice)
-        self.tree.create_node(identifier=CSIPAusResource.SubscriptionList, parent=CSIPAusResource.EndDevice)
-        self.tree.create_node(identifier=CSIPAusResource.Subscription, parent=CSIPAusResource.SubscriptionList)
-        self.tree.create_node(identifier=CSIPAusResource.FunctionSetAssignmentsList, parent=CSIPAusResource.EndDevice)
         self.tree.create_node(
-            identifier=CSIPAusResource.FunctionSetAssignments, parent=CSIPAusResource.FunctionSetAssignmentsList
+            identifier=CSIPAusResource.SubscriptionList,
+            parent=CSIPAusResource.EndDevice,
         )
-        self.tree.create_node(identifier=CSIPAusResource.DERProgramList, parent=CSIPAusResource.FunctionSetAssignments)
+        self.tree.create_node(
+            identifier=CSIPAusResource.Subscription,
+            parent=CSIPAusResource.SubscriptionList,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.FunctionSetAssignmentsList,
+            parent=CSIPAusResource.EndDevice,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.FunctionSetAssignments,
+            parent=CSIPAusResource.FunctionSetAssignmentsList,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.DERProgramList,
+            parent=CSIPAusResource.FunctionSetAssignments,
+        )
         self.tree.create_node(identifier=CSIPAusResource.DERProgram, parent=CSIPAusResource.DERProgramList)
-        self.tree.create_node(identifier=CSIPAusResource.DefaultDERControl, parent=CSIPAusResource.DERProgram)
+        self.tree.create_node(
+            identifier=CSIPAusResource.DefaultDERControl,
+            parent=CSIPAusResource.DERProgram,
+        )
         self.tree.create_node(identifier=CSIPAusResource.DERControlList, parent=CSIPAusResource.DERProgram)
         self.tree.create_node(identifier=CSIPAusResource.DERControl, parent=CSIPAusResource.DERControlList)
         self.tree.create_node(identifier=CSIPAusResource.DERList, parent=CSIPAusResource.EndDevice)
@@ -130,23 +157,40 @@ class CSIPAusResourceTree:
         self.tree.create_node(identifier=CSIPAusResource.DERSettings, parent=CSIPAusResource.DER)
         self.tree.create_node(identifier=CSIPAusResource.DERStatus, parent=CSIPAusResource.DER)
         self.tree.create_node(
-            identifier=CSIPAusResource.TariffProfileList, parent=CSIPAusResource.FunctionSetAssignments
-        )
-        self.tree.create_node(identifier=CSIPAusResource.TariffProfile, parent=CSIPAusResource.TariffProfileList)
-        self.tree.create_node(identifier=CSIPAusResource.RateComponentList, parent=CSIPAusResource.TariffProfile)
-        self.tree.create_node(identifier=CSIPAusResource.RateComponent, parent=CSIPAusResource.RateComponentList)
-        self.tree.create_node(
-            identifier=CSIPAusResource.CombinedTimeTariffIntervalList, parent=CSIPAusResource.TariffProfile
-        )
-        self.tree.create_node(identifier=CSIPAusResource.TimeTariffIntervalList, parent=CSIPAusResource.RateComponent)
-        self.tree.create_node(
-            identifier=CSIPAusResource.TimeTariffInterval, parent=CSIPAusResource.TimeTariffIntervalList
+            identifier=CSIPAusResource.TariffProfileList,
+            parent=CSIPAusResource.FunctionSetAssignments,
         )
         self.tree.create_node(
-            identifier=CSIPAusResource.ConsumptionTariffIntervalList, parent=CSIPAusResource.TimeTariffInterval
+            identifier=CSIPAusResource.TariffProfile,
+            parent=CSIPAusResource.TariffProfileList,
         )
         self.tree.create_node(
-            identifier=CSIPAusResource.ConsumptionTariffInterval, parent=CSIPAusResource.ConsumptionTariffIntervalList
+            identifier=CSIPAusResource.RateComponentList,
+            parent=CSIPAusResource.TariffProfile,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.RateComponent,
+            parent=CSIPAusResource.RateComponentList,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.CombinedTimeTariffIntervalList,
+            parent=CSIPAusResource.TariffProfile,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.TimeTariffIntervalList,
+            parent=CSIPAusResource.RateComponent,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.TimeTariffInterval,
+            parent=CSIPAusResource.TimeTariffIntervalList,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.ConsumptionTariffIntervalList,
+            parent=CSIPAusResource.TimeTariffInterval,
+        )
+        self.tree.create_node(
+            identifier=CSIPAusResource.ConsumptionTariffInterval,
+            parent=CSIPAusResource.ConsumptionTariffIntervalList,
         )
 
     def discover_resource_plan(self, target_resources: list[CSIPAusResource]) -> list[CSIPAusResource]:
@@ -166,7 +210,7 @@ class CSIPAusResourceTree:
 
     def parent_resource(self, target: CSIPAusResource) -> CSIPAusResource | None:
         """Find the (immediate) parent resource for a specific target resource (or None if this is the root)"""
-        return self.tree.ancestor(target)  # type: ignore
+        return self.tree.ancestor(target)
 
 
 @dataclass(frozen=True, eq=True)
@@ -245,7 +289,7 @@ class StoredResource:
             member_of_list = None
 
         if not resource.href:
-            raise CactusClientException(f"Received a {resource_type} under {parent} with no href.")
+            raise CactusClientError(f"Received a {resource_type} under {parent} with no href.")
 
         return StoredResource(
             id=StoredResourceId.from_parent(parent, resource.href),
@@ -289,15 +333,15 @@ class ResourceStore:
         """Updates the store so that future calls to get (for type) will return their current value(s) PLUS this new
         value.
 
-        raises a CactusClientException if resource is missing a href
-        raises a CactusClientException if a resource with the same unique ID is already stored.
+        raises a CactusClientError if resource is missing a href
+        raises a CactusClientError if a resource with the same unique ID is already stored.
 
         Returns the StoredResource that was inserted"""
         new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 
         duplicate = self.id_store.get(new_resource.id, None)
         if duplicate is not None:
-            raise CactusClientException(f"Resource store already has {type} {new_resource.id}. Cannot append a copy.")
+            raise CactusClientError(f"Resource store already has {type} {new_resource.id}. Cannot append a copy.")
         self.id_store[new_resource.id] = new_resource
 
         existing_resources_of_type = self.resource_store.get(type, None)
@@ -314,7 +358,7 @@ class ResourceStore:
         """Similar to append_resource but if a resource with the same href+parent already exists, it will be
         replaced.
 
-        raises a CactusClientException if resource is missing a href"""
+        raises a CactusClientError if resource is missing a href"""
 
         new_resource = StoredResource.from_resource(self.tree, type, parent, resource)
 
@@ -349,10 +393,10 @@ class ResourceStore:
             if resource_list is not None:
                 try:
                     resource_list.remove(deleted_item)
-                except ValueError:
-                    raise CactusClientException(
+                except ValueError as exc:
+                    raise CactusClientError(
                         f"Couldn't find {id} in the {deleted_item.resource_type} store. This is a bug with the tests."
-                    )
+                    ) from exc
 
         return deleted_item
 
@@ -389,8 +433,7 @@ class ResourceStore:
     def resources(self) -> Generator[StoredResource, None, None]:
         """Enumerates every StoredResource in the store"""
         for stored_resources in self.resource_store.values():
-            for sr in stored_resources:
-                yield sr
+            yield from stored_resources
 
 
 def get_link_href(link: Link | None) -> str | None:
@@ -400,7 +443,9 @@ def get_link_href(link: Link | None) -> str | None:
     return link.href
 
 
-def resource_link_hrefs_from_links(links: Iterable[tuple[CSIPAusResource, Link | None]]) -> dict[CSIPAusResource, str]:
+def resource_link_hrefs_from_links(
+    links: Iterable[tuple[CSIPAusResource, Link | None]],
+) -> dict[CSIPAusResource, str]:
     """Convenience function to reduce boilerplate - Returns a dict where ONLY the populated hrefs are included"""
     return dict(((type, link.href) for type, link in links if link and link.href))
 
@@ -408,14 +453,17 @@ def resource_link_hrefs_from_links(links: Iterable[tuple[CSIPAusResource, Link |
 def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> dict[CSIPAusResource, str]:
     """Given a raw XML resource and its type - extract all the subordinate Link resources found in that resource. Any
     optional / missing Links will NOT be encoded."""
-    match (type):
+    match type:
         case CSIPAusResource.DeviceCapability:
             dcap = cast(DeviceCapabilityResponse, resource)
             return resource_link_hrefs_from_links(
                 [
                     (CSIPAusResource.Time, dcap.TimeLink),
                     (CSIPAusResource.EndDeviceList, dcap.EndDeviceListLink),
-                    (CSIPAusResource.MirrorUsagePointList, dcap.MirrorUsagePointListLink),
+                    (
+                        CSIPAusResource.MirrorUsagePointList,
+                        dcap.MirrorUsagePointListLink,
+                    ),
                 ]
             )
         case CSIPAusResource.EndDevice:
@@ -424,7 +472,10 @@ def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> d
                 [
                     (CSIPAusResource.ConnectionPoint, edev.ConnectionPointLink),
                     (CSIPAusResource.Registration, edev.RegistrationLink),
-                    (CSIPAusResource.FunctionSetAssignmentsList, edev.FunctionSetAssignmentsListLink),
+                    (
+                        CSIPAusResource.FunctionSetAssignmentsList,
+                        edev.FunctionSetAssignmentsListLink,
+                    ),
                     (CSIPAusResource.DERList, edev.DERListLink),
                     (CSIPAusResource.SubscriptionList, edev.SubscriptionListLink),
                 ]
@@ -470,14 +521,20 @@ def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> d
             rc = cast(RateComponentResponse, resource)
             return resource_link_hrefs_from_links(
                 [
-                    (CSIPAusResource.TimeTariffIntervalList, rc.TimeTariffIntervalListLink),
+                    (
+                        CSIPAusResource.TimeTariffIntervalList,
+                        rc.TimeTariffIntervalListLink,
+                    ),
                 ]
             )
         case CSIPAusResource.TimeTariffInterval:
             tti = cast(TimeTariffIntervalResponse, resource)
             return resource_link_hrefs_from_links(
                 [
-                    (CSIPAusResource.ConsumptionTariffIntervalList, tti.ConsumptionTariffIntervalListLink),
+                    (
+                        CSIPAusResource.ConsumptionTariffIntervalList,
+                        tti.ConsumptionTariffIntervalListLink,
+                    ),
                 ]
             )
         case _:

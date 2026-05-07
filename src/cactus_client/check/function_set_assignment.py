@@ -23,17 +23,21 @@ def check_function_set_assignment(
 
     if matches_client_edev:
         matched_edev = match_end_device_on_lfdi_caseless(
-            store, client_config.lfdi, is_aggregator=client_config.type == ClientType.AGGREGATOR
+            store,
+            client_config.lfdi,
+            is_aggregator=client_config.type == ClientType.AGGREGATOR,
         )
         if matched_edev is None:
-            return CheckResult(False, f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.")
+            return CheckResult(
+                False,
+                f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.",
+            )
     else:
         matched_edev = None
 
     fsas = store.get_for_type(CSIPAusResource.FunctionSetAssignments)
     matches_found = 0
     for fsa_sr in fsas:
-
         # We might be ONLY looking at FSA's that are a direct descendent of this EndDevice
         if matched_edev is not None:
             if not fsa_sr.id.is_descendent_of(matched_edev.id):
@@ -49,12 +53,14 @@ def check_function_set_assignment(
 
     if minimum_count is not None and matches_found < minimum_count:
         return CheckResult(
-            False, f"FunctionSetAssignment minimum_count is {minimum_count} but only found {matches_found} matches."
+            False,
+            f"FunctionSetAssignment minimum_count is {minimum_count} but only found {matches_found} matches.",
         )
 
     if maximum_count is not None and matches_found > maximum_count:
         return CheckResult(
-            False, f"FunctionSetAssignment maximum_count is {maximum_count} but only found {matches_found} matches."
+            False,
+            f"FunctionSetAssignment maximum_count is {maximum_count} but only found {matches_found} matches.",
         )
 
     return CheckResult(True, None)

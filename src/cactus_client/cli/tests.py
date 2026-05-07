@@ -65,7 +65,10 @@ def print_test(console: Console, tp_id: str) -> None:
     metadata_table.add_row("Target Versions", ", ".join(tp.target_versions))
 
     for idx, client in enumerate(tp.preconditions.required_clients):
-        metadata_table.add_row(f"Client [b]{idx}[/b]", f"[b red]{client.id}[/b red] {client.client_type or 'any'}")
+        metadata_table.add_row(
+            f"Client [b]{idx}[/b]",
+            f"[b red]{client.id}[/b red] {client.client_type or 'any'}",
+        )
 
     console.print(metadata_table)
 

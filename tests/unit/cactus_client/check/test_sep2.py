@@ -93,7 +93,8 @@ def test_is_invalid_signed_percent(value: int | None, expected_pass: bool):
     [
         (
             generate_class_instance(
-                DERControlResponse, DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True)
+                DERControlResponse,
+                DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True),
             ),
             True,
         ),
@@ -153,7 +154,9 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
                     DERControlResponse,
                     mRID=f"ABC123{VALID_SERVER_PEN}",
                     DERControlBase_=generate_class_instance(
-                        DERControlBase, optional_is_none=True, opModImpLimW=ActivePower(multiplier=3, value=30000)
+                        DERControlBase,
+                        optional_is_none=True,
+                        opModImpLimW=ActivePower(multiplier=3, value=30000),
                     ),
                 ),
             ),
@@ -166,7 +169,9 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
                     DERControlResponse,
                     mRID=f"ABC123{VALID_SERVER_PEN}",
                     DERControlBase_=generate_class_instance(
-                        DERControlBase, optional_is_none=True, opModImpLimW=ActivePower(multiplier=-1, value=99999)
+                        DERControlBase,
+                        optional_is_none=True,
+                        opModImpLimW=ActivePower(multiplier=-1, value=99999),
                     ),
                 ),
             ),
@@ -177,7 +182,7 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
                 CSIPAusResource.DERControl,
                 generate_class_instance(
                     DERControlResponse,
-                    mRID=f"ABC123{VALID_SERVER_PEN+1}",
+                    mRID=f"ABC123{VALID_SERVER_PEN + 1}",
                     DERControlBase_=generate_class_instance(DERControlBase, optional_is_none=True),
                 ),
             ),
@@ -213,7 +218,8 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
             sr(
                 CSIPAusResource.MirrorUsagePoint,
                 generate_class_instance(
-                    MirrorUsagePoint, mRID="not validated"  # MUPs don't need the server PEN to match
+                    MirrorUsagePoint,
+                    mRID="not validated",  # MUPs don't need the server PEN to match
                 ),
             ),
             True,

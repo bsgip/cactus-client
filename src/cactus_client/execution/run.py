@@ -6,7 +6,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from cactus_client.error import CactusClientException, ConfigException
+from cactus_client.error import CactusClientError, ConfigError
 from cactus_client.execution.build import build_execution_context
 from cactus_client.execution.execute import execute_for_context, setup_and_teardown
 from cactus_client.execution.tui import run_tui
@@ -47,7 +47,7 @@ async def _run_and_await_tasks(
             await _cancel_tasks(list(pending))
             return ResultsEvaluation(context, execute_task.result())
         elif done:
-            raise CactusClientException(
+            raise CactusClientError(
                 "It appears that the UI has exited prematurely. Aborting test run."
                 + f"Details at {log_file_path.absolute()}"
             )
@@ -69,7 +69,8 @@ async def _run_with_setup_teardown(context: ExecutionContext) -> ExecutionResult
     async with setup_and_teardown(context) as setup_result:
         if not setup_result.completed:
             logger.info(
-                "[admin-instruction] test=%s finished completed=False (setup failed)", context.test_procedure_id
+                "[admin-instruction] test=%s finished completed=False (setup failed)",
+                context.test_procedure_id,
             )
             return ExecutionResult(completed=False)
         return await execute_for_context(context)
@@ -79,10 +80,9 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
     """Handles running a full test procedure execution - returns True if the test passes, False otherwise"""
 
     if not global_config.output_dir:
-        raise ConfigException("The output_dir configuration setting is missing.")
+        raise ConfigError("The output_dir configuration setting is missing.")
 
     async with build_execution_context(global_config, run_config) as context:
-
         # We're clear to start - generate the output directory
         output_manager = RunOutputManager(global_config.output_dir, run_config)
 
@@ -113,7 +113,10 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
                             "stream": "ext://sys.stderr",
                         },
                     },
-                    "root": {"level": "DEBUG", "handlers": ["file_handler", "stderr_handler"]},
+                    "root": {
+                        "level": "DEBUG",
+                        "handlers": ["file_handler", "stderr_handler"],
+                    },
                 }
             )
         else:

@@ -33,7 +33,7 @@ from cactus_client.check.mup import (
     generate_reading_type_values,
     generate_role_flags,
 )
-from cactus_client.error import CactusClientException, RequestException
+from cactus_client.error import CactusClientError, RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.time import utc_now
@@ -114,7 +114,7 @@ def generate_insert_readings_request(
         pow10 = pow10_by_mrid.get(mmr_mrid, None)
         if pow10 is None:
             logger.error(f"Couldn't find {mmr_mrid} in pow10_by_mrid: {pow10_by_mrid}")
-            raise CactusClientException(f"Couldn't find the pow10 multiplier for MirrorMeterReading {mmr_mrid}")
+            raise CactusClientError(f"Couldn't find the pow10 multiplier for MirrorMeterReading {mmr_mrid}")
 
         if isinstance(rt_values, list):
             raw_value = rt_values[step.repeat_number]
@@ -152,12 +152,12 @@ async def action_insert_readings(
             total_constants += 1
     if len(list_lengths) > 1:
         logger.error(f"values parameter is malformed. Not every length is the same: {values}")
-        raise CactusClientException("The values parameters is malformed. This is a test definition error.")
+        raise CactusClientError("The values parameters is malformed. This is a test definition error.")
     elif len(list_lengths) == 1:
         all_lengths = list_lengths.pop()
         if step.repeat_number >= all_lengths:
             logger.error(f"Too many repeats - at repeat {step.repeat_number} but only has {all_lengths}")
-            raise CactusClientException("The values parameters is malformed. This is a test definition error.")
+            raise CactusClientError("The values parameters is malformed. This is a test definition error.")
 
     resource_store = context.discovered_resources(step)
     mups_with_id = [
@@ -167,7 +167,7 @@ async def action_insert_readings(
     ]
 
     if len(mups_with_id) != 1:
-        raise CactusClientException(
+        raise CactusClientError(
             f"Expected 1 {CSIPAusResource.MirrorUsagePoint} with alias {mup_id} but found {len(mups_with_id)}."
         )
 
@@ -176,18 +176,18 @@ async def action_insert_readings(
     mup = cast(MirrorUsagePoint, mup_sr.resource)
     mup_href = cast(str, mup.href)  # We know this is set from an earlier filter
     if not mup.mirrorMeterReadings:
-        raise CactusClientException(
+        raise CactusClientError(
             f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any logged MirrorMeterReadings."
         )
 
     pow10_by_mrid: dict[str, int] = {}
     for mmr in mup.mirrorMeterReadings:
         if mmr.readingType is None:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"MirrorUsagePoint {mup_href} {mup.mRID} has MirrorMeterReading {mmr.mRID} with no logged ReadingType"
             )
         if mmr.readingType.powerOfTenMultiplier is None:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"MirrorUsagePoint {mup_href} {mup.mRID} has MirrorMeterReading {mmr.mRID} with no powerOfTenMultiplier"
             )
         pow10_by_mrid[mmr.mRID] = mmr.readingType.powerOfTenMultiplier
@@ -204,7 +204,7 @@ async def action_insert_readings(
         # Otherwise submit the readings
         response = await request_for_step(step, context, mup_href, HTTPMethod.POST, mmr_list_xml)
         if not response.is_success():
-            raise RequestException(f"Received {response.status} from POST {mup_href} when submitting readings")
+            raise RequestError(f"Received {response.status} from POST {mup_href} when submitting readings")
 
     # Repeat if we have more readings to send
     if all_lengths is None or step.repeat_number >= (all_lengths - 1):
@@ -236,13 +236,19 @@ async def action_upsert_mup(
     ]
 
     if len(mup_list_resources) != 1:
-        raise CactusClientException(
+        raise CactusClientError(
             f"Expected only a single {CSIPAusResource.MirrorUsagePointList} href but found {len(mup_list_resources)}."
         )
 
     list_href = cast(str, mup_list_resources[0].resource.href)  # This will be set due to the earlier filter
     request_mup = generate_upsert_mup_request(
-        step, context, location, reading_types, mmr_mrids, pow10_multiplier, set_mup_mrid
+        step,
+        context,
+        location,
+        reading_types,
+        mmr_mrids,
+        pow10_multiplier,
+        set_mup_mrid,
     )
     if expect_rejection:
         # If we're expecting rejection - make the request and check for a client error

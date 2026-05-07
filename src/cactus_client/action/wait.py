@@ -2,7 +2,6 @@ import asyncio
 import logging
 from typing import Any
 
-
 from cactus_client.model.execution import ActionResult
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 import unittest.mock as mock
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 from aiohttp import ClientSession
@@ -28,14 +28,24 @@ async def test_action_forget(
     # Build up the store with some values (we aren't going deep here as the unit tests on the ResourceStore)
     store = context.discovered_resources(step)
     sr1 = store.append_resource(
-        CSIPAusResource.DeviceCapability, None, generate_class_instance(DeviceCapabilityResponse, seed=101)
+        CSIPAusResource.DeviceCapability,
+        None,
+        generate_class_instance(DeviceCapabilityResponse, seed=101),
     )
-    sr2 = store.append_resource(CSIPAusResource.EndDevice, sr1.id, generate_class_instance(EndDeviceResponse, seed=202))
+    sr2 = store.append_resource(
+        CSIPAusResource.EndDevice,
+        sr1.id,
+        generate_class_instance(EndDeviceResponse, seed=202),
+    )
     sr3 = store.append_resource(
-        CSIPAusResource.DERControl, sr2.id, generate_class_instance(DERControlResponse, seed=303)
+        CSIPAusResource.DERControl,
+        sr2.id,
+        generate_class_instance(DERControlResponse, seed=303),
     )
     sr4 = store.append_resource(
-        CSIPAusResource.DERControl, sr2.id, generate_class_instance(DERControlResponse, seed=404)
+        CSIPAusResource.DERControl,
+        sr2.id,
+        generate_class_instance(DERControlResponse, seed=404),
     )
 
     resources = [CSIPAusResource.DeviceCapability, "DERControl"]

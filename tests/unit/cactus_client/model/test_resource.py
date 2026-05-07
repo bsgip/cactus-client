@@ -18,17 +18,17 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering_mirror import (
+    MirrorUsagePointListResponse,
+)
 from envoy_schema.server.schema.sep2.pricing import (
     RateComponentResponse,
     TariffProfileResponse,
     TimeTariffIntervalResponse,
 )
-from envoy_schema.server.schema.sep2.metering_mirror import (
-    MirrorUsagePointListResponse,
-)
 from treelib.exceptions import NodeIDAbsentError
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.resource import (
     RESOURCE_SEP2_TYPES,
     CSIPAusResourceTree,
@@ -62,8 +62,14 @@ def test_get_resource_tree_all_resources_encoded():
     "targets, expected",
     [
         ([], []),
-        ([CSIPAusResource.Time], [CSIPAusResource.DeviceCapability, CSIPAusResource.Time]),
-        ([CSIPAusResource.Time, CSIPAusResource.Time], [CSIPAusResource.DeviceCapability, CSIPAusResource.Time]),
+        (
+            [CSIPAusResource.Time],
+            [CSIPAusResource.DeviceCapability, CSIPAusResource.Time],
+        ),
+        (
+            [CSIPAusResource.Time, CSIPAusResource.Time],
+            [CSIPAusResource.DeviceCapability, CSIPAusResource.Time],
+        ),
         (
             [CSIPAusResource.DERSettings],
             [
@@ -123,7 +129,7 @@ def test_Notifications_raise_error():
     tree = CSIPAusResourceTree()
 
     with pytest.raises(NodeIDAbsentError):
-        tree.discover_resource_plan(CSIPAusResource.Notification)
+        tree.discover_resource_plan([CSIPAusResource.Notification])
 
     with pytest.raises(NodeIDAbsentError):
         tree.parent_resource(CSIPAusResource.Notification)
@@ -223,14 +229,18 @@ def test_ResourceStore_requires_hrefs(bad_href):
     """Cant add a Resource to the store that doesn't have a HREF"""
     s = ResourceStore(CSIPAusResourceTree())
 
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(
-            CSIPAusResource.DeviceCapability, None, generate_class_instance(DeviceCapabilityResponse, href=bad_href)
+            CSIPAusResource.DeviceCapability,
+            None,
+            generate_class_instance(DeviceCapabilityResponse, href=bad_href),
         )
 
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.upsert_resource(
-            CSIPAusResource.DeviceCapability, None, generate_class_instance(DeviceCapabilityResponse, href=bad_href)
+            CSIPAusResource.DeviceCapability,
+            None,
+            generate_class_instance(DeviceCapabilityResponse, href=bad_href),
         )
 
     assert len(s.id_store) == 0
@@ -267,7 +277,7 @@ def test_ResourceStore():
     assert list(s.resources()) == [sr1]
 
     # We can't append the same resource again
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(CSIPAusResource.DER, None, r1)
 
     # We can append a different resource though
@@ -292,7 +302,7 @@ def test_ResourceStore():
     assert CSIPAusResource.DERList in sr3.resource_link_hrefs
 
     # We can't append the same resource again
-    with pytest.raises(CactusClientException):
+    with pytest.raises(CactusClientError):
         s.append_resource(CSIPAusResource.EndDevice, sr1.id, r3)
 
     sr4 = s.append_resource(CSIPAusResource.EndDevice, sr1.id, r4)
@@ -386,13 +396,24 @@ def test_ResourceStore_upsert_resource():
 
     # Our initial state
     assert s.get_for_type(CSIPAusResource.EndDevice) == [cr1_dupe, cr1, cr2, cr3]
-    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [p1.id, p2.id, p2.id, p2.id]
+    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
+        p1.id,
+        p2.id,
+        p2.id,
+        p2.id,
+    ]
 
     # Add a new item (no clash)
     r_insert = generate_class_instance(EndDeviceResponse, seed=707)
     cr_insert = s.upsert_resource(CSIPAusResource.EndDevice, p2.id, r_insert)
 
-    assert s.get_for_type(CSIPAusResource.EndDevice) == [cr1_dupe, cr1, cr2, cr3, cr_insert]
+    assert s.get_for_type(CSIPAusResource.EndDevice) == [
+        cr1_dupe,
+        cr1,
+        cr2,
+        cr3,
+        cr_insert,
+    ]
     assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
         p1.id,
         p2.id,
@@ -405,7 +426,13 @@ def test_ResourceStore_upsert_resource():
     r_update = generate_class_instance(EndDeviceResponse, seed=404)
     cr_update = s.upsert_resource(CSIPAusResource.EndDevice, p2.id, r_update)
 
-    assert s.get_for_type(CSIPAusResource.EndDevice) == [cr1_dupe, cr_update, cr2, cr3, cr_insert]
+    assert s.get_for_type(CSIPAusResource.EndDevice) == [
+        cr1_dupe,
+        cr_update,
+        cr2,
+        cr3,
+        cr_insert,
+    ]
     assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
         p1.id,
         p2.id,
@@ -435,24 +462,40 @@ def test_ResourceStore_delete_resource():
 
     # Our initial state
     assert s.get_for_type(CSIPAusResource.EndDevice) == [cr1, cr2, cr3, cr4]
-    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [p1.id, p2.id, p2.id, p2.id]
+    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
+        p1.id,
+        p2.id,
+        p2.id,
+        p2.id,
+    ]
 
     # Delete an item
     assert s.delete_resource(cr3.id) is cr3
 
     assert s.get_for_type(CSIPAusResource.EndDevice) == [cr1, cr2, cr4]
-    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [p1.id, p2.id, p2.id]
+    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
+        p1.id,
+        p2.id,
+        p2.id,
+    ]
 
     # Re-deleting has no effect
     assert s.delete_resource(cr3.id) is None
     assert s.delete_resource(cr3.id) is None
     assert s.get_for_type(CSIPAusResource.EndDevice) == [cr1, cr2, cr4]
-    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [p1.id, p2.id, p2.id]
+    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
+        p1.id,
+        p2.id,
+        p2.id,
+    ]
 
     # Delete more items
     assert s.delete_resource(cr1.id) is cr1
     assert s.get_for_type(CSIPAusResource.EndDevice) == [cr2, cr4]
-    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [p2.id, p2.id]
+    assert [sr.id.parent_id() for sr in s.get_for_type(CSIPAusResource.EndDevice)] == [
+        p2.id,
+        p2.id,
+    ]
     assert s.get_for_id(cr1.id) is None
     assert s.get_for_id(cr2.id) is cr2
     assert s.get_for_id(cr3.id) is None
@@ -508,9 +551,16 @@ def test_ResourceStore_get_descendents_of():
 
     assert s.get_descendents_of(CSIPAusResource.DERProgramList, sr_edev_1.id) == [sr_derpl_1]
 
-    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edev_1.id) == [sr_derp_1, sr_derp_2]
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edev_1.id) == [
+        sr_derp_1,
+        sr_derp_2,
+    ]
     assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edev_2.id) == [sr_derp_3]
-    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edevl.id) == [sr_derp_1, sr_derp_2, sr_derp_3]
+    assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_edevl.id) == [
+        sr_derp_1,
+        sr_derp_2,
+        sr_derp_3,
+    ]
     assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_mupl.id) == []
     assert s.get_descendents_of(CSIPAusResource.DERProgram, sr_dderc_1.id) == []
 
@@ -534,7 +584,7 @@ SEP2_TYPES_WITH_LINKS: list[tuple[CSIPAusResource, type]] = [
 
 
 @pytest.mark.parametrize("resource, resource_type", SEP2_TYPES_WITH_LINKS)
-def test_generate_resource_link_hrefs_specific_type(resource: CSIPAusResource, resource_type: type):
+def test_generate_resource_link_hrefs_specific_type(resource: CSIPAusResource, resource_type: type[Resource]):
     """Ensure that the nominated "interesting" types work with generate_resource_link_hrefs"""
     result = generate_resource_link_hrefs(resource, generate_class_instance(resource_type, generate_relationships=True))
     assert_dict_type(CSIPAusResource, str, result)
@@ -543,13 +593,15 @@ def test_generate_resource_link_hrefs_specific_type(resource: CSIPAusResource, r
     assert len(result.values()) == len(set(result.values())), "All unique hrefs returned"
 
     result_optionals = generate_resource_link_hrefs(
-        resource, generate_class_instance(resource_type, generate_relationships=True, optional_is_none=True)
+        resource,
+        generate_class_instance(resource_type, generate_relationships=True, optional_is_none=True),
     )
     assert_dict_type(CSIPAusResource, str, result_optionals)
 
 
 @pytest.mark.parametrize(
-    "resource", [resource for resource in CSIPAusResource if resource not in {r for r, _ in SEP2_TYPES_WITH_LINKS}]
+    "resource",
+    [resource for resource in CSIPAusResource if resource not in {r for r, _ in SEP2_TYPES_WITH_LINKS}],
 )
 def test_generate_resource_link_hrefs_other_types(resource: CSIPAusResource):
     """Ensure that the nominated "not interesting" types generate an empty dict for generate_resource_link_hrefs"""

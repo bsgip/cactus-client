@@ -1,10 +1,11 @@
 import unittest.mock as mock
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from itertools import product
-from typing import AsyncIterator, cast
+from typing import cast
 
 import pytest
 from aiohttp import ClientSession, web
@@ -33,7 +34,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestException
+from cactus_client.error import RequestError
 
 
 @dataclass
@@ -44,13 +45,13 @@ class RouteBehaviour:
 
     @staticmethod
     def xml(status: HTTPStatus, file_name: str) -> "RouteBehaviour":
-        with open("tests/data/" + file_name, "r") as fp:
+        with open("tests/data/" + file_name) as fp:
             raw_xml = fp.read()
         return RouteBehaviour(status, raw_xml.encode(), {"Content-Type": MIME_TYPE_SEP2})
 
     @staticmethod
     def no_content_location(status: HTTPStatus, location: str) -> "RouteBehaviour":
-        return RouteBehaviour(status, bytes(), {"Location": location})
+        return RouteBehaviour(status, b"", {"Location": location})
 
 
 @dataclass
@@ -96,11 +97,11 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
 )
 @pytest.mark.asyncio
 async def test_delete_and_check_resource_for_step_success(
-    aiohttp_client, testing_contexts_factory, refetch_status: bool, refetch_delay: int
+    aiohttp_client, testing_contexts_factory, refetch_status: HTTPStatus, refetch_delay: int
 ):
     """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
-    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
-    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, b"", {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
         execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
@@ -135,12 +136,12 @@ async def test_delete_and_check_resource_for_step_refetch_bad_response(
     aiohttp_client, testing_contexts_factory, refetch_status
 ):
     """Does delete_and_check_resource_for_step Raise exceptions if the refetch doesn't behave as expected"""
-    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, bytes(), {})])
-    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, bytes(), {})])
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, b"", {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
@@ -161,12 +162,12 @@ async def test_delete_and_check_resource_for_step_delete_bad_response(
     aiohttp_client, testing_contexts_factory, delete_status
 ):
     """Does delete_and_check_resource_for_step Raise exceptions if the delete doesn't behave as expected"""
-    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(delete_status, bytes(), {})])
-    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.NOT_FOUND, bytes(), {})])
+    delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(delete_status, b"", {})])
+    get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.NOT_FOUND, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
@@ -177,13 +178,21 @@ async def test_delete_and_check_resource_for_step_delete_bad_response(
 async def test_get_resource_for_step_success(aiohttp_client, testing_contexts_factory):
     """Does get_resource_for_step handle parsing the XML and returning the correct data"""
     async with create_test_session(
-        aiohttp_client, [TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")])]
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
         result = await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
+    assert result.EndDeviceListLink
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
@@ -199,11 +208,17 @@ async def test_get_resource_for_step_bad_request(aiohttp_client, testing_context
     # We will try and trick the code by returning a normal dcap but with a proper error
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "dcap.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "dcap.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
 
         # Assert - contents of trackers
@@ -217,11 +232,17 @@ async def test_get_resource_for_step_xml_failure(aiohttp_client, testing_context
     # The server is sending valid sep2 XML but the type doesn't match what we want
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "edev-list-1.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.OK, "edev-list-1.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await get_resource_for_step(DeviceCapabilityResponse, step_execution, execution_context, "/foo/bar")
 
         # Assert - contents of trackers
@@ -247,9 +268,15 @@ async def test_submit_and_refetch_resource_for_step_success(
         aiohttp_client,
         [
             TestingAppRoute(
-                HTTPMethod.PUT, "/baz", [RouteBehaviour.no_content_location(HTTPStatus.NO_CONTENT, "/foo/bar")]
+                HTTPMethod.PUT,
+                "/baz",
+                [RouteBehaviour.no_content_location(HTTPStatus.NO_CONTENT, "/foo/bar")],
             ),
-            TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]),
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")],
+            ),
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
@@ -268,6 +295,7 @@ async def test_submit_and_refetch_resource_for_step_success(
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
+    assert result.EndDeviceListLink
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
@@ -289,7 +317,10 @@ async def test_submit_and_refetch_resource_for_step_success(
 @mock.patch("cactus_client.action.server.get_property_changes")
 @pytest.mark.asyncio
 async def test_submit_and_refetch_resource_for_step_success_no_location_header(
-    mock_get_property_changes: mock.Mock, has_property_changes: bool, aiohttp_client, testing_contexts_factory
+    mock_get_property_changes: mock.Mock,
+    has_property_changes: bool,
+    aiohttp_client,
+    testing_contexts_factory,
 ):
     """Does submit_and_refetch_resource_for_step handle parsing the XML and returning the correct data"""
     if has_property_changes:
@@ -300,7 +331,11 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.PUT, "/foo", [RouteBehaviour(HTTPStatus.NO_CONTENT, bytes(), {})]),
+            TestingAppRoute(
+                HTTPMethod.PUT,
+                "/foo",
+                [RouteBehaviour(HTTPStatus.NO_CONTENT, b"", {})],
+            ),
             TestingAppRoute(HTTPMethod.GET, "/foo", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]),
         ],
     ) as session:
@@ -317,6 +352,7 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
+    assert result.EndDeviceListLink
     assert result.EndDeviceListLink.all_ == 2
     assert result.EndDeviceListLink.href == "/envoy-svc-static-36/edev"
 
@@ -336,13 +372,17 @@ async def test_submit_and_refetch_resource_for_step_failure_no_location_header(
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.PUT, "/foo", [RouteBehaviour(HTTPStatus.NO_CONTENT, bytes(), {})]),
+            TestingAppRoute(
+                HTTPMethod.PUT,
+                "/foo",
+                [RouteBehaviour(HTTPStatus.NO_CONTENT, b"", {})],
+            ),
             TestingAppRoute(HTTPMethod.GET, "/foo", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]),
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await submit_and_refetch_resource_for_step(
                 DeviceCapabilityResponse,
                 step_execution,
@@ -367,12 +407,20 @@ async def test_submit_and_refetch_resource_for_step_server_overrides_post_rate(
         aiohttp_client,
         [
             TestingAppRoute(
-                HTTPMethod.POST, "/edev", [RouteBehaviour.no_content_location(HTTPStatus.CREATED, "/edev/1")]
+                HTTPMethod.POST,
+                "/edev",
+                [RouteBehaviour.no_content_location(HTTPStatus.CREATED, "/edev/1")],
             ),
             TestingAppRoute(
                 HTTPMethod.GET,
                 "/edev/1",
-                [RouteBehaviour(HTTPStatus.OK, returned_xml.encode(), {"Content-Type": MIME_TYPE_SEP2})],
+                [
+                    RouteBehaviour(
+                        HTTPStatus.OK,
+                        returned_xml.encode(),
+                        {"Content-Type": MIME_TYPE_SEP2},
+                    )
+                ],
             ),
         ],
     ) as session:
@@ -397,12 +445,16 @@ async def test_submit_and_refetch_resource_for_step_failure_initial_request(aioh
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.POST, "/foo", [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, bytes(), {})]),
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo",
+                [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, b"", {})],
+            ),
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await submit_and_refetch_resource_for_step(
                 DeviceCapabilityResponse,
                 step_execution,
@@ -420,15 +472,21 @@ async def test_submit_and_refetch_resource_for_step_failure_refetch_request(aioh
     async with create_test_session(
         aiohttp_client,
         [
-            TestingAppRoute(HTTPMethod.DELETE, "/foo", [RouteBehaviour.no_content_location(HTTPStatus.OK, "/foo/bar")]),
             TestingAppRoute(
-                HTTPMethod.GET, "/foo/bar", [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, bytes(), {})]
+                HTTPMethod.DELETE,
+                "/foo",
+                [RouteBehaviour.no_content_location(HTTPStatus.OK, "/foo/bar")],
+            ),
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [RouteBehaviour(HTTPStatus.INTERNAL_SERVER_ERROR, b"", {})],
             ),
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await submit_and_refetch_resource_for_step(
                 DeviceCapabilityResponse,
                 step_execution,
@@ -499,7 +557,7 @@ async def test_paginate_list_resource_items_handle_failure(aiohttp_client, testi
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await paginate_list_resource_items(
                 EndDeviceListResponse,
                 step_execution,
@@ -601,7 +659,7 @@ async def test_paginate_list_resource_items_too_many_requests(aiohttp_client, te
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await paginate_list_resource_items(
                 EndDeviceListResponse,
                 step_execution,
@@ -640,7 +698,13 @@ def test_resource_to_sep2_xml():
 async def test_fetch_list_page(aiohttp_client, testing_contexts_factory):
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, "edev-list-1.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.OK, "edev-list-1.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
@@ -723,7 +787,13 @@ async def test_client_error_request_for_step_success(aiohttp_client, testing_con
     """Does client_error_request_for_step handle parsing the XML and returning the correct data"""
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "error.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "error.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
         result = await client_error_request_for_step(
@@ -746,11 +816,17 @@ async def test_client_error_request_for_step_non_client_error(status_code, aioht
     """Does client_error_request_for_step handle parsing the XML and returning the correct data"""
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(status_code, "error.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.xml(status_code, "error.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await client_error_request_for_step(step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "body")
 
     # Assert - contents of trackers
@@ -773,11 +849,22 @@ async def test_client_error_or_empty_list_request_for_step_success_empty(
     data"""
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, xml_file)])],
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.OK, xml_file)],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
         result = await client_error_or_empty_list_request_for_step(
-            list_type, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+            list_type,
+            step_execution,
+            execution_context,
+            "/foo/bar",
+            HTTPMethod.POST,
+            "post body",
         )
 
     # Assert - contents of response
@@ -804,13 +891,24 @@ async def test_client_error_or_empty_list_request_for_step_fail_not_empty(
     """Does client_error_or_empty_list_request_for_step check the all/results field"""
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.OK, xml_file)])],
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.OK, xml_file)],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await client_error_or_empty_list_request_for_step(
-                list_type, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+                list_type,
+                step_execution,
+                execution_context,
+                "/foo/bar",
+                HTTPMethod.POST,
+                "post body",
             )
 
     # Assert - contents of trackers
@@ -823,11 +921,22 @@ async def test_client_error_or_empty_list_request_for_step_success_error(aiohttp
     """Does client_error_or_empty_list_request_for_step handle parsing an Error XML"""
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "error.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.xml(HTTPStatus.BAD_REQUEST, "error.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
         result = await client_error_or_empty_list_request_for_step(
-            EndDeviceListResponse, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+            EndDeviceListResponse,
+            step_execution,
+            execution_context,
+            "/foo/bar",
+            HTTPMethod.POST,
+            "post body",
         )
 
     # Assert - contents of response
@@ -848,13 +957,24 @@ async def test_client_error_or_empty_list_request_for_step_non_client_error(
     """Does client_error_or_empty_list_request_for_step handle 5XX errors with an exception?"""
     async with create_test_session(
         aiohttp_client,
-        [TestingAppRoute(HTTPMethod.POST, "/foo/bar", [RouteBehaviour.xml(status_code, "error.xml")])],
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.xml(status_code, "error.xml")],
+            )
+        ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
 
-        with pytest.raises(RequestException):
+        with pytest.raises(RequestError):
             await client_error_or_empty_list_request_for_step(
-                EndDeviceListResponse, step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "body"
+                EndDeviceListResponse,
+                step_execution,
+                execution_context,
+                "/foo/bar",
+                HTTPMethod.POST,
+                "body",
             )
 
     # Assert - contents of trackers

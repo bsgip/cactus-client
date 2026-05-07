@@ -1,7 +1,8 @@
 import apluggy
+from cactus_test_definitions.server.test_procedures import AdminInstruction
+
 from cactus_client.model.context import AdminContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_test_definitions.server.test_procedures import AdminInstruction
 
 project_name = "cactus_client.admin"
 hookspec = apluggy.HookspecMarker(project_name)
@@ -12,7 +13,7 @@ class AdminSpec:
     """Base interface for admin plugins. Implement any subset of these hooks in your plugin class."""
 
     @hookspec
-    def admin_setup(self, context: AdminContext) -> ActionResult:  # type: ignore[empty-body]
+    def admin_setup(self, context: AdminContext) -> ActionResult:  # type: ignore
         """Called once before any test steps execute.
 
         Use this to perform any setup required before the test begins (e.g. registering end devices,
@@ -23,7 +24,7 @@ class AdminSpec:
         """
 
     @hookspec
-    def admin_teardown(self, context: AdminContext) -> ActionResult:  # type: ignore[empty-body]
+    def admin_teardown(self, context: AdminContext) -> ActionResult:  # type: ignore
         """Called once after all test steps complete (or on failure). Always runs, even if setup failed.
 
         Use this to clean up any state created during setup or the test run. Exceptions raised here

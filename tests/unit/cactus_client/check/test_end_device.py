@@ -1,5 +1,6 @@
 import unittest.mock as mock
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from aiohttp import ClientSession
@@ -223,6 +224,7 @@ def test_check_end_device(
             sr_edev = None
 
         if reg is not None:
+            assert sr_edev is not None
             store.append_resource(CSIPAusResource.Registration, sr_edev.id, reg)
 
     result = check_end_device(resolved_params, step, context)
@@ -253,7 +255,8 @@ def test_check_end_device(
             True,
             False,
         ),
-        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based, not href-based)
+        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based,
+        # not href-based)
         (
             ClientType.AGGREGATOR,
             [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],

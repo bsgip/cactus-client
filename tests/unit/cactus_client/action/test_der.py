@@ -1,6 +1,7 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from http import HTTPMethod
-from typing import Callable
+from typing import cast
 
 import pytest
 from aiohttp import ClientSession
@@ -86,7 +87,7 @@ async def test_action_upsert_der_capability(
     assert len(stored_dcaps) == num_devices
 
     # Verify contents of first device
-    first_dcap = stored_dcaps[0].resource
+    first_dcap = cast(DERCapability, stored_dcaps[0].resource)
     assert first_dcap.type_ == expected_type
     assert first_dcap.rtgMaxW == expected_rtgMaxW
     assert first_dcap.modesSupported == expected_modesSupported
@@ -152,7 +153,7 @@ async def test_action_upsert_der_settings(
     assert len(stored_settings) == num_devices
 
     # Verify contents of first device
-    first_settings = stored_settings[0].resource
+    first_settings = cast(DERSettings, stored_settings[0].resource)
     assert first_settings.updatedTime == expected_timestamp
     assert first_settings.setMaxW == expected_setMaxW
     assert first_settings.setGradW == expected_setGradW
@@ -190,7 +191,8 @@ async def test_action_upsert_der_status(
         value=to_hex_binary(expected_gen_connect_val), dateTime=expected_timestamp
     )
     expected_operational_mode_status = OperationalModeStatusTypeValue(
-        value=OperationalModeStatusType(expected_op_mode_val), dateTime=expected_timestamp
+        value=OperationalModeStatusType(expected_op_mode_val),
+        dateTime=expected_timestamp,
     )
     expected_alarm_status = to_hex_binary(expected_alarm_val)
 
@@ -225,7 +227,7 @@ async def test_action_upsert_der_status(
     assert len(stored_statuses) == num_devices
 
     # Verify contents of first device
-    first_status = stored_statuses[0].resource
+    first_status = cast(DERStatus, stored_statuses[0].resource)
     assert first_status.readingTime == expected_timestamp
     assert first_status.genConnectStatus == expected_gen_connect_status
     assert first_status.operationalModeStatus == expected_operational_mode_status

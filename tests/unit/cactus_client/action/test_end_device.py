@@ -90,7 +90,6 @@ async def test_action_insert_end_device(testing_contexts_factory):
     resource_store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
 
     with mock.patch("cactus_client.action.end_device.submit_and_refetch_resource_for_step") as mock_submit:
-
         inserted_edev = generate_class_instance(
             EndDeviceResponse,
             lFDI=client_config.lfdi,
@@ -133,7 +132,9 @@ async def test_action_insert_end_device(testing_contexts_factory):
 
 
 @pytest.mark.asyncio
-async def test_action_insert_end_device_cross_client_uses_context_lfdi(testing_contexts_factory):
+async def test_action_insert_end_device_cross_client_uses_context_lfdi(
+    testing_contexts_factory,
+):
     """Test to ensure S-ALL-52 behaviour"""
 
     # Arrange - build with CLIENT-A as the base, then add CLIENT-B

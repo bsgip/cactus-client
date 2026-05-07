@@ -1,4 +1,5 @@
 import hashlib
+from pathlib import Path
 from typing import TypeVar
 
 from cryptography import x509
@@ -45,7 +46,7 @@ def convert_lfdi_to_sfdi(lfdi: str) -> int:
     return raw_sfdi * 10 + sfdi_checksum
 
 
-def lfdi_from_cert_file(cert_file: str) -> str:
+def lfdi_from_cert_file(cert_file: str | Path) -> str:
     with open(cert_file, "rb") as f:
         pem_data = f.read()
     cert = x509.load_pem_x509_certificate(pem_data)
@@ -84,7 +85,6 @@ def get_property_changes(source: AnyResource, returned: AnyResource) -> str | No
     for key, source_val in source.__dict__.items():
         returned_val = getattr(returned, key, None)
         if source_val is not None and source_val != returned_val:
-
             # We are trying to avoid a series of Resource specific checks - so this is our attempt
             # to stay general
             if isinstance(source_val, list):

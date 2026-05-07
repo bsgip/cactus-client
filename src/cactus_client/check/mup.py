@@ -17,7 +17,7 @@ from envoy_schema.server.schema.sep2.types import (
     UomType,
 )
 
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
@@ -27,7 +27,6 @@ from cactus_client.sep2 import hex_binary_equal
 
 @dataclass(frozen=True)
 class MirrorUsagePointMrids:
-
     mup_mrid: str
     mmr_mrids: dict[CSIPAusReadingType, str]
 
@@ -56,13 +55,13 @@ def generate_mmr_mrids(
     """Generates mrids for all MirrorMeterReadings that lives under a MirrorUsagePoint with mup_mrid"""
     if mmr_mrids:
         if len(mmr_mrids) != len(reading_types):
-            raise CactusClientException(
+            raise CactusClientError(
                 "Test definition error. Parameter mmr_mrids has a different length to reading_types"
             )
-        return dict(((rt, raw_mrid[:32]) for rt, raw_mrid in zip(reading_types, mmr_mrids)))
+        return dict(((rt, raw_mrid[:32]) for rt, raw_mrid in zip(reading_types, mmr_mrids, strict=True)))
 
     # Otherwise continue to derive more hashed mrids
-    return dict(((rt, generate_hashed_mrid(mup_mrid + str(rt), pen)) for rt in reading_types))
+    return dict((rt, generate_hashed_mrid(mup_mrid + str(rt), pen)) for rt in reading_types)
 
 
 def generate_mup_mrids(
@@ -85,7 +84,9 @@ def generate_mup_mrids(
     return MirrorUsagePointMrids(mup_mrid=mup_mrid, mmr_mrids=mmr_mrids_by_rt)
 
 
-def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindType, DataQualifierType]:
+def generate_reading_type_values(  # noqa: C901
+    rt: CSIPAusReadingType,
+) -> tuple[UomType, KindType, DataQualifierType]:
     """Generates a CSIP-Aus compliant set of reading type values based on the associated test definition enum"""
     match rt:
         case CSIPAusReadingType.ActivePowerAverage:
@@ -98,13 +99,29 @@ def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindT
             return (UomType.REAL_POWER_WATT, KindType.POWER, DataQualifierType.MINIMUM)
 
         case CSIPAusReadingType.ReactivePowerAverage:
-            return (UomType.REACTIVE_POWER_VAR, KindType.POWER, DataQualifierType.AVERAGE)
+            return (
+                UomType.REACTIVE_POWER_VAR,
+                KindType.POWER,
+                DataQualifierType.AVERAGE,
+            )
         case CSIPAusReadingType.ReactivePowerInstantaneous:
-            return (UomType.REACTIVE_POWER_VAR, KindType.POWER, DataQualifierType.STANDARD)
+            return (
+                UomType.REACTIVE_POWER_VAR,
+                KindType.POWER,
+                DataQualifierType.STANDARD,
+            )
         case CSIPAusReadingType.ReactivePowerMaximum:
-            return (UomType.REACTIVE_POWER_VAR, KindType.POWER, DataQualifierType.MAXIMUM)
+            return (
+                UomType.REACTIVE_POWER_VAR,
+                KindType.POWER,
+                DataQualifierType.MAXIMUM,
+            )
         case CSIPAusReadingType.ReactivePowerMinimum:
-            return (UomType.REACTIVE_POWER_VAR, KindType.POWER, DataQualifierType.MINIMUM)
+            return (
+                UomType.REACTIVE_POWER_VAR,
+                KindType.POWER,
+                DataQualifierType.MINIMUM,
+            )
 
         case CSIPAusReadingType.FrequencyAverage:
             return (UomType.FREQUENCY_HZ, KindType.POWER, DataQualifierType.AVERAGE)
@@ -125,7 +142,7 @@ def generate_reading_type_values(rt: CSIPAusReadingType) -> tuple[UomType, KindT
             return (UomType.VOLTAGE, KindType.POWER, DataQualifierType.MINIMUM)
 
         case _:
-            raise CactusClientException(f"No ReadingType mapping configured for {rt}. This is a test definition error.")
+            raise CactusClientError(f"No ReadingType mapping configured for {rt}. This is a test definition error.")
 
 
 def generate_role_flags(location: CSIPAusReadingLocation) -> RoleFlagsType:
@@ -136,7 +153,7 @@ def generate_role_flags(location: CSIPAusReadingLocation) -> RoleFlagsType:
             return RoleFlagsType.IS_MIRROR | RoleFlagsType.IS_PREMISES_AGGREGATION_POINT
 
         case _:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"No CSIPAusReadingLocation mapping configured for {location}. This is a test definition error."
             )
 
@@ -185,7 +202,7 @@ def find_mrids_matching(
             comparison_reading_type_value: list[tuple[UomType, KindType, DataQualifierType]] = []
             for mmr in resource.mirrorMeterReadings or []:
                 if mmr.readingType is None:
-                    raise CactusClientException(f"MirrorMeterReading {mmr.href} {mmr.mRID} has no readingType")
+                    raise CactusClientError(f"MirrorMeterReading {mmr.href} {mmr.mRID} has no readingType")
                 comparison_reading_type_value.append(
                     (
                         mmr.readingType.uom or UomType.NOT_APPLICABLE,
@@ -241,7 +258,11 @@ def check_mirror_usage_point(
 
     # Do the matching - check it meets our expectations
     result = find_mrids_matching(
-        resource_store, target_role_flags, target_mrids, target_reading_type_values, post_rate_seconds
+        resource_store,
+        target_role_flags,
+        target_mrids,
+        target_reading_type_values,
+        post_rate_seconds,
     )
     total_matches = len(result.matches)
     metadata = f"Found {result.total_examined} MirrorUsagePoints, {total_matches} matched criteria"
@@ -261,7 +282,10 @@ def check_mirror_usage_point(
 
     if matches and total_matches == 0:
         rejection_info = ". Rejections: " + "; ".join(result.rejection_details) if result.rejection_details else ""
-        return CheckResult(False, f"{metadata}. Criteria: {', '.join(criteria_descriptions)}{rejection_info}")
+        return CheckResult(
+            False,
+            f"{metadata}. Criteria: {', '.join(criteria_descriptions)}{rejection_info}",
+        )
     elif not matches and total_matches > 0:
         return CheckResult(
             False,

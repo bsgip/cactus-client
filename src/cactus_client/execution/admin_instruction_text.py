@@ -1,10 +1,8 @@
-from typing import Any
-
 from cactus_test_definitions.server.admin_instructions import AdminInstruction
 from cactus_test_definitions.variable_expressions import BaseExpression
 
 
-def _fmt(v: Any) -> str:
+def _fmt(v: object) -> str:
     """Format a parameter value, using expression_representation() for variable expressions."""
     if isinstance(v, BaseExpression):
         return v.expression_representation()

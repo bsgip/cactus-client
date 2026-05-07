@@ -1,15 +1,16 @@
 import os
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 if os.name == "nt":
     import msvcrt
 
     def key_pressed() -> str | None:
         """Return key if pressed (non-blocking), else None. Windows implementation."""
-        if msvcrt.kbhit():  # type: ignore # This definitely exists under windows
-            return msvcrt.getwch()  # type: ignore # This definitely exists under windows
+        if msvcrt.kbhit():
+            return msvcrt.getwch()
         return None
 
     def setup() -> None:

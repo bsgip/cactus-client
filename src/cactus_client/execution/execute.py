@@ -1,8 +1,8 @@
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
-from typing import AsyncIterator
 
 from cactus_client.action import execute_action
 from cactus_client.admin import get_plugin_manager
@@ -75,7 +75,11 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
 
     logger.info("[admin-instruction] test=%s started", context.test_procedure_id)
     result = await _execute_steps(context)
-    logger.info("[admin-instruction] test=%s finished completed=%s", context.test_procedure_id, result.completed)
+    logger.info(
+        "[admin-instruction] test=%s finished completed=%s",
+        context.test_procedure_id,
+        result.completed,
+    )
     return result
 
 
@@ -105,7 +109,6 @@ async def _fire_admin_instructions(context: ExecutionContext, current_step: Step
 async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
     """Inner execution loop extracted from execute_for_context to allow CancelledError handling at the top level."""
     while (upcoming_step := context.steps.peek_next_no_wait(now := utc_now())) is not None:
-
         # Sometimes the next step will have a "not before" time - in which case we delay until that time has passed
         # We do this via peeking so we can log the delay against that upcoming step without popping it off the queue
         delay_required = upcoming_step.executable_delay_required(now)

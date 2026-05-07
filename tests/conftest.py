@@ -1,7 +1,7 @@
 import warnings
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -76,7 +76,9 @@ def dummy_test_procedure(dummy_client_alias_1, assertical_extensions) -> TestPro
 
 
 @pytest.fixture
-def testing_contexts_factory(dummy_test_procedure) -> Callable[[ClientSession], tuple[ExecutionContext, StepExecution]]:
+def testing_contexts_factory(
+    dummy_test_procedure,
+) -> Callable[[ClientSession], tuple[ExecutionContext, StepExecution]]:
     """Returns a callable(session: ClientSession, notifications_session: ClientSession = None) that when executed
     will yield a tuple containing a fully populated ExecutionContext and StepExecution"""
 

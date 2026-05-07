@@ -1,5 +1,6 @@
 import unittest.mock as mock
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from aiohttp import ClientSession
@@ -24,7 +25,11 @@ from cactus_client.model.execution import CheckResult, StepExecution
         ({}, [], True),  # Nothing to check - always a pass
         ({"resources": ["EndDevice"]}, [], False),  # Empty store
         ({"links": ["EndDevice"]}, [], False),  # Empty store
-        ({"resources": ["EndDevice"]}, [(CSIPAusResource.EndDevice, generate_class_instance(EndDeviceResponse))], True),
+        (
+            {"resources": ["EndDevice"]},
+            [(CSIPAusResource.EndDevice, generate_class_instance(EndDeviceResponse))],
+            True,
+        ),
         (
             {"links": ["EndDevice"]},
             [(CSIPAusResource.EndDevice, generate_class_instance(EndDeviceResponse))],
@@ -32,12 +37,22 @@ from cactus_client.model.execution import CheckResult, StepExecution
         ),  # This has the resource - but there is no "link" to it (no parent list)
         (
             {"links": ["EndDevice"]},
-            [(CSIPAusResource.EndDeviceList, generate_class_instance(EndDeviceListResponse))],
+            [
+                (
+                    CSIPAusResource.EndDeviceList,
+                    generate_class_instance(EndDeviceListResponse),
+                )
+            ],
             True,
         ),
         (
             {"links": ["EndDeviceList"]},
-            [(CSIPAusResource.DeviceCapability, generate_class_instance(DeviceCapabilityResponse))],
+            [
+                (
+                    CSIPAusResource.DeviceCapability,
+                    generate_class_instance(DeviceCapabilityResponse),
+                )
+            ],
             False,
         ),  # This has the parent resource - but it won't have the href set
         (
@@ -119,8 +134,8 @@ def test_check_discovered(
 ):
 
     # In case we typo the test parameters - we don't want to let something slip
-    assert all((r in CSIPAusResource for r in resolved_params.get("links", []))), "Checking inputs to ensure validity"
-    assert all((r in CSIPAusResource for r in resolved_params.get("resources", []))), "Checking to ensure validity"
+    assert all(r in CSIPAusResource for r in resolved_params.get("links", [])), "Checking inputs to ensure validity"
+    assert all(r in CSIPAusResource for r in resolved_params.get("resources", [])), "Checking to ensure validity"
 
     context, step = testing_contexts_factory(mock.Mock())
 

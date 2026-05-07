@@ -12,7 +12,7 @@ from cactus_client.cli.common import (
     parse_bool,
     rich_cert_file_value,
 )
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     CONFIG_CWD,
     CONFIG_HOME,
@@ -38,7 +38,8 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     """Adds the sub command options for the server module"""
 
     server_parser = subparsers.add_parser(
-        COMMAND_NAME, help="For listing/editing configuration of the server that will be tested"
+        COMMAND_NAME,
+        help="For listing/editing configuration of the server that will be tested",
     )
     server_parser.add_argument(
         "-c",
@@ -46,7 +47,12 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         required=False,
         help=f"Override the config location. Defaults to {CONFIG_CWD} and then {CONFIG_HOME}",
     )
-    server_parser.add_argument("config_key", help="The server setting to manage", nargs="?", choices=ServerConfigKey)
+    server_parser.add_argument(
+        "config_key",
+        help="The server setting to manage",
+        nargs="?",
+        choices=ServerConfigKey,
+    )
     server_parser.add_argument("new_value", help="The new value for config_key", nargs="?")
 
 
@@ -156,8 +162,11 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         config, config_path = load_config(config_file_override)
-    except ConfigException:
-        console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
+    except ConfigError:
+        console.print(
+            "Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]",
+            style="red",
+        )
         sys.exit(1)
 
     if not config_key:
