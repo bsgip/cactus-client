@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: ${{ matrix.pyver }}
       - name: Install linters
-        run: pip install .[dev]
+        run: pip install .[dev,test]
 
       - name: Lint (ruff)
         run: ruff check .
