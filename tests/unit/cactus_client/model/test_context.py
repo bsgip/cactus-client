@@ -1,5 +1,5 @@
 import unittest.mock as mock
-from typing import Callable
+from collections.abc import Callable
 
 from aiohttp import ClientSession
 from assertical.fake.generator import generate_class_instance
@@ -29,16 +29,28 @@ def test_NotificationsContext():
     assert ctx.get_resource_notification_endpoint("abc", id1) is None
 
     def_endpoint_1 = ctx.add_resource_notification_endpoint(
-        "def", generate_class_instance(CreateEndpointResponse, seed=1), CSIPAusResource.DER, id1
+        "def",
+        generate_class_instance(CreateEndpointResponse, seed=1),
+        CSIPAusResource.DER,
+        id1,
     )
     efg_endpoint_1 = ctx.add_resource_notification_endpoint(
-        "efg", generate_class_instance(CreateEndpointResponse, seed=2), CSIPAusResource.DERCapability, id1
+        "efg",
+        generate_class_instance(CreateEndpointResponse, seed=2),
+        CSIPAusResource.DERCapability,
+        id1,
     )
     efg_endpoint_2 = ctx.add_resource_notification_endpoint(
-        "efg", generate_class_instance(CreateEndpointResponse, seed=3), CSIPAusResource.DERControl, id2
+        "efg",
+        generate_class_instance(CreateEndpointResponse, seed=3),
+        CSIPAusResource.DERControl,
+        id2,
     )
     efg_endpoint_3 = ctx.add_resource_notification_endpoint(
-        "efg", generate_class_instance(CreateEndpointResponse, seed=4), CSIPAusResource.EndDevice, id3
+        "efg",
+        generate_class_instance(CreateEndpointResponse, seed=4),
+        CSIPAusResource.EndDevice,
+        id3,
     )
 
     assert isinstance(def_endpoint_1, NotificationEndpoint)

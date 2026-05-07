@@ -1,6 +1,6 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from http import HTTPMethod
-from typing import Callable
 
 import pytest
 from aiohttp import ClientSession
@@ -190,7 +190,8 @@ async def test_action_upsert_der_status(
         value=to_hex_binary(expected_gen_connect_val), dateTime=expected_timestamp
     )
     expected_operational_mode_status = OperationalModeStatusTypeValue(
-        value=OperationalModeStatusType(expected_op_mode_val), dateTime=expected_timestamp
+        value=OperationalModeStatusType(expected_op_mode_val),
+        dateTime=expected_timestamp,
     )
     expected_alarm_status = to_hex_binary(expected_alarm_val)
 

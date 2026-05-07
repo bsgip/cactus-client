@@ -1,14 +1,15 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource
 
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestException
+from cactus_client.error import RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
@@ -49,7 +50,7 @@ async def _single_request(
         except Exception as exc:
             logger.error(f"Caught exception attempting to {method} {path}", exc_info=exc)
             await context.responses.clear_active_request()
-            raise RequestException(f"Caught exception attempting to {method} {path}: {exc}")
+            raise RequestError(f"Caught exception attempting to {method} {path}: {exc}") from exc
 
         await context.responses.log_response_body(response, step.client_alias)
         await context.responses.clear_active_request()
@@ -57,7 +58,11 @@ async def _single_request(
 
 
 async def request_for_step(
-    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
+    step: StepExecution,
+    context: ExecutionContext,
+    path: str,
+    method: HTTPMethod,
+    sep2_xml_body: str | None = None,
 ) -> ServerResponse:
     """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
     logs the actions in the various context trackers. Raises a RequestException on connection failure.
@@ -90,9 +95,12 @@ def parse_type_response(t: type[AnyResourceType], response: ServerResponse) -> A
     try:
         return t.from_xml(response.body)
     except Exception as exc:
-        logger.error(f"Caught exception attempting to parse {len(response.body)} chars from {href}", exc_info=exc)
+        logger.error(
+            f"Caught exception attempting to parse {len(response.body)} chars from {href}",
+            exc_info=exc,
+        )
         logger.error(response.body)
-        raise RequestException(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}")
+        raise RequestError(f"Caught exception parsing {len(response.body)} chars from {href}: {exc}") from exc
 
 
 def parse_error_response(
@@ -112,7 +120,11 @@ def parse_error_response(
 
 
 async def client_error_request_for_step(
-    step: StepExecution, context: ExecutionContext, path: str, method: HTTPMethod, sep2_xml_body: str | None = None
+    step: StepExecution,
+    context: ExecutionContext,
+    path: str,
+    method: HTTPMethod,
+    sep2_xml_body: str | None = None,
 ) -> ErrorResponse | None:
     """Similar to request_for_step but is only successful if the resulting response is a 4xx.
 
@@ -120,9 +132,7 @@ async def client_error_request_for_step(
     response = await request_for_step(step, context, path, method, sep2_xml_body)
 
     if not response.is_client_error():
-        raise RequestException(
-            f"Received status {response.status} but expected 4XX requesting {response.method} {path}."
-        )
+        raise RequestError(f"Received status {response.status} but expected 4XX requesting {response.method} {path}.")
 
     return parse_error_response(step, context, response)
 
@@ -146,16 +156,17 @@ async def client_error_or_empty_list_request_for_step(
         return parse_error_response(step, context, response)
 
     if not response.is_success():
-        raise RequestException(f"Received status {response.status} (expected 4XX) requesting {response.method} {path}.")
+        raise RequestError(f"Received status {response.status} (expected 4XX) requesting {response.method} {path}.")
 
     # At this point - we're assuming we've got a List response
     list_data = parse_type_response(t, response)
     if list_data.all_ is None or list_data.results is None:
         context.warnings.log_step_warning(
-            step, f"{method} {path} yielded a List that's missing either the 'all' or 'results' attribute."
+            step,
+            f"{method} {path} yielded a List that's missing either the 'all' or 'results' attribute.",
         )
     elif list_data.all_ != 0 or list_data.results != 0:
-        raise RequestException(
+        raise RequestError(
             f"{method} {path} should've returned an error or empty List but instead got a List with "
             f"'all'={list_data.all_} 'results'={list_data.results}"
         )
@@ -171,7 +182,7 @@ async def get_resource_for_step(
     response = await request_for_step(step, context, href, HTTPMethod.GET)
 
     if not response.is_success():
-        raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
+        raise RequestError(f"Received status {response.status} requesting {response.method} {href}.")
 
     return parse_type_response(t, response)
 
@@ -183,18 +194,25 @@ async def delete_and_check_resource_for_step(step: StepExecution, context: Execu
     # Make the delete request
     delete_response = await request_for_step(step, context, href, HTTPMethod.DELETE)
     if not delete_response.is_success():
-        raise RequestException(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
+        raise RequestError(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
 
     # There might be a refetch delay
     if context.server_config.refetch_delay_ms:
         delay_seconds = context.server_config.refetch_delay_ms / 1000
-        await context.progress.add_log(step, f"Delaying re-fetch for {delay_seconds}s (as per server configuration).")
+        await context.progress.add_log(
+            step,
+            f"Delaying re-fetch for {delay_seconds}s (as per server configuration).",
+        )
         await asyncio.sleep(delay_seconds)
 
     # Try and refetch it - it should now be "deleted" so we'll accept a few different error statuses as a pass
     refetch_response = await request_for_step(step, context, href, HTTPMethod.GET)
-    if refetch_response.status not in {HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}:
-        raise RequestException(f"Refetching {href} yielded {delete_response.status}. Expected it to be deleted.")
+    if refetch_response.status not in {
+        HTTPStatus.NOT_FOUND,
+        HTTPStatus.UNAUTHORIZED,
+        HTTPStatus.FORBIDDEN,
+    }:
+        raise RequestError(f"Refetching {href} yielded {delete_response.status}. Expected it to be deleted.")
 
 
 async def submit_and_refetch_resource_for_step(
@@ -214,16 +232,20 @@ async def submit_and_refetch_resource_for_step(
 
     # Make the submit request
     response = await request_for_step(
-        step, context, href, method, sep2_xml_body=resource_to_sep2_xml(submitted_resource)
+        step,
+        context,
+        href,
+        method,
+        sep2_xml_body=resource_to_sep2_xml(submitted_resource),
     )
     if not response.is_success():
-        raise RequestException(f"Received status {response.status} requesting {response.method} {href}.")
+        raise RequestError(f"Received status {response.status} requesting {response.method} {href}.")
 
     if no_location_header:
         refetch_href = href
     else:
         if not response.location:
-            raise RequestException(
+            raise RequestError(
                 f"{response.status} response from {response.method} {href} did not return an expected 'Location' header"
             )
         refetch_href = response.location
@@ -231,7 +253,10 @@ async def submit_and_refetch_resource_for_step(
     # There might be a refetch delay
     if context.server_config.refetch_delay_ms:
         delay_seconds = context.server_config.refetch_delay_ms / 1000
-        await context.progress.add_log(step, f"Delaying re-fetch for {delay_seconds}s (as per server configuration).")
+        await context.progress.add_log(
+            step,
+            f"Delaying re-fetch for {delay_seconds}s (as per server configuration).",
+        )
         await asyncio.sleep(delay_seconds)
 
     # Check the returned resource matches the submitted resource
@@ -239,14 +264,17 @@ async def submit_and_refetch_resource_for_step(
     changes = get_property_changes(submitted_resource, returned_resource)
     if changes:
         context.warnings.log_step_warning(
-            step, f"GET {refetch_href} didn't match the values submitted to {method} {href}: {changes}"
+            step,
+            f"GET {refetch_href} didn't match the values submitted to {method} {href}: {changes}",
         )
 
     return returned_resource
 
 
 def build_paging_params(
-    start: int | None = None, limit: int | None = None, changed_after: datetime | None = None
+    start: int | None = None,
+    limit: int | None = None,
+    changed_after: datetime | None = None,
 ) -> str:
     """Builds up a sep2 paging query string in the form of ?s={start}&l={limit}&a={changed_after}.
     None params will not be included in the query string"""
@@ -305,7 +333,7 @@ async def paginate_list_resource_items(
         # Safety valve in case a server misbehaves and keeps sending us more data
         pages_requested += 1
         if pages_requested >= max_pages_requested:
-            raise RequestException(
+            raise RequestError(
                 f"Paginating {list_href} exceeded max pages {max_pages_requested} at page size {page_size}."
             )
 
@@ -313,7 +341,8 @@ async def paginate_list_resource_items(
     expected_count = 0 if len(every_all_value) == 0 else every_all_value[0]
     if len(set(every_all_value)) > 1:
         context.warnings.log_step_warning(
-            step, f"The 'all' attribute at {list_href} has varied while paginating through. This is likely an error."
+            step,
+            f"The 'all' attribute at {list_href} has varied while paginating through. This is likely an error.",
         )
     elif expected_count != len(all_items):
         context.warnings.log_step_warning(
@@ -353,7 +382,8 @@ async def fetch_list_page(
         context.warnings.log_step_warning(step, f"Missing 'results' attribute at {page_href}")
     elif received_results != len(latest_items):
         context.warnings.log_step_warning(
-            step, f"'results' attribute shows {received_results} but got {len(latest_items)} items"
+            step,
+            f"'results' attribute shows {received_results} but got {len(latest_items)} items",
         )
 
     if received_all is None:

@@ -63,17 +63,25 @@ def check_end_device(
 
     # Start by finding a loose candidate match - then we can drill into the specifics
     matched_edev = match_end_device_on_lfdi_caseless(
-        resource_store, client_config.lfdi, is_aggregator=client_config.type == ClientType.AGGREGATOR
+        resource_store,
+        client_config.lfdi,
+        is_aggregator=client_config.type == ClientType.AGGREGATOR,
     )
     if matched_edev is None:
         if matches is True:
-            return CheckResult(False, f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.")
+            return CheckResult(
+                False,
+                f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.",
+            )
         else:
             return CheckResult(True, None)  # We wanted none - we found none
 
     edev = cast(EndDeviceResponse, matched_edev.resource)
     if matches is False:
-        return CheckResult(False, f"Expected to find NO EndDevice with lfdi {client_config.lfdi} but found {edev.href}")
+        return CheckResult(
+            False,
+            f"Expected to find NO EndDevice with lfdi {client_config.lfdi} but found {edev.href}",
+        )
 
     # At this point - we are just asserting that the matched_edev is ACTUALLY a proper match
 
@@ -86,7 +94,8 @@ def check_end_device(
             actual_pin = cast(RegistrationResponse, registration.resource).pIN
             if actual_pin != client_config.pin:
                 return CheckResult(
-                    False, f"{edev.href} has a Registration with with PIN {actual_pin} but expected {client_config.pin}"
+                    False,
+                    f"{edev.href} has a Registration with with PIN {actual_pin} but expected {client_config.pin}",
                 )
             if not is_checksum_valid(actual_pin):
                 return CheckResult(False, f"{actual_pin} does not have a valid checksum")
@@ -117,7 +126,6 @@ def check_end_device_list(
     matches_found = 0
     edev_lists = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
     for edev_list_sr in edev_lists:
-
         if matches_poll_rate is not None:
             if cast(EndDeviceListResponse, edev_list_sr.resource).pollRate != matches_poll_rate:
                 continue
@@ -131,12 +139,14 @@ def check_end_device_list(
 
     if minimum_count is not None and matches_found < minimum_count:
         return CheckResult(
-            False, f"EndDeviceList minimum_count is {minimum_count} but only found {matches_found} matches."
+            False,
+            f"EndDeviceList minimum_count is {minimum_count} but only found {matches_found} matches.",
         )
 
     if maximum_count is not None and matches_found > maximum_count:
         return CheckResult(
-            False, f"EndDeviceList maximum_count is {maximum_count} but only found {matches_found} matches."
+            False,
+            f"EndDeviceList maximum_count is {maximum_count} but only found {matches_found} matches.",
         )
 
     return CheckResult(True, None)

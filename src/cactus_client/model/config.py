@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import yaml
 from cactus_test_definitions.server.test_procedures import ClientType, TestProcedureId
 from dataclass_wizard import YAMLWizard
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 
 CONFIG_FILE_NAME = Path(".cactus.yaml")  # Name of the config
 
@@ -14,7 +13,7 @@ CONFIG_CWD = Path(".") / CONFIG_FILE_NAME
 CONFIG_HOME = Path.home() / CONFIG_FILE_NAME
 
 
-def strenum_representer(dumper: yaml.Dumper, data: Any) -> yaml.ScalarNode:
+def strenum_representer(dumper: yaml.Dumper, data: object) -> yaml.ScalarNode:
     return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
 
 
@@ -39,19 +38,13 @@ class ServerConfig:
 
     device_capability_uri: str
     verify_ssl: bool  # All connections will use the system default SSL validation for the server cert.
-    verify_host_name: bool = (
-        True  # All connections will validate the host name on the server's cert
+    verify_host_name: bool = True  # All connections will validate the host name on the server's cert
+    serca_pem_file: str | None = None  # The file path to the SERCA PEM that the server will be using as a trust anchor
+    notification_uri: str | None = None  # The base URI of the cactus-client-notifications that will be used for pub/sub
+    pen: int = 0  # The Private Enterprise Number that server will be expected to utilise
+    refetch_delay_ms: int = (
+        0  # When the client pushes a write request, wait this long (milliseconds) before fetching it to compare
     )
-    serca_pem_file: str | None = (
-        None  # The file path to the SERCA PEM that the server will be using as a trust anchor
-    )
-    notification_uri: str | None = (
-        None  # The base URI of the cactus-client-notifications that will be used for pub/sub
-    )
-    pen: int = (
-        0  # The Private Enterprise Number that server will be expected to utilise
-    )
-    refetch_delay_ms: int = 0  # When the client pushes a write request, wait this long (milliseconds) before fetching it to compare
 
 
 @dataclass(frozen=True)
@@ -62,21 +55,15 @@ class ClientConfig:
     id: str  # Unique identifier for this client (used for referencing in tests - eg "myclient1")
     type: ClientType  # The type of client that this config is representing
     certificate_file: str  # File path to a PEM encoded certificate
-    key_file: (
-        str | None
-    )  # File path to a PEM encoded key file (If None - key must be included in certificate_file)
+    key_file: str | None  # File path to a PEM encoded key file (If None - key must be included in certificate_file)
     lfdi: str  # Current 2030.5 LFDI that will be used for registering an EndDevice for this client
     sfdi: int  # Current 2030.5 SFDI that will be used for registering an EndDevice for this client
     pen: int  # Private Enterprise Number that this client will utilise
     pin: int  # Registration PIN that this client will treat as "valid" (6-digit SEP2 form, includes checksum)
     max_watts: int  # How many watts will be registered by this client (eg setMaxW rtgMaxW) with the utility server
     nmi: str = "41020000002"  # Any valid NMI for ConnectionPoint registration
-    nmi_2: str = (
-        "41020000026"  # Any other valid nmi for tests that update a ConnectionPoint
-    )
-    user_agent: str | None = (
-        None  # What User-Agent header should be sent by this client (if any)
-    )
+    nmi_2: str = "41020000026"  # Any other valid nmi for tests that update a ConnectionPoint
+    user_agent: str | None = None  # What User-Agent header should be sent by this client (if any)
 
 
 @dataclass(frozen=True)
@@ -95,9 +82,7 @@ class RunConfig:
 class GlobalConfig(YAMLWizard):
     output_dir: str | None = None  # Directory where all outputs will be dumped
     server: ServerConfig | None = None  # The current server configuration
-    clients: list[ClientConfig] | None = (
-        None  # All possible clients that have been previously configured
-    )
+    clients: list[ClientConfig] | None = None  # All possible clients that have been previously configured
     runner: AutoRunConfig | None = None  # Optional config for the autorun cli
 
     def get_validation_error(self) -> str | None:
@@ -105,9 +90,7 @@ class GlobalConfig(YAMLWizard):
 
         Returns a human readable error on failure or None if the file is valid."""
         if not self.output_dir:
-            return (
-                "output_dir is not defined. It should point to a directory that exists"
-            )
+            return "output_dir is not defined. It should point to a directory that exists"
         output_dir = Path(self.output_dir)
         if not output_dir.is_dir() or not output_dir.exists():
             return f"{output_dir} is either not a directory or doesn't exist"
@@ -137,9 +120,7 @@ def resolve_config_path() -> Path:
     if Path.exists(CONFIG_HOME):
         return CONFIG_HOME
 
-    raise ConfigException(
-        f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir."
-    )
+    raise ConfigError(f"Couldn't find {CONFIG_FILE_NAME} in the current working dir / home dir.")
 
 
 def load_config(config_file_path_override: str | None) -> tuple[GlobalConfig, Path]:
@@ -156,11 +137,9 @@ def load_config(config_file_path_override: str | None) -> tuple[GlobalConfig, Pa
     try:
         config = GlobalConfig.from_yaml_file(cfg_path)
     except Exception as exc:
-        raise ConfigException(f"Error reading config {exc}")
+        raise ConfigError(f"Error reading config {exc}") from exc
 
     if not isinstance(config, GlobalConfig):
-        raise ConfigException(
-            f"Received an invalid type for config: {type(config)}. This is likely a corrupted file."
-        )
+        raise ConfigError(f"Received an invalid type for config: {type(config)}. This is likely a corrupted file.")
 
     return config, cfg_path

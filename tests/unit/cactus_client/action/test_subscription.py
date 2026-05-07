@@ -129,7 +129,17 @@ async def test_action_create_subscription(
     assert new_sub_sr.resource is refetched_subscription
 
     mock_submit_and_refetch_resource_for_step.assert_has_calls(
-        [mock.call(Subscription, step, context, HTTPMethod.POST, sub_list_sr.id.href(), mock.ANY)] * len(targets)
+        [
+            mock.call(
+                Subscription,
+                step,
+                context,
+                HTTPMethod.POST,
+                sub_list_sr.id.href(),
+                mock.ANY,
+            )
+        ]
+        * len(targets)
     )
     for target in targets:
         mock_fetch_notification_webhook_for_subscription.assert_has_calls(
@@ -152,15 +162,21 @@ async def test_action_delete_subscription(
     sub_id = "MY sub id 2"
 
     sub1_sr = store.append_resource(
-        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=101, href="/othersub1")
+        CSIPAusResource.Subscription,
+        None,
+        generate_class_instance(Subscription, seed=101, href="/othersub1"),
     )
     context.resource_annotations(step, sub1_sr.id).alias = sub_id + "mismatch"
     sub2_sr = store.append_resource(
-        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=202, href="/target")
+        CSIPAusResource.Subscription,
+        None,
+        generate_class_instance(Subscription, seed=202, href="/target"),
     )
     context.resource_annotations(step, sub2_sr.id).alias = sub_id
     sub3_sr = store.append_resource(
-        CSIPAusResource.Subscription, None, generate_class_instance(Subscription, seed=303, href="/othersub2")
+        CSIPAusResource.Subscription,
+        None,
+        generate_class_instance(Subscription, seed=303, href="/othersub2"),
     )
 
     # Act
@@ -206,10 +222,16 @@ def test_parse_combined_resource(xsi_type: str, optional_is_none: bool, assertic
         (
             XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
             NotificationResourceCombined(
-                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST, pollRate=1234, all_=456, results=789
+                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+                pollRate=1234,
+                all_=456,
+                results=789,
             ),
             FunctionSetAssignmentsListResponse(
-                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST, pollRate=1234, all_=456, results=789
+                type=XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+                pollRate=1234,
+                all_=456,
+                results=789,
             ),
         ),
         (
@@ -441,8 +463,20 @@ async def test_action_notification(
         mock_collect_notifications_for_subscription.assert_called_once_with(step, context, sub_id)
         mock_collect_and_validate_notification.assert_has_calls(
             [
-                mock.call(step, context, notification_endpoint1, collected_notification1, sub_id),
-                mock.call(step, context, notification_endpoint2, collected_notification2, sub_id),
+                mock.call(
+                    step,
+                    context,
+                    notification_endpoint1,
+                    collected_notification1,
+                    sub_id,
+                ),
+                mock.call(
+                    step,
+                    context,
+                    notification_endpoint2,
+                    collected_notification2,
+                    sub_id,
+                ),
             ]
         )
     else:

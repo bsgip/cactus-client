@@ -6,7 +6,12 @@ from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.server.test_procedures import ClientType
 
 from cactus_client.error import ConfigException
-from cactus_client.model.config import ClientConfig, GlobalConfig, ServerConfig, load_config
+from cactus_client.model.config import (
+    ClientConfig,
+    GlobalConfig,
+    ServerConfig,
+    load_config,
+)
 
 
 def test_load_config_errors():
@@ -69,7 +74,17 @@ clients:
                 "/foo/bar",
                 ServerConfig("http://example.com", True),
                 [
-                    ClientConfig("client1", ClientType.DEVICE, "/certs/cert.1", None, "ABC123", 456, 789, 43210, 23000),
+                    ClientConfig(
+                        "client1",
+                        ClientType.DEVICE,
+                        "/certs/cert.1",
+                        None,
+                        "ABC123",
+                        456,
+                        789,
+                        43210,
+                        23000,
+                    ),
                     ClientConfig(
                         "client2",
                         ClientType.AGGREGATOR,
@@ -124,9 +139,17 @@ def test_GlobalConfig_is_valid():
         cert2_file.write_text("dummy content")
 
         c1_cfg = generate_class_instance(
-            ClientConfig, seed=101, certificate_file=cert1_file.absolute(), key_file=cert1_key.absolute()
+            ClientConfig,
+            seed=101,
+            certificate_file=cert1_file.absolute(),
+            key_file=cert1_key.absolute(),
         )
-        c2_cfg = generate_class_instance(ClientConfig, seed=202, certificate_file=cert2_file.absolute(), key_file=None)
+        c2_cfg = generate_class_instance(
+            ClientConfig,
+            seed=202,
+            certificate_file=cert2_file.absolute(),
+            key_file=None,
+        )
         s_cfg = generate_class_instance(ServerConfig)
 
         assert_validation_error(GlobalConfig(working_dir.absolute(), None, None), False)
@@ -159,7 +182,10 @@ def test_GlobalConfig_is_valid():
 def test_GlobalConfig_yaml_roundtrip(seed: int, optional_is_none: bool):
     """Does the yaml encode/decode generate identical config objects?"""
     original = generate_class_instance(
-        GlobalConfig, seed=seed, optional_is_none=optional_is_none, generate_relationships=True
+        GlobalConfig,
+        seed=seed,
+        optional_is_none=optional_is_none,
+        generate_relationships=True,
     )
 
     with tempfile.TemporaryDirectory() as tempdirname:

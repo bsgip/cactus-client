@@ -44,7 +44,10 @@ class MyTestingClass:
         (NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W), True),
         (Constant(1.23), True),
         (Constant(timedelta(5)), True),
-        (Expression(OperationType.ADD, Constant(1.23), NamedVariable(NamedVariableType.NOW)), True),
+        (
+            Expression(OperationType.ADD, Constant(1.23), NamedVariable(NamedVariableType.NOW)),
+            True,
+        ),
     ],
 )
 def test_is_resolvable_variable(input: Any, expected: bool):
@@ -78,19 +81,35 @@ CONFIG_SET_MAX_W = 22020.0
         ),  # Time frozen to this
         (NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W), CONFIG_SET_MAX_W),
         (
-            Expression(OperationType.ADD, NamedVariable(NamedVariableType.NOW), Constant(timedelta(hours=1))),
+            Expression(
+                OperationType.ADD,
+                NamedVariable(NamedVariableType.NOW),
+                Constant(timedelta(hours=1)),
+            ),
             datetime(2024, 9, 10, 2, 2, 3, tzinfo=timezone.utc),
         ),
         (
-            Expression(OperationType.SUBTRACT, NamedVariable(NamedVariableType.NOW), Constant(timedelta(hours=1))),
+            Expression(
+                OperationType.SUBTRACT,
+                NamedVariable(NamedVariableType.NOW),
+                Constant(timedelta(hours=1)),
+            ),
             datetime(2024, 9, 10, 0, 2, 3, tzinfo=timezone.utc),
         ),
         (
-            Expression(OperationType.MULTIPLY, NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W), Constant(0.5)),
+            Expression(
+                OperationType.MULTIPLY,
+                NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W),
+                Constant(0.5),
+            ),
             11010.0,
         ),
         (
-            Expression(OperationType.DIVIDE, NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W), Constant(2)),
+            Expression(
+                OperationType.DIVIDE,
+                NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W),
+                Constant(2),
+            ),
             11010.0,
         ),
     ],
@@ -113,17 +132,31 @@ async def test_resolve_variable_expected_use(expression: Constant | NamedVariabl
         ({}, []),
         ({"k1": 123, "k2": datetime(2022, 11, 2)}, []),
         ({"k1": 123, "k2": datetime(2022, 11, 2), "k3": [1, 2]}, []),
-        ({"k1": 123, "k2": datetime(2022, 11, 2), "k3": [1, 2], "k4": NamedVariable(NamedVariableType.NOW)}, ["k4"]),
+        (
+            {
+                "k1": 123,
+                "k2": datetime(2022, 11, 2),
+                "k3": [1, 2],
+                "k4": NamedVariable(NamedVariableType.NOW),
+            },
+            ["k4"],
+        ),
         ({"k1": NamedVariable(NamedVariableType.NOW)}, ["k1"]),
         (
-            {"k1": NamedVariable(NamedVariableType.NOW), "k2": NamedVariable(NamedVariableType.NOW), "k3": 123},
+            {
+                "k1": NamedVariable(NamedVariableType.NOW),
+                "k2": NamedVariable(NamedVariableType.NOW),
+                "k3": 123,
+            },
             ["k1", "k2"],
         ),
     ],
 )
 @pytest.mark.asyncio
 async def test_resolve_variable_expressions_from_parameters(
-    mock_resolve_variable: mock.Mock, input_dict: dict[str, Any], variable_keys: list[str]
+    mock_resolve_variable: mock.Mock,
+    input_dict: dict[str, Any],
+    variable_keys: list[str],
 ):
     """Sanity checks on the logic behind resolve_variable_expressions_from_parameters under various inputs"""
     MOCK_RESOLVED_VALUE = mock.Mock()

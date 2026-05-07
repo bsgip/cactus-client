@@ -44,7 +44,10 @@ def generate_request_file(
 
 
 def generate_response_file(
-    status: int, headers: dict[str, str] | CIMultiDict, body: str | None, timestamp: datetime
+    status: int,
+    headers: dict[str, str] | CIMultiDict,
+    body: str | None,
+    timestamp: datetime,
 ) -> list[str]:
     lines = [
         f"# Epoch: {timestamp.timestamp()}",
@@ -71,18 +74,34 @@ def persist_server_response(base_dir: Path, idx: int, host: str, response: Serve
         fp.write(
             "\n".join(
                 generate_request_file(
-                    request.method, request.url, host, request.headers, request.body, request.created_at
+                    request.method,
+                    request.url,
+                    host,
+                    request.headers,
+                    request.body,
+                    request.created_at,
                 )
             )
         )
     with open(response_file, "w") as fp:
         fp.write(
-            "\n".join(generate_response_file(response.status, response.headers, response.body, response.created_at))
+            "\n".join(
+                generate_response_file(
+                    response.status,
+                    response.headers,
+                    response.body,
+                    response.created_at,
+                )
+            )
         )
 
 
 def persist_notification(
-    base_dir: Path, idx: int, webhook_endpoint: str | None, notification: NotificationRequest, client_alias: str
+    base_dir: Path,
+    idx: int,
+    webhook_endpoint: str | None,
+    notification: NotificationRequest,
+    client_alias: str,
 ) -> None:
 
     if webhook_endpoint:
@@ -96,7 +115,12 @@ def persist_notification(
         fp.write(
             "\n".join(
                 generate_request_file(
-                    notification.method, path, None, notification.headers, notification.body, notification.received_at
+                    notification.method,
+                    path,
+                    None,
+                    notification.headers,
+                    notification.body,
+                    notification.received_at,
                 )
             )
         )
@@ -113,14 +137,16 @@ def persist_all_request_data(context: ExecutionContext, output_manager: RunOutpu
     webhook_by_sub_id: dict[tuple[str, StoredResourceId], str] = {}
     for client in context.clients_by_alias.values():
         if client.notifications:
-            for sub_id, endpoints in client.notifications.endpoints_by_sub_alias.items():
+            for (
+                sub_id,
+                endpoints,
+            ) in client.notifications.endpoints_by_sub_alias.items():
                 for endpoint in endpoints:
                     webhook_by_sub_id[(sub_id, endpoint.subscribed_resource_id)] = (
                         endpoint.created_endpoint.fully_qualified_endpoint
                     )
 
     for idx, comms in enumerate(context.responses.responses):
-
         # We don't have EVERYTHING logged - so we try and reconstitute as much as possible
         client_alias = comms.client_alias
         if isinstance(comms, ServerResponse):

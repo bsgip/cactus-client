@@ -13,12 +13,12 @@ from cactus_client.model.config import ClientConfig
 from cactus_client.time import utc_now
 
 
-def is_resolvable_variable(v: Any) -> bool:
+def is_resolvable_variable(v: Any) -> bool:  # noqa: ANN401
     """Returns True if the supplied value is a variable definition that requires resolving"""
     return isinstance(v, NamedVariable) or isinstance(v, Expression) or isinstance(v, Constant)
 
 
-async def resolve_variable(client_config: ClientConfig, v: NamedVariable | Expression | Constant) -> Any:
+async def resolve_variable(client_config: ClientConfig, v: NamedVariable | Expression | Constant) -> Any:  # noqa: C901,ANN401
     """Attempts to resolve the specified variable
 
     raises UnresolvableVariableError if any errors are encountered
@@ -68,7 +68,7 @@ async def resolve_variable(client_config: ClientConfig, v: NamedVariable | Expre
             raise ValueError(f"Unsupported operation {v.operation} ({int(v.operation)})")
 
         except Exception as exc:
-            raise UnresolvableVariableError(f"Unable to apply {v.operation} to operands: {exc}")
+            raise UnresolvableVariableError(f"Unable to apply {v.operation} to operands: {exc}") from exc
     else:
         raise UnresolvableVariableError(f"Unsupported variable type {type(v)}")
 

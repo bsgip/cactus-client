@@ -84,7 +84,6 @@ def get_property_changes(source: AnyResource, returned: AnyResource) -> str | No
     for key, source_val in source.__dict__.items():
         returned_val = getattr(returned, key, None)
         if source_val is not None and source_val != returned_val:
-
             # We are trying to avoid a series of Resource specific checks - so this is our attempt
             # to stay general
             if isinstance(source_val, list):

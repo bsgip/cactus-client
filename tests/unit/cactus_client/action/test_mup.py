@@ -3,8 +3,6 @@ from datetime import datetime, timedelta, timezone
 from http import HTTPMethod, HTTPStatus
 from unittest import mock
 
-from freezegun import freeze_time
-
 import pytest
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import (
@@ -21,6 +19,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
     ReadingType,
 )
 from envoy_schema.server.schema.sep2.types import FlowDirectionType, ServiceKind
+from freezegun import freeze_time
 
 from cactus_client.action.mup import (
     action_insert_readings,
@@ -35,7 +34,11 @@ from cactus_client.check.mup import (
 )
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
-from tests.unit.cactus_client.action.test_server import RouteBehaviour, TestingAppRoute, create_test_session
+from tests.unit.cactus_client.action.test_server import (
+    RouteBehaviour,
+    TestingAppRoute,
+    create_test_session,
+)
 
 
 def assert_mrid(mrid: str, pen: int):
@@ -120,14 +123,20 @@ async def test_action_upsert_mup(testing_contexts_factory):
         )
 
         inserted_mup = generate_class_instance(
-            MirrorUsagePoint, mRID=mrid, href=f"/mup/{mrid}", mirrorMeterReadings=[mmr1, mmr2]
+            MirrorUsagePoint,
+            mRID=mrid,
+            href=f"/mup/{mrid}",
+            mirrorMeterReadings=[mmr1, mmr2],
         )
         mock_submit.return_value = inserted_mup
 
         resolved_params = {
             "mup_id": "test-mup-1",
             "location": CSIPAusReadingLocation.Device,
-            "reading_types": [CSIPAusReadingType.ActivePowerAverage, CSIPAusReadingType.ReactivePowerInstantaneous],
+            "reading_types": [
+                CSIPAusReadingType.ActivePowerAverage,
+                CSIPAusReadingType.ReactivePowerInstantaneous,
+            ],
             "pow10_multiplier": -2,
         }
 
@@ -240,7 +249,11 @@ async def test_action_insert_readings(
     reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=pow10_multiplier)
     mmr = generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)
     upserted_mup = generate_class_instance(
-        MirrorUsagePoint, mRID=mup_mrid, href=f"/mup/{mup_mrid}", postRate=post_rate, mirrorMeterReadings=[mmr]
+        MirrorUsagePoint,
+        mRID=mup_mrid,
+        href=f"/mup/{mup_mrid}",
+        postRate=post_rate,
+        mirrorMeterReadings=[mmr],
     )
 
     # Store the MUP with alias
@@ -320,7 +333,11 @@ async def test_action_insert_readings_minimum_wait_respects_server_post_rate(
         reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=0)
         mmr = generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)
         mup = generate_class_instance(
-            MirrorUsagePoint, mRID=mup_mrid, href="/mup/test", postRate=post_rate, mirrorMeterReadings=[mmr]
+            MirrorUsagePoint,
+            mRID=mup_mrid,
+            href="/mup/test",
+            postRate=post_rate,
+            mirrorMeterReadings=[mmr],
         )
 
         sr = resource_store.upsert_resource(CSIPAusResource.MirrorUsagePoint, None, mup)

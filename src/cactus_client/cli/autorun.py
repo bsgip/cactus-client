@@ -5,7 +5,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.execution.autorun import AutorunStatus, autorun_entrypoint
 from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, load_config
 from cactus_client.results.compliance import render_compliance_report
@@ -15,7 +15,8 @@ COMMAND_NAME = "autorun"
 
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     autorun_parser = subparsers.add_parser(
-        COMMAND_NAME, help="Run multiple test procedures sequentially with automatic client assignment."
+        COMMAND_NAME,
+        help="Run multiple test procedures sequentially with automatic client assignment.",
     )
     autorun_parser.add_argument(
         "-c",
@@ -72,12 +73,18 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         global_config, _ = load_config(args.config_file)
-    except ConfigException:
-        console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
+    except ConfigError:
+        console.print(
+            "Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]",
+            style="red",
+        )
         sys.exit(1)
 
     if not global_config.output_dir:
-        console.print("output_dir is not configured. Have you run [b]cactus setup[/b]", style="red")
+        console.print(
+            "output_dir is not configured. Have you run [b]cactus setup[/b]",
+            style="red",
+        )
         sys.exit(1)
 
     runner_cfg = global_config.runner
@@ -111,7 +118,7 @@ def run_action(args: argparse.Namespace) -> None:
                 strict=strict,
             )
         )
-    except ConfigException as exc:
+    except ConfigError as exc:
         console.print(f"Configuration error: {exc}", style="red")
         sys.exit(1)
     except Exception:

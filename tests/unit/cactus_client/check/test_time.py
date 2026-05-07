@@ -1,6 +1,6 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Callable
 
 import pytest
 from aiohttp import ClientSession
@@ -24,10 +24,38 @@ NOW = datetime(2001, 4, 6, 1, 2, 3, tzinfo=timezone.utc)
         (NOW, None, None, None, None, False),
         # currentTime only (localTime not provided)
         (NOW, int(NOW.timestamp()), None, 0, 0, True),  # Perfect
-        (NOW, int(NOW.timestamp()) + MAX_TIME_DRIFT_SECONDS, None, 0, 0, True),  # Within drift range
-        (NOW, int(NOW.timestamp()) - MAX_TIME_DRIFT_SECONDS, None, 0, 0, True),  # Within drift range (negative)
-        (NOW, int(NOW.timestamp()) - MAX_TIME_DRIFT_SECONDS - 1, None, 0, 0, False),  # Outside drift range
-        (NOW, int(NOW.timestamp()) + MAX_TIME_DRIFT_SECONDS + 1, None, 0, 0, False),  # Outside drift range
+        (
+            NOW,
+            int(NOW.timestamp()) + MAX_TIME_DRIFT_SECONDS,
+            None,
+            0,
+            0,
+            True,
+        ),  # Within drift range
+        (
+            NOW,
+            int(NOW.timestamp()) - MAX_TIME_DRIFT_SECONDS,
+            None,
+            0,
+            0,
+            True,
+        ),  # Within drift range (negative)
+        (
+            NOW,
+            int(NOW.timestamp()) - MAX_TIME_DRIFT_SECONDS - 1,
+            None,
+            0,
+            0,
+            False,
+        ),  # Outside drift range
+        (
+            NOW,
+            int(NOW.timestamp()) + MAX_TIME_DRIFT_SECONDS + 1,
+            None,
+            0,
+            0,
+            False,
+        ),  # Outside drift range
         # With localTime - both currentTime and localTime must pass
         (
             NOW,
@@ -118,7 +146,12 @@ async def test_check_poll_rate(resource_type, poll_rate, expected_poll_rate, sho
         store.append_resource(resource_type, None, resource)
 
         result = check_poll_rate(
-            resolved_parameters={"resource": resource_type, "poll_rate_seconds": poll_rate}, step=step, context=context
+            resolved_parameters={
+                "resource": resource_type,
+                "poll_rate_seconds": poll_rate,
+            },
+            step=step,
+            context=context,
         )
 
         assert result.passed == should_pass
@@ -130,7 +163,10 @@ async def test_check_poll_rate_no_resources_fails(testing_contexts_factory):
         context, step = testing_contexts_factory(session)
 
         result = check_poll_rate(
-            resolved_parameters={"resource": CSIPAusResource.DERProgramList, "poll_rate_seconds": 60},
+            resolved_parameters={
+                "resource": CSIPAusResource.DERProgramList,
+                "poll_rate_seconds": 60,
+            },
             step=step,
             context=context,
         )

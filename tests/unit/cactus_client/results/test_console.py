@@ -2,21 +2,27 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions.server.actions import Action
+from cactus_test_definitions.server.test_procedures import (
+    Step,
+    TestProcedure,
+    TestProcedureId,
+)
 from multidict import CIMultiDict
 from rich.console import Console
-
-from cactus_test_definitions.server.actions import Action
-from cactus_test_definitions.server.test_procedures import Step, TestProcedure, TestProcedureId
 
 from cactus_client.model.config import ServerConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult, StepExecutionList
 from cactus_client.model.http import ServerRequest, ServerResponse
-from cactus_client.model.progress import ProgressTracker, ResponseTracker, WarningTracker
+from cactus_client.model.progress import (
+    ProgressTracker,
+    ResponseTracker,
+    WarningTracker,
+)
 from cactus_client.model.resource import CSIPAusResourceTree
 from cactus_client.results.common import ResultsEvaluation
 from cactus_client.results.console import render_console
-
 from tests.conftest import make_client_context
 
 
@@ -64,7 +70,12 @@ def _make_output_manager() -> MagicMock:
 
 def _render(context: ExecutionContext) -> str:
     console = Console(record=True, width=120, force_terminal=True)
-    render_console(console, context, ResultsEvaluation(context, ExecutionResult(True)), _make_output_manager())
+    render_console(
+        console,
+        context,
+        ResultsEvaluation(context, ExecutionResult(True)),
+        _make_output_manager(),
+    )
     output = console.export_text()
     print(output)  # visible with pytest -s
     return output

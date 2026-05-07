@@ -2,6 +2,7 @@ import unittest.mock as mock
 from datetime import timedelta
 from pathlib import Path
 
+import apluggy
 import pytest
 from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
@@ -22,10 +23,18 @@ from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
-import apluggy
-from cactus_client.admin.plugins import AdminSpec, DefaultAdminPlugin, hookimpl, project_name
+from cactus_client.admin.plugins import (
+    AdminSpec,
+    DefaultAdminPlugin,
+    hookimpl,
+    project_name,
+)
 from cactus_client.error import CactusClientException
-from cactus_client.execution.execute import execute_for_context, setup_and_teardown, validate_all_resources
+from cactus_client.execution.execute import (
+    execute_for_context,
+    setup_and_teardown,
+    validate_all_resources,
+)
 from cactus_client.model.config import ClientConfig, ServerConfig
 from cactus_client.model.context import AdminContext, ClientContext, ExecutionContext
 from cactus_client.model.execution import (
@@ -135,7 +144,12 @@ async def test_execute_for_context_success_cases_with_repeats(
     step_list = StepExecutionList()
     step_list.add(
         StepExecution(
-            Step(id="1", action=Action(ACTION_DONE), checks=[Check(CHECK_FAIL_ONCE)], repeat_until_pass=True),
+            Step(
+                id="1",
+                action=Action(ACTION_DONE),
+                checks=[Check(CHECK_FAIL_ONCE)],
+                repeat_until_pass=True,
+            ),
             client_alias="client-test",
             client_resources_alias="client-test",
             primacy=0,
@@ -177,7 +191,12 @@ async def test_execute_for_context_success_cases_with_repeats(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -206,8 +225,20 @@ async def test_execute_for_context_success_cases_with_repeats(
 
     assert len(context.warnings.warnings) == 0
 
-    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "1", "2", "2", "3"]
-    assert [p.is_success() for p in context.progress.all_completions] == [False, True, True, True, True]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == [
+        "1",
+        "1",
+        "2",
+        "2",
+        "3",
+    ]
+    assert [p.is_success() for p in context.progress.all_completions] == [
+        False,
+        True,
+        True,
+        True,
+        True,
+    ]
     assert_step_result(context.progress, "1", True)
     assert_step_result(context.progress, "2", True)
     assert_step_result(context.progress, "3", True)
@@ -229,7 +260,12 @@ async def test_execute_for_context_action_failed_with_repeat_until_pass(
     step_list = StepExecutionList()
     step_list.add(
         StepExecution(
-            Step(id="1", action=Action(ACTION_FAIL_ONCE), checks=[Check(CHECK_PASS)], repeat_until_pass=True),
+            Step(
+                id="1",
+                action=Action(ACTION_FAIL_ONCE),
+                checks=[Check(CHECK_PASS)],
+                repeat_until_pass=True,
+            ),
             client_alias="client-test",
             client_resources_alias="client-test",
             primacy=0,
@@ -260,7 +296,12 @@ async def test_execute_for_context_action_failed_with_repeat_until_pass(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -285,9 +326,17 @@ async def test_execute_for_context_action_failed_with_repeat_until_pass(
     assert mock_execute_action.call_count == 3
     assert mock_execute_checks.call_count == 3
 
-    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "1", "2"]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == [
+        "1",
+        "1",
+        "2",
+    ]
     # First attempt of step 1 fails (action returned failed), second passes, step 2 passes
-    assert [p.is_success() for p in context.progress.all_completions] == [False, True, True]
+    assert [p.is_success() for p in context.progress.all_completions] == [
+        False,
+        True,
+        True,
+    ]
     assert_step_result(context.progress, "1", True)
     assert_step_result(context.progress, "2", True)
 
@@ -337,7 +386,12 @@ async def test_execute_for_context_action_failed_without_repeat_stops_early(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -424,7 +478,12 @@ async def test_execute_for_context_failure_stops_early(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -448,7 +507,10 @@ async def test_execute_for_context_failure_stops_early(
     assert mock_execute_checks.call_count == 2, "Only the first two steps should execute due to step 2 failing"
     assert mock_execute_action.call_count == 2, "Only the first two steps should execute due to step 2 failing"
 
-    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == [
+        "1",
+        "2",
+    ]
     assert [p.is_success() for p in context.progress.all_completions] == [True, False]
     assert_step_result(context.progress, "1", True)
     assert_step_result(context.progress, "2", False)
@@ -511,7 +573,12 @@ async def test_execute_for_context_action_exception(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -536,7 +603,10 @@ async def test_execute_for_context_action_exception(
     assert mock_execute_action.call_count == 2, "Test is aborted at step 2"
 
     assert len(context.warnings.warnings) == 0
-    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == [
+        "1",
+        "2",
+    ]
     assert [p.is_success() for p in context.progress.all_completions] == [True, False]
     assert [p.exc is None for p in context.progress.all_completions] == [True, False]
     assert_step_result(context.progress, "1", True)
@@ -601,7 +671,12 @@ async def test_execute_for_context_check_exception(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -622,7 +697,10 @@ async def test_execute_for_context_check_exception(
     assert isinstance(result, ExecutionResult)
     assert not result.completed
 
-    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2"]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == [
+        "1",
+        "2",
+    ]
     assert [p.is_success() for p in context.progress.all_completions] == [True, False]
     assert_step_result(context.progress, "1", True)
     assert_step_result(context.progress, "2", False)
@@ -642,7 +720,12 @@ async def test_execute_for_context_success_cases_with_delays(
     step_list = StepExecutionList()
     step_list.add(
         StepExecution(
-            Step(id="1", action=Action(ACTION_REPEAT_ONCE_DELAY), checks=[Check(CHECK_PASS)], repeat_until_pass=True),
+            Step(
+                id="1",
+                action=Action(ACTION_REPEAT_ONCE_DELAY),
+                checks=[Check(CHECK_PASS)],
+                repeat_until_pass=True,
+            ),
             client_alias="client-test",
             client_resources_alias="client-test",
             primacy=0,
@@ -673,7 +756,12 @@ async def test_execute_for_context_success_cases_with_delays(
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,
@@ -702,8 +790,16 @@ async def test_execute_for_context_success_cases_with_delays(
     #  Step 1 - Runs and then asks for a repeat in 2 seconds
     #  Step 2 - Runs (as it is the lowest primacy that isn't on a delay)
     #  Step 1 - Repeats later
-    assert [se.step_execution.source.id for se in context.progress.all_completions] == ["1", "2", "1"]
-    assert [p.is_success() for p in context.progress.all_completions] == [True, True, True]
+    assert [se.step_execution.source.id for se in context.progress.all_completions] == [
+        "1",
+        "2",
+        "1",
+    ]
+    assert [p.is_success() for p in context.progress.all_completions] == [
+        True,
+        True,
+        True,
+    ]
     assert_step_result(context.progress, "1", True)
     assert_step_result(context.progress, "2", True)
 
@@ -719,7 +815,15 @@ VALID_SERVER_PEN = 12345678
     "resources, expected_warnings",
     [
         ([], 0),
-        ([(CSIPAusResource.MirrorUsagePoint, generate_class_instance(MirrorUsagePoint, mRID="ABC123"))], 0),
+        (
+            [
+                (
+                    CSIPAusResource.MirrorUsagePoint,
+                    generate_class_instance(MirrorUsagePoint, mRID="ABC123"),
+                )
+            ],
+            0,
+        ),
         (
             [
                 (
@@ -791,7 +895,10 @@ VALID_SERVER_PEN = 12345678
                         ),
                     ),
                 ),
-                (CSIPAusResource.MirrorUsagePoint, generate_class_instance(MirrorUsagePoint, mRID="DDD1239999")),
+                (
+                    CSIPAusResource.MirrorUsagePoint,
+                    generate_class_instance(MirrorUsagePoint, mRID="DDD1239999"),
+                ),
                 (
                     CSIPAusResource.DERControl,
                     generate_class_instance(
@@ -832,10 +939,20 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
             server_config=generate_class_instance(ServerConfig, pen=VALID_SERVER_PEN),
             clients_by_alias={
                 "client-test1": ClientContext(
-                    "client-test1", generate_class_instance(ClientConfig), store1, {}, mock.Mock(), None
+                    "client-test1",
+                    generate_class_instance(ClientConfig),
+                    store1,
+                    {},
+                    mock.Mock(),
+                    None,
                 ),
                 "client-test2": ClientContext(
-                    "client-test2", generate_class_instance(ClientConfig), store2, {}, mock.Mock(), None
+                    "client-test2",
+                    generate_class_instance(ClientConfig),
+                    store2,
+                    {},
+                    mock.Mock(),
+                    None,
                 ),
             },
             resource_tree=tree,
@@ -862,7 +979,12 @@ def _make_context_with_steps(step_list: StepExecutionList) -> ExecutionContext:
         server_config=generate_class_instance(ServerConfig),
         clients_by_alias={
             "client-test": ClientContext(
-                "client-test", generate_class_instance(ClientConfig), ResourceStore(tree), {}, mock.Mock(), None
+                "client-test",
+                generate_class_instance(ClientConfig),
+                ResourceStore(tree),
+                {},
+                mock.Mock(),
+                None,
             )
         },
         resource_tree=tree,

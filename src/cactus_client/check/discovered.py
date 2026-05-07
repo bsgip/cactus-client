@@ -29,7 +29,10 @@ def do_links_check(links: list[CSIPAusResource], step: StepExecution, context: E
     for resource in links:
         parent_resource = context.resource_tree.parent_resource(resource)
         if parent_resource is None:
-            return CheckResult(False, f"Resource {resource} has no known way to link to it (likely a test error).")
+            return CheckResult(
+                False,
+                f"Resource {resource} has no known way to link to it (likely a test error).",
+            )
 
         # Depending on the type of parent - we need to check the link existence in different ways.
         parent_stored_resources = resource_store.get_for_type(parent_resource)
@@ -39,16 +42,22 @@ def do_links_check(links: list[CSIPAusResource], step: StepExecution, context: E
             if not parent_stored_resources:
                 missing_parent_lists.append(resource)
 
-        elif not any((resource in sr.resource_link_hrefs for sr in parent_stored_resources)):
+        elif not any(resource in sr.resource_link_hrefs for sr in parent_stored_resources):
             # Other resources need to check for any number of Link.href references that point to our type
             # eg: DER.DERSettingsLink.href -> DERSettings
             missing_parent_links.append(resource)
 
     if missing_parent_links:
-        return CheckResult(False, f"Couldn't find any Link references to: {','.join(missing_parent_links)}")
+        return CheckResult(
+            False,
+            f"Couldn't find any Link references to: {','.join(missing_parent_links)}",
+        )
 
     if missing_parent_lists:
-        return CheckResult(False, f"Couldn't find any parent List's containing: {','.join(missing_parent_lists)}")
+        return CheckResult(
+            False,
+            f"Couldn't find any parent List's containing: {','.join(missing_parent_lists)}",
+        )
 
     return None  # Check passed
 

@@ -1,7 +1,8 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
 from cactus_test_definitions.server.test_procedures import Step
 
@@ -156,7 +157,10 @@ class ProgressTracker:
         """Logs that a step action/check raised an unhandled exception - this will also mark the step as failed"""
 
         completion = StepExecutionCompletion(
-            step_execution=step_execution, action_result=None, check_result=None, exc=exc
+            step_execution=step_execution,
+            action_result=None,
+            check_result=None,
+            exc=exc,
         )
         result = StepResult(step=step_execution.source, failure_result=None, exc=exc)
 
@@ -171,12 +175,18 @@ class ProgressTracker:
         self._update_progress(step_execution, do_update)
 
     async def add_step_execution_completion(
-        self, step_execution: StepExecution, action_result: ActionResult, check_result: CheckResult
+        self,
+        step_execution: StepExecution,
+        action_result: ActionResult,
+        check_result: CheckResult,
     ) -> None:
         """Logs that a step and its checks have completed without an exception (either pass or fail)"""
 
         completion = StepExecutionCompletion(
-            step_execution=step_execution, action_result=action_result, check_result=check_result, exc=None
+            step_execution=step_execution,
+            action_result=action_result,
+            check_result=check_result,
+            exc=None,
         )
         self.all_completions.append(completion)
         self._update_progress(step_execution, lambda p: p.step_execution_completions.append(completion))
@@ -186,7 +196,10 @@ class ProgressTracker:
             await self.add_log(step_execution, f"Check Failure: {check_result.description}")
 
     async def set_step_result(
-        self, step_execution: StepExecution, action_result: ActionResult, check_result: CheckResult
+        self,
+        step_execution: StepExecution,
+        action_result: ActionResult,
+        check_result: CheckResult,
     ) -> None:
         """Logs that a step execution is that LAST time the underlying step will run."""
 
@@ -209,10 +222,16 @@ class ProgressTracker:
         self._update_progress(step_execution, do_update)
 
         if step_passed:
-            await self.add_log(step_execution, f"{step_execution.source.id} has been marked as successful")
+            await self.add_log(
+                step_execution,
+                f"{step_execution.source.id} has been marked as successful",
+            )
         else:
             desc = failure_result.description if failure_result else ""  # Should not occur
-            await self.add_log(step_execution, f"{step_execution.source.id} has been marked as failed: {desc}")
+            await self.add_log(
+                step_execution,
+                f"{step_execution.source.id} has been marked as failed: {desc}",
+            )
 
 
 class ResponseTracker:

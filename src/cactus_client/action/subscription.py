@@ -50,7 +50,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import (
     AnnotationNamespace,
     ExecutionContext,
@@ -94,25 +94,21 @@ async def action_create_subscription(
     # Find the subscription list to receive this new subscription
     subscription_lists = store.get_for_type(CSIPAusResource.SubscriptionList)
     if len(subscription_lists) != 1:
-        raise CactusClientException(
+        raise CactusClientError(
             f"Found {len(subscription_lists)} SubscriptionList resource(s) but expected 1. Cannot create subscription."
         )
     subscription_list_href = subscription_lists[0].resource.href
     if not subscription_list_href:
-        raise CactusClientException(
-            "SubscriptionList resource has no href attribute encoded. Cannot create subscription."
-        )
+        raise CactusClientError("SubscriptionList resource has no href attribute encoded. Cannot create subscription.")
 
     subscription_targets = store.get_for_type(resource)
     if len(subscription_targets) == 0:
-        raise CactusClientException(
-            f"Found no {resource} resource(s) but expected at least 1. Cannot create subscription."
-        )
+        raise CactusClientError(f"Found no {resource} resource(s) but expected at least 1. Cannot create subscription.")
 
     # Create a subscription
     for target in subscription_targets:
         if target.resource.href is None:
-            raise CactusClientException(f"Found {resource} with no href attribute encoded. Cannot subscribe to this.")
+            raise CactusClientError(f"Found {resource} with no href attribute encoded. Cannot subscribe to this.")
 
         # Figure out what webhook URI we can use for our subscription alias
         webhook_uri = await fetch_notification_webhook_for_subscription(
@@ -137,9 +133,18 @@ async def action_create_subscription(
             subscribedResource=target.resource.href,
         )
         returned_subscription = await submit_and_refetch_resource_for_step(
-            Subscription, step, context, HTTPMethod.POST, subscription_list_href, subscription
+            Subscription,
+            step,
+            context,
+            HTTPMethod.POST,
+            subscription_list_href,
+            subscription,
         )
-        sub_sr = store.upsert_resource(CSIPAusResource.Subscription, subscription_lists[0].id, returned_subscription)
+        sub_sr = store.upsert_resource(
+            CSIPAusResource.Subscription,
+            subscription_lists[0].id,
+            returned_subscription,
+        )
         context.resource_annotations(step, sub_sr.id).alias = sub_id
 
     return ActionResult.done()
@@ -159,13 +164,13 @@ async def action_delete_subscription(
         if context.resource_annotations(step, r.id).alias == sub_id
     ]
     if len(matching_subs) == 0:
-        raise CactusClientException(
+        raise CactusClientError(
             f"Found no Subscription resource(s) with alias {sub_id} but expected at least 1. Cannot delete."
         )
 
     for target in matching_subs:
         if target.resource.href is None:
-            raise CactusClientException("Found Subscription with no href attribute encoded. Cannot delete this.")
+            raise CactusClientError("Found Subscription with no href attribute encoded. Cannot delete this.")
 
         await delete_and_check_resource_for_step(step, context, target.resource.href)
         store.delete_resource(target.id)
@@ -179,7 +184,7 @@ def parse_combined_resource(xsi_type: str, resource: NotificationResourceCombine
     eg - Maps NotificationResourceCombined to a properly typed DERControlList with the same values."""
     target_type = RESOURCE_TYPE_BY_XSI.get(xsi_type)
     if target_type is None:
-        raise CactusClientException(f"Received unrecognised resource xsi_type '{xsi_type}'. Expected {VALID_XSI_TYPES}")
+        raise CactusClientError(f"Received unrecognised resource xsi_type '{xsi_type}'. Expected {VALID_XSI_TYPES}")
 
     return target_type.model_validate(resource.__dict__)
 
@@ -199,11 +204,11 @@ async def handle_notification_resource(
     #
     # This could be subject to change if vendors/clients agree.
     if notification.resource is None:
-        raise CactusClientException("Received a (non cancellation) Notification with no <resource> element.")
+        raise CactusClientError("Received a (non cancellation) Notification with no <resource> element.")
 
     xsi_type: str | None = notification.resource.type
     if xsi_type is None:
-        raise CactusClientException("Received a Notification.resource with a missing xsi:type attribute.")
+        raise CactusClientError("Received a Notification.resource with a missing xsi:type attribute.")
 
     # Turn the resource into a fully fledged Resource (eg: a DERControl or EndDeviceList)
     logger.info(f"Handling a '{xsi_type}' Notification for {notification.subscribedResource}")
@@ -213,7 +218,9 @@ async def handle_notification_resource(
 
     # Add this new notification contents to the store - this can be done via direct upsert
     upserted_resource = store.upsert_resource(
-        source.subscribed_resource_type, source.subscribed_resource_id.parent_id(), parsed_resource
+        source.subscribed_resource_type,
+        source.subscribed_resource_id.parent_id(),
+        parsed_resource,
     )
     context.resource_annotations(step, upserted_resource.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id)
 
@@ -269,29 +276,32 @@ async def collect_and_validate_notification(
 
     if notification.method != "POST":
         context.warnings.log_step_warning(
-            step, f"Received a HTTP {notification.method} at the notification webhook. Only POST will be accepted."
+            step,
+            f"Received a HTTP {notification.method} at the notification webhook. Only POST will be accepted.",
         )
         return
 
     if not notification.body:
         context.warnings.log_step_warning(
-            step, f"Received a HTTP {notification.method} at the notification webhook but it had no body."
+            step,
+            f"Received a HTTP {notification.method} at the notification webhook but it had no body.",
         )
         return
 
     # Having a borked Content-Type is worth raising a warning but not worth stopping the test
     if notification.content_type != MIME_TYPE_SEP2:
         context.warnings.log_step_warning(
-            step, f"Expected header Content-Type: {MIME_TYPE_SEP2} but got '{notification.content_type}'"
+            step,
+            f"Expected header Content-Type: {MIME_TYPE_SEP2} but got '{notification.content_type}'",
         )
 
     try:
         sep2_notification = Notification.from_xml(notification.body)
     except Exception as exc:
         logger.error("Error parsing sep2 Notification from notification body", exc_info=exc)
-        raise CactusClientException(
+        raise CactusClientError(
             "Error parsing sep2 Notification from notification body. This is likely a malformed response."
-        )
+        ) from exc
 
     # Now start inspecting the returned Notification
     if sep2_notification.subscribedResource != source.subscribed_resource_id.href():

@@ -1,35 +1,26 @@
-[tool.black]
-line-length = 120
 
 [tool.pytest.ini_options]
 pythonpath = ["src/"]
 testpaths = "tests"
 
-[tool.isort]
-profile = "black"
-
 [tool.bandit]
 exclude_dirs = ["tests"]
 
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "S", "C90", "B", "UP", "ANN", "N"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "ANN", "N"]
+
 [tool.mypy]
-exclude = ["tests", "build"]
-python_version = "3.12"
-check_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_untyped_defs = true
-namespace_packages = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-
-[[tool.mypy.overrides]]
-module = ["apluggy", "apluggy.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["cactus_client.admin", "cactus_client.admin.*"]
-disallow_untyped_decorators = false
+exclude = ["dist", "tests", "build"]
 
 [tool.ty.src]
 include = ["src"]

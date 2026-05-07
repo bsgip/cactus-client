@@ -2,21 +2,25 @@ import logging
 import re
 from datetime import datetime
 from http import HTTPMethod
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERControlResponse as DERControl
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.event import EventStatusType
-from envoy_schema.server.schema.sep2.response import ResponseType, DERControlResponse
+from envoy_schema.server.schema.sep2.response import DERControlResponse, ResponseType
 
 from cactus_client.action.server import (
     client_error_request_for_step,
     request_for_step,
     resource_to_sep2_xml,
 )
-from cactus_client.error import CactusClientException, RequestException
-from cactus_client.model.context import AnnotationNamespace, ExecutionContext, StoredResourceAnnotations
+from cactus_client.error import CactusClientError, RequestError
+from cactus_client.model.context import (
+    AnnotationNamespace,
+    ExecutionContext,
+    StoredResourceAnnotations,
+)
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.resource import StoredResource
 from cactus_client.schema.validator import to_hex_binary
@@ -26,8 +30,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_edev_lfdi_for_der_control(
-    step: StepExecution, context: ExecutionContext, der_ctl: StoredResource, der_control_href: Optional[str]
-) -> Optional[str]:
+    step: StepExecution,
+    context: ExecutionContext,
+    der_ctl: StoredResource,
+    der_control_href: str | None,
+) -> str | None:
     """Helper function to reduce duplicate code. Checks for a non None parent end device lfdi given a DER control"""
     resource_store = context.discovered_resources(step)
     edev = resource_store.get_ancestor_of(CSIPAusResource.EndDevice, der_ctl.id)
@@ -168,10 +175,14 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
         )
 
         post_response = await request_for_step(
-            step, context, reply_to, HTTPMethod.POST, sep2_xml_body=resource_to_sep2_xml(response)
+            step,
+            context,
+            reply_to,
+            HTTPMethod.POST,
+            sep2_xml_body=resource_to_sep2_xml(response),
         )
         if not post_response.is_success():
-            raise RequestException(f"Received status {post_response.status} posting DERControlResponse to {reply_to}.")
+            raise RequestError(f"Received status {post_response.status} posting DERControlResponse to {reply_to}.")
 
         # Update tags to track this response was sent
         der_ctl_annotations.add_tag(AnnotationNamespace.RESPONSES, response_status)
@@ -203,12 +214,12 @@ async def action_send_malformed_response(
 
     # Extract resolved params
     mrid_unknown: bool = resolved_parameters["mrid_unknown"]
-    endDeviceLFDI_unknown: bool = resolved_parameters["endDeviceLFDI_unknown"]
+    edev_lfdi_unknown: bool = resolved_parameters["endDeviceLFDI_unknown"]
     response_invalid: bool = resolved_parameters["response_invalid"]
 
     # At least one parameter should be true
-    if not mrid_unknown and not endDeviceLFDI_unknown and not response_invalid:
-        raise CactusClientException(
+    if not mrid_unknown and not edev_lfdi_unknown and not response_invalid:
+        raise CactusClientError(
             "Expected at least one of mrid_unknown, endDeviceLFDI_unknown, or response_invalid to be true."
         )
 
@@ -217,7 +228,7 @@ async def action_send_malformed_response(
     der_controls_with_reply = [sr for sr in stored_der_controls if cast(DERControl, sr.resource).replyTo is not None]
 
     if not der_controls_with_reply:
-        raise CactusClientException("No DERControls found with replyTo set. Cannot send malformed response.")
+        raise CactusClientError("No DERControls found with replyTo set. Cannot send malformed response.")
 
     # Get the most recent one
     most_recent_der_ctl = der_controls_with_reply[-1]
@@ -227,11 +238,11 @@ async def action_send_malformed_response(
     # Determine the endDeviceLFDI_unknown (either go find it, or set to fake one)
     edev_lfdi = (
         to_hex_binary(999999)
-        if endDeviceLFDI_unknown
+        if edev_lfdi_unknown
         else get_edev_lfdi_for_der_control(step, context, most_recent_der_ctl, der_control.href)
     )
     if edev_lfdi is None:
-        raise CactusClientException(f"Could not find EndDevice lfdi parent for DERControl {der_control.href}")
+        raise CactusClientError(f"Could not find EndDevice lfdi parent for DERControl {der_control.href}")
 
     # Determine the mRID (generate fake if mrd_unknown true)
     subject_mrid = "0xFFFFFFFF" if mrid_unknown else der_control.mRID

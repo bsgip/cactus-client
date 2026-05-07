@@ -57,12 +57,14 @@ def check_der_program(
     # Check match criteria
     if minimum_count is not None and total_matches < minimum_count:
         return CheckResult(
-            False, f"Matched {total_matches} DERPrograms against criteria. Expected at least {minimum_count}"
+            False,
+            f"Matched {total_matches} DERPrograms against criteria. Expected at least {minimum_count}",
         )
 
     if maximum_count is not None and total_matches > maximum_count:
         return CheckResult(
-            False, f"Matched {total_matches} DERPrograms against criteria. Expected at most {maximum_count}"
+            False,
+            f"Matched {total_matches} DERPrograms against criteria. Expected at most {maximum_count}",
         )
 
     return CheckResult(True, None)

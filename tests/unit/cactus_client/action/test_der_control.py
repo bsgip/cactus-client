@@ -1,7 +1,7 @@
 import unittest.mock as mock
+from collections.abc import Callable
 from enum import IntEnum
 from http import HTTPMethod
-from typing import Callable
 
 import pytest
 from aiohttp import ClientSession
@@ -14,7 +14,10 @@ from envoy_schema.server.schema.sep2.response import ResponseType
 from envoy_schema.server.schema.sep2.types import DateTimeIntervalType
 from freezegun import freeze_time
 
-from cactus_client.action.der_controls import action_respond_der_controls, action_send_malformed_response
+from cactus_client.action.der_controls import (
+    action_respond_der_controls,
+    action_send_malformed_response,
+)
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.schema.validator import to_hex_binary
@@ -33,7 +36,14 @@ from cactus_client.time import utc_now
         # Active - no previous tags (send 'EVENT_RECEIVED')
         (1, -300, 3600, [], ResponseType.EVENT_RECEIVED, True),
         # Active - started, already sent 'EVENT_RECEIVED' (send 'EVENT_STARTED')
-        (1, -300, 3600, [ResponseType.EVENT_RECEIVED], ResponseType.EVENT_STARTED, True),
+        (
+            1,
+            -300,
+            3600,
+            [ResponseType.EVENT_RECEIVED],
+            ResponseType.EVENT_STARTED,
+            True,
+        ),
         # Active - completed, sent "EVENT_RECEIVED",'EVENT_STARTED' (send 'EVENT_COMPLETED')
         (
             1,
@@ -48,12 +58,23 @@ from cactus_client.time import utc_now
             1,
             -3600,
             1800,
-            [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED, ResponseType.EVENT_COMPLETED],
+            [
+                ResponseType.EVENT_RECEIVED,
+                ResponseType.EVENT_STARTED,
+                ResponseType.EVENT_COMPLETED,
+            ],
             None,
             False,
         ),
         # Active - in progress, already sent "EVENT_RECEIVED",'EVENT_STARTED' (no new response)
-        (1, -1800, 3600, [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED], None, False),
+        (
+            1,
+            -1800,
+            3600,
+            [ResponseType.EVENT_RECEIVED, ResponseType.EVENT_STARTED],
+            None,
+            False,
+        ),
         # ---------------- ACTIONS WHICH HAVE ALREADY BEEN RESPONDED TO (DONT SEND) ----------------------
         (4, -300, 3600, [ResponseType.EVENT_SUPERSEDED], None, False),
         (2, -300, 3600, [ResponseType.EVENT_CANCELLED], None, False),

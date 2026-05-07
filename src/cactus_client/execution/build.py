@@ -2,10 +2,10 @@ import logging
 import ssl
 import urllib
 import urllib.parse
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from ssl import SSLContext
-from typing import AsyncIterator
 
 from aiohttp import ClientSession, TCPConnector
 from cactus_test_definitions.server.test_procedures import (
@@ -15,7 +15,7 @@ from cactus_test_definitions.server.test_procedures import (
 
 from cactus_client.action.notifications import safely_delete_all_notification_webhooks
 from cactus_client.constants import CACTUS_TEST_DEFINITIONS_VERSION
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     ClientConfig,
     GlobalConfig,
@@ -50,24 +50,24 @@ def build_clients_by_alias(
     tp: TestProcedure,
 ) -> dict[str, ClientContext]:
     if not configured_clients:
-        raise ConfigException("No clients have been created (client config is empty).")
+        raise ConfigError("No clients have been created (client config is empty).")
 
-    client_config_by_id = dict(((cfg.id, cfg) for cfg in configured_clients))
+    client_config_by_id = dict((cfg.id, cfg) for cfg in configured_clients)
 
     if len(run_client_ids) != len(tp.preconditions.required_clients):
-        raise ConfigException(
+        raise ConfigError(
             f"This test expects {len(tp.preconditions.required_clients)} client(s)."
             + f" You have supplied {len(run_client_ids)} client id(s)"
         )
 
     clients_by_alias: dict[str, ClientContext] = {}
-    for tp_client_precondition, client_config_id in zip(tp.preconditions.required_clients, run_client_ids):
+    for tp_client_precondition, client_config_id in zip(tp.preconditions.required_clients, run_client_ids, strict=True):
         client_config = client_config_by_id.get(client_config_id, None)
         if client_config is None:
-            raise ConfigException(f"The supplied client id '{client_config_id}' doesn't exist in your configuration.")
+            raise ConfigError(f"The supplied client id '{client_config_id}' doesn't exist in your configuration.")
 
         if tp_client_precondition.client_type is not None and client_config.type != tp_client_precondition.client_type:
-            raise ConfigException(
+            raise ConfigError(
                 f"The supplied client id '{client_config_id}' is the wrong type of client for this test."
                 + f" Test expects a {tp_client_precondition.client_type} client but got a {client_config.type} client."
             )
@@ -78,7 +78,6 @@ def build_clients_by_alias(
         # web service that may or may not use HTTPS.
         notifications: NotificationsContext | None = None
         if notification_uri:
-
             notifications = NotificationsContext(
                 session=ClientSession(notification_uri if notification_uri.endswith("/") else notification_uri + "/"),
                 endpoints_by_sub_alias={},
@@ -91,18 +90,18 @@ def build_clients_by_alias(
         if verify_ssl and serca_pem_path:
             try:
                 ssl_context.load_verify_locations(cafile=serca_pem_path)
-            except Exception:
-                raise ConfigException(
+            except Exception as exc:
+                raise ConfigError(
                     f"Failure loading SERCA certificate for {client_config_id} from SERCA PEM file '{serca_pem_path}'"
-                )
+                ) from exc
 
         try:
             ssl_context.load_cert_chain(client_config.certificate_file, client_config.key_file)
         except Exception as exc:
-            raise ConfigException(
+            raise ConfigError(
                 f"Failure loading client certificate chain for {client_config_id} from"
                 + f"cert file {client_config.certificate_file} and key file {client_config.key_file}. {exc}"
-            )
+            ) from exc
 
         clients_by_alias[tp_client_precondition.id] = ClientContext(
             test_procedure_alias=tp_client_precondition.id,
@@ -123,15 +122,15 @@ def build_dcap_parts(server: ServerConfig) -> tuple[str, str]:
     dcap_scheme: str | None = None
     try:
         url = urllib.parse.urlparse(server.device_capability_uri)
-    except Exception:
-        raise ConfigException(f"device_capability_uri '{server.device_capability_uri}' couldn't be parsed.")
+    except Exception as exc:
+        raise ConfigError(f"device_capability_uri '{server.device_capability_uri}' couldn't be parsed.") from exc
     dcap_host = url.netloc
     dcap_path = url.path
     dcap_scheme = url.scheme
     if not dcap_path:
         dcap_path = "/"
     if dcap_scheme not in {"https", "http"}:
-        raise ConfigException(f"Unsupported scheme {dcap_scheme} for '{server.device_capability_uri}'.")
+        raise ConfigError(f"Unsupported scheme {dcap_scheme} for '{server.device_capability_uri}'.")
     return (f"{dcap_scheme}://{dcap_host}/", dcap_path)
 
 
@@ -140,7 +139,7 @@ def build_initial_step_execution_list(tp: TestProcedure) -> StepExecutionList:
     result = StepExecutionList()
     client_aliases: list[str] = [c.id for c in tp.preconditions.required_clients]
     if not client_aliases:
-        raise ConfigException("Expected at least one client in the test definition. This is a test definition bug.")
+        raise ConfigError("Expected at least one client in the test definition. This is a test definition bug.")
 
     for idx, step in enumerate(tp.steps):
         client_alias: str | None = step.client
@@ -183,25 +182,25 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
             f"Unable to load Test Procedure ID '{tp_id}' with test definitions {CACTUS_TEST_DEFINITIONS_VERSION}",
             exc_info=exc,
         )
-        raise ConfigException(
+        raise ConfigError(
             f"Test Procedure ID '{tp_id}' isn't recognised for version {CACTUS_TEST_DEFINITIONS_VERSION}."
-        )
+        ) from exc
 
     if run_config.csip_aus_version not in tp.target_versions:
-        raise ConfigException(f"The requested version {run_config.csip_aus_version} is not supported by {tp_id}")
+        raise ConfigError(f"The requested version {run_config.csip_aus_version} is not supported by {tp_id}")
 
     if not user_config.output_dir:
-        raise ConfigException("output_dir has not been specified.")
+        raise ConfigError("output_dir has not been specified.")
     try:
         output_dir = Path(user_config.output_dir)
-    except Exception:
-        raise ConfigException(f"output_dir value '{user_config.output_dir}' doesn't appear to be valid.")
+    except Exception as exc:
+        raise ConfigError(f"output_dir value '{user_config.output_dir}' doesn't appear to be valid.") from exc
     if not output_dir.exists() or not output_dir.is_dir():
-        raise ConfigException(f"output_dir '{user_config.output_dir}' should exist and be a directory.")
+        raise ConfigError(f"output_dir '{user_config.output_dir}' should exist and be a directory.")
 
     # Pull info from the server config
     if not user_config.server:
-        raise ConfigException("Missing server configuration element.")
+        raise ConfigError("Missing server configuration element.")
     base_uri, dcap_path = build_dcap_parts(user_config.server)
 
     # Log the basics - we don't want to go logging file paths

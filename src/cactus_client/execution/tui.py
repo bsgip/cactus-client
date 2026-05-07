@@ -1,8 +1,9 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import timedelta
 from enum import StrEnum, auto
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 import yaml
 from cactus_test_definitions.variable_expressions import BaseExpression
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 AnyType = TypeVar("AnyType")
 
 
-def _sanitize_parameters(params: Any) -> Any:
+def _sanitize_parameters(params: Any) -> Any:  # noqa: ANN401
     """Recursively replaces BaseExpression instances with their human-readable string form."""
     if isinstance(params, BaseExpression):
         return f"$({params.expression_representation()})"
@@ -62,7 +63,14 @@ def generate_scrolling_table(
 ) -> Table:
     """Generates a fixed height table that populates from the bottom upwards (representing a scrolling series of
     recent things)"""
-    table = Table(*columns, title=title, title_justify="left", style=style, expand=True, show_header=False)
+    table = Table(
+        *columns,
+        title=title,
+        title_justify="left",
+        style=style,
+        expand=True,
+        show_header=False,
+    )
 
     max_rows = height - 3
 
@@ -72,7 +80,6 @@ def generate_scrolling_table(
         items_to_render = items[-max_rows:]
 
     for i in range(max_rows - len(items_to_render)):
-
         if not items_to_render and i == (max_rows // 2):
             table.add_row("There isn't anything here...")
         else:
@@ -156,7 +163,13 @@ def generate_requests(context: ExecutionContext, height: int) -> RenderableType:
     else:
         body = f"{len(req.body)} bytes sent" if req.body else "No body"
         active_request_line = Columns(
-            [Spinner("dots"), context_relative_time(context, req.created_at), req.method, req.url, body]
+            [
+                Spinner("dots"),
+                context_relative_time(context, req.created_at),
+                req.method,
+                req.url,
+                body,
+            ]
         )
 
     return Group(table_responses, active_request_line)
@@ -264,16 +277,27 @@ def generate_active_step(context: ExecutionContext) -> RenderableType:
         Group(
             "[b]Action[/]",
             "",
-            Syntax(code=yaml.dump(action_raw, sort_keys=False), lexer="yaml", background_color="black"),
+            Syntax(
+                code=yaml.dump(action_raw, sort_keys=False),
+                lexer="yaml",
+                background_color="black",
+            ),
         )
     ]
     for check in se.source.checks or []:
-        check_raw = {"type": check.type, "parameters": _sanitize_parameters(check.parameters)}
+        check_raw = {
+            "type": check.type,
+            "parameters": _sanitize_parameters(check.parameters),
+        }
         yaml_columns.append(
             Group(
                 "[b]Check[/]",
                 "",
-                Syntax(code=yaml.dump(check_raw, sort_keys=False), lexer="yaml", background_color="black"),
+                Syntax(
+                    code=yaml.dump(check_raw, sort_keys=False),
+                    lexer="yaml",
+                    background_color="black",
+                ),
             )
         )
 
@@ -321,7 +345,11 @@ def render_unfocused_tui(context: ExecutionContext, run_id: int, console_height:
     layout.split(
         Layout(generate_header(context, run_id), name="header", size=HEADER_HEIGHT),
         Layout(name="main", ratio=1),
-        Layout(generate_requests(context, footer_height), name="requests", size=footer_height),
+        Layout(
+            generate_requests(context, footer_height),
+            name="requests",
+            size=footer_height,
+        ),
     )
     layout["main"].split_row(
         Layout(name="steps"),
@@ -329,13 +357,25 @@ def render_unfocused_tui(context: ExecutionContext, run_id: int, console_height:
     )
     step_progress_height = console_height - HEADER_HEIGHT - footer_height - warnings_height
     layout["steps"].split(
-        Layout(generate_step_progress(context, step_progress_height), name="step-progress", ratio=2),
-        Layout(generate_warnings(context, warnings_height), name="warnings-list", size=warnings_height),
+        Layout(
+            generate_step_progress(context, step_progress_height),
+            name="step-progress",
+            ratio=2,
+        ),
+        Layout(
+            generate_warnings(context, warnings_height),
+            name="warnings-list",
+            size=warnings_height,
+        ),
     )
 
     layout["active-step"].split(
         Layout(generate_active_step(context), name="active-step-main", ratio=2),
-        Layout(generate_active_step_logs(context, logs_height), name="active-step-logs", size=logs_height),
+        Layout(
+            generate_active_step_logs(context, logs_height),
+            name="active-step-logs",
+            size=logs_height,
+        ),
     )
 
     return layout
@@ -355,11 +395,19 @@ def render_tui(context: ExecutionContext, run_id: int, console_height: int) -> R
     if CURRENT_FOCUS == PanelFocus.Requests:
         return render_focused_panel(context, run_id, generate_requests(context, console_height - HEADER_HEIGHT))
     elif CURRENT_FOCUS == PanelFocus.Logs:
-        return render_focused_panel(context, run_id, generate_active_step_logs(context, console_height - HEADER_HEIGHT))
+        return render_focused_panel(
+            context,
+            run_id,
+            generate_active_step_logs(context, console_height - HEADER_HEIGHT),
+        )
     elif CURRENT_FOCUS == PanelFocus.Warnings:
         return render_focused_panel(context, run_id, generate_warnings(context, console_height - HEADER_HEIGHT))
     elif CURRENT_FOCUS == PanelFocus.Steps:
-        return render_focused_panel(context, run_id, generate_step_progress(context, console_height - HEADER_HEIGHT))
+        return render_focused_panel(
+            context,
+            run_id,
+            generate_step_progress(context, console_height - HEADER_HEIGHT),
+        )
     return render_unfocused_tui(context, run_id, console_height)
 
 
@@ -368,10 +416,11 @@ async def run_tui(console: Console, context: ExecutionContext, run_id: int, refr
     global CURRENT_FOCUS
 
     refresh_rate = timedelta(milliseconds=refresh_rate_ms).total_seconds()
-    with Live(console=console, screen=True, transient=True, auto_refresh=False) as live, keypress.activate_keypress():
-
+    with (
+        Live(console=console, screen=True, transient=True, auto_refresh=False) as live,
+        keypress.activate_keypress(),
+    ):
         while True:
-
             try:
                 key = keypress.key_pressed()
                 if key == "q":

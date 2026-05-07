@@ -23,7 +23,7 @@ from cactus_client.action.server import (
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.schema.validator import to_hex_binary
@@ -32,7 +32,7 @@ from cactus_client.time import utc_now
 logger = logging.getLogger(__name__)
 
 
-def _validate_fields(expected: Any, actual: Any, fields: list[str]) -> None:
+def _validate_fields(expected: object, actual: object, fields: list[str]) -> None:
     """Validate that specified fields match between expected and actual objects.
 
     Args:
@@ -50,7 +50,7 @@ def _validate_fields(expected: Any, actual: Any, fields: list[str]) -> None:
             mismatches.append(f"{field_name}: expected {expected_value}, got {actual_value}")
 
     if mismatches:
-        raise CactusClientException(f"{actual.__class__.__name__} validation failed: " + "; ".join(mismatches))
+        raise CactusClientError(f"{actual.__class__.__name__} validation failed: " + "; ".join(mismatches))
 
 
 async def action_upsert_der_capability(
@@ -61,9 +61,9 @@ async def action_upsert_der_capability(
 
     # Extract and convert parameters
     type_ = DERType(int(resolved_parameters["type"]))
-    rtgMaxW = ActivePower(value=resolved_parameters["rtgMaxW"], multiplier=0)
-    modesSupported = to_hex_binary(int(resolved_parameters["modesSupported"]))
-    doeModesSupported = to_hex_binary(int(resolved_parameters["doeModesSupported"]))
+    rtg_max_w = ActivePower(value=resolved_parameters["rtgMaxW"], multiplier=0)
+    modes_supported = to_hex_binary(int(resolved_parameters["modesSupported"]))
+    doe_modes_supported = to_hex_binary(int(resolved_parameters["doeModesSupported"]))
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -71,24 +71,37 @@ async def action_upsert_der_capability(
         dercap_link = cast(DER, der.resource).DERCapabilityLink
 
         if dercap_link is None:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"Expected every DER to have a DERCapabilityLink, but didnt find one for device {der.resource.href}."
             )
 
         # Build the upsert request
         dercap_request = DERCapability(
-            type_=type_, rtgMaxW=rtgMaxW, modesSupported=modesSupported, doeModesSupported=doeModesSupported
+            type_=type_,
+            rtgMaxW=rtg_max_w,
+            modesSupported=modes_supported,
+            doeModesSupported=doe_modes_supported,
         )
 
         # Send request then retreive it from the server and save to resource store
         inserted_dercap = await submit_and_refetch_resource_for_step(
-            DERCapability, step, context, HTTPMethod.PUT, dercap_link.href, dercap_request, no_location_header=True
+            DERCapability,
+            step,
+            context,
+            HTTPMethod.PUT,
+            dercap_link.href,
+            dercap_request,
+            no_location_header=True,
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERCapability, der.id.parent_id(), inserted_dercap)
 
         # Validate the inserted resource keeps the values we set
-        _validate_fields(dercap_request, inserted_dercap, ["type_", "rtgMaxW", "modesSupported", "doeModesSupported"])
+        _validate_fields(
+            dercap_request,
+            inserted_dercap,
+            ["type_", "rtgMaxW", "modesSupported", "doeModesSupported"],
+        )
 
     return ActionResult.done()
 
@@ -100,11 +113,11 @@ async def action_upsert_der_settings(
     resource_store = context.discovered_resources(step)
 
     # Extract and convert parameters
-    updatedTime = int(utc_now().timestamp())
-    setMaxW = ActivePower(value=int(resolved_parameters["setMaxW"]), multiplier=0)
-    setGradW = int(resolved_parameters["setGradW"])
-    modesEnabled = to_hex_binary(int(resolved_parameters["modesEnabled"]))
-    doeModesEnabled = to_hex_binary(int(resolved_parameters["doeModesEnabled"]))
+    updated_time = int(utc_now().timestamp())
+    set_max_w = ActivePower(value=int(resolved_parameters["setMaxW"]), multiplier=0)
+    set_grad_w = int(resolved_parameters["setGradW"])
+    modes_enabled = to_hex_binary(int(resolved_parameters["modesEnabled"]))
+    doe_modes_enabled = to_hex_binary(int(resolved_parameters["doeModesEnabled"]))
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -112,17 +125,17 @@ async def action_upsert_der_settings(
         der_sett_link = cast(DER, der.resource).DERSettingsLink
 
         if der_sett_link is None:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"Expected every DER to have a DERSettingsLink, but didnt find one for device {der.resource.href}."
             )
 
         # Build the upsert request
         der_settings_request = DERSettings(
-            updatedTime=updatedTime,
-            setMaxW=setMaxW,
-            setGradW=setGradW,
-            modesEnabled=modesEnabled,
-            doeModesEnabled=doeModesEnabled,
+            updatedTime=updated_time,
+            setMaxW=set_max_w,
+            setGradW=set_grad_w,
+            modesEnabled=modes_enabled,
+            doeModesEnabled=doe_modes_enabled,
         )
 
         # Send request then retrieve it from the server and save to resource store
@@ -162,17 +175,20 @@ async def action_upsert_der_status(
     alarm_val = resolved_parameters.get("alarmStatus")
 
     # Build status objects
-    genConnectStatus = (
+    gen_connect_status = (
         ConnectStatusTypeValue(value=to_hex_binary(int(gen_connect_val)), dateTime=current_timestamp)
         if gen_connect_val is not None
         else None
     )
-    operationalModeStatus = (
-        OperationalModeStatusTypeValue(value=OperationalModeStatusType(int(op_mode_val)), dateTime=current_timestamp)
+    operational_mode_status = (
+        OperationalModeStatusTypeValue(
+            value=OperationalModeStatusType(int(op_mode_val)),
+            dateTime=current_timestamp,
+        )
         if op_mode_val is not None
         else None
     )
-    alarmStatus = to_hex_binary(int(alarm_val)) if alarm_val is not None else None
+    alarm_status = to_hex_binary(int(alarm_val)) if alarm_val is not None else None
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -180,22 +196,26 @@ async def action_upsert_der_status(
         der_status_link = cast(DER, der.resource).DERStatusLink
 
         if der_status_link is None:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"Expected every DER to have a DERStatusLink, but didnt find one for device {der.resource.href}."
             )
 
         # Build the upsert request
         der_status_request = DERStatus(
             readingTime=current_timestamp,
-            genConnectStatus=genConnectStatus,
-            operationalModeStatus=operationalModeStatus,
-            alarmStatus=alarmStatus,
+            genConnectStatus=gen_connect_status,
+            operationalModeStatus=operational_mode_status,
+            alarmStatus=alarm_status,
         )
 
         if expect_rejection:
             # If we're expecting rejection - make the request and check for a client error
             await client_error_request_for_step(
-                step, context, der_status_link.href, HTTPMethod.PUT, resource_to_sep2_xml(der_status_request)
+                step,
+                context,
+                der_status_link.href,
+                HTTPMethod.PUT,
+                resource_to_sep2_xml(der_status_request),
             )
         else:
             inserted_der_status = await submit_and_refetch_resource_for_step(
@@ -214,7 +234,12 @@ async def action_upsert_der_status(
             _validate_fields(
                 der_status_request,
                 inserted_der_status,
-                ["readingTime", "genConnectStatus", "operationalModeStatus", "alarmStatus"],
+                [
+                    "readingTime",
+                    "genConnectStatus",
+                    "operationalModeStatus",
+                    "alarmStatus",
+                ],
             )
 
     return ActionResult.done()
@@ -226,7 +251,7 @@ async def action_send_malformed_der_settings(
     """Sends a malformed DERSettings - missing updatedTime"""
 
     resource_store = context.discovered_resources(step)
-    updatedTime_missing: bool = resolved_parameters["updatedTime_missing"]
+    updated_time_missing: bool = resolved_parameters["updatedTime_missing"]
 
     # Create a compliant DERSettings first
     der_settings_request = DERSettings(
@@ -240,7 +265,7 @@ async def action_send_malformed_der_settings(
     der_settings_xml = resource_to_sep2_xml(der_settings_request)
 
     # Go and change the compliant XML depending on the resolved_parameters
-    if updatedTime_missing:
+    if updated_time_missing:
         # Remove the entire <updatedTime>...</updatedTime> element
         der_settings_xml = re.sub(r"<updatedTime>.*?</updatedTime>", "", der_settings_xml)
 
@@ -250,7 +275,7 @@ async def action_send_malformed_der_settings(
         der_sett_link = cast(DER, der.resource).DERSettingsLink
 
         if der_sett_link is None:
-            raise CactusClientException(
+            raise CactusClientError(
                 f"Expected every DER to have a DERSettingsLink, but didnt find one for device {der.resource.href}."
             )
 

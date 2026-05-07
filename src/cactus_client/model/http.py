@@ -111,10 +111,13 @@ class NotificationRequest:
 
     @staticmethod
     def from_collected_notification(
-        source: NotificationEndpoint, notification: CollectedNotification, sub_id: str, client_alias: str
+        source: NotificationEndpoint,
+        notification: CollectedNotification,
+        sub_id: str,
+        client_alias: str,
     ) -> "NotificationRequest":
         body_xml = notification.body
-        headers = CIMultiDict(((h.name, h.value) for h in notification.headers))
+        headers = CIMultiDict((h.name, h.value) for h in notification.headers)
         content_type = headers.getone("Content-Type", None)
 
         xsd_errors = None

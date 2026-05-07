@@ -5,7 +5,7 @@ from pathlib import Path
 from cactus_test_definitions.server.test_procedures import TestProcedureId
 from rich.console import Console
 
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, load_config
 from cactus_client.results.compliance import render_compliance_report
 
@@ -14,7 +14,8 @@ COMMAND_NAME = "report"
 
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     report_parser = subparsers.add_parser(
-        COMMAND_NAME, help="Print a compliance report showing the latest result for each test procedure."
+        COMMAND_NAME,
+        help="Print a compliance report showing the latest result for each test procedure.",
     )
     report_parser.add_argument(
         "-c",
@@ -36,12 +37,18 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         global_config, _ = load_config(args.config_file)
-    except ConfigException:
-        console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
+    except ConfigError:
+        console.print(
+            "Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]",
+            style="red",
+        )
         sys.exit(1)
 
     if not global_config.output_dir:
-        console.print("output_dir is not configured. Have you run [b]cactus setup[/b]", style="red")
+        console.print(
+            "output_dir is not configured. Have you run [b]cactus setup[/b]",
+            style="red",
+        )
         sys.exit(1)
 
     include: list[TestProcedureId] | None = None

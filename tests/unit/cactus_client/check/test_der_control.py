@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 from unittest import mock
 
 import pytest
@@ -35,17 +35,54 @@ from cactus_client.schema.validator import to_hex_binary
         ({}, {"minimum_count": 0, "maximum_count": 0}, False),
         ({}, {"minimum_count": 0, "maximum_count": 99}, True),
         # Single criteria
-        ({"opModExpLimW": 5000.0}, {"opModExpLimW": 5000.0, "minimum_count": 1, "maximum_count": 1}, True),
-        ({"opModExpLimW": 5000.0}, {"opModExpLimW": 3000.0, "minimum_count": 1, "maximum_count": 1}, False),
-        ({"opModLoadLimW": 3000.0}, {"opModLoadLimW": 3000.0, "minimum_count": 1, "maximum_count": 1}, True),
-        ({"opModLoadLimW": 3000.0}, {"opModLoadLimW": 9999.0, "minimum_count": 1, "maximum_count": 1}, False),
-        ({"opModGenLimW": 4000.0}, {"opModGenLimW": 4000.0, "minimum_count": 1, "maximum_count": 1}, True),
-        ({"opModGenLimW": 4000.0}, {"opModGenLimW": 2000.0, "minimum_count": 1, "maximum_count": 1}, False),
-        ({"setGradW": 100}, {"setGradW": 100, "minimum_count": 1, "maximum_count": 1}, True),
-        ({"setGradW": 100}, {"setGradW": 200, "minimum_count": 1, "maximum_count": 1}, False),
+        (
+            {"opModExpLimW": 5000.0},
+            {"opModExpLimW": 5000.0, "minimum_count": 1, "maximum_count": 1},
+            True,
+        ),
+        (
+            {"opModExpLimW": 5000.0},
+            {"opModExpLimW": 3000.0, "minimum_count": 1, "maximum_count": 1},
+            False,
+        ),
+        (
+            {"opModLoadLimW": 3000.0},
+            {"opModLoadLimW": 3000.0, "minimum_count": 1, "maximum_count": 1},
+            True,
+        ),
+        (
+            {"opModLoadLimW": 3000.0},
+            {"opModLoadLimW": 9999.0, "minimum_count": 1, "maximum_count": 1},
+            False,
+        ),
+        (
+            {"opModGenLimW": 4000.0},
+            {"opModGenLimW": 4000.0, "minimum_count": 1, "maximum_count": 1},
+            True,
+        ),
+        (
+            {"opModGenLimW": 4000.0},
+            {"opModGenLimW": 2000.0, "minimum_count": 1, "maximum_count": 1},
+            False,
+        ),
+        (
+            {"setGradW": 100},
+            {"setGradW": 100, "minimum_count": 1, "maximum_count": 1},
+            True,
+        ),
+        (
+            {"setGradW": 100},
+            {"setGradW": 200, "minimum_count": 1, "maximum_count": 1},
+            False,
+        ),
         # All criteria - all match
         (
-            {"opModExpLimW": 5000.0, "opModLoadLimW": 3000.0, "opModGenLimW": 4000.0, "setGradW": 100},
+            {
+                "opModExpLimW": 5000.0,
+                "opModLoadLimW": 3000.0,
+                "opModGenLimW": 4000.0,
+                "setGradW": 100,
+            },
             {
                 "opModExpLimW": 5000.0,
                 "opModLoadLimW": 3000.0,
@@ -58,7 +95,12 @@ from cactus_client.schema.validator import to_hex_binary
         ),
         # All criteria - one mismatch
         (
-            {"opModExpLimW": 5000.0, "opModLoadLimW": 3000.0, "opModGenLimW": 4000.0, "setGradW": 100},
+            {
+                "opModExpLimW": 5000.0,
+                "opModLoadLimW": 3000.0,
+                "opModGenLimW": 4000.0,
+                "setGradW": 100,
+            },
             {
                 "opModExpLimW": 5000.0,
                 "opModLoadLimW": 3000.0,
@@ -70,11 +112,24 @@ from cactus_client.schema.validator import to_hex_binary
             False,
         ),
         # With multipliers
-        ({"opModExpLimW": (50, 2)}, {"opModExpLimW": 5000.0, "minimum_count": 1, "maximum_count": 1}, True),
-        ({"opModExpLimW": (50, 2)}, {"opModExpLimW": 500.0, "minimum_count": 1, "maximum_count": 1}, False),
+        (
+            {"opModExpLimW": (50, 2)},
+            {"opModExpLimW": 5000.0, "minimum_count": 1, "maximum_count": 1},
+            True,
+        ),
+        (
+            {"opModExpLimW": (50, 2)},
+            {"opModExpLimW": 500.0, "minimum_count": 1, "maximum_count": 1},
+            False,
+        ),
         (
             {"opModExpLimW": (50, 2), "opModGenLimW": (40, 2)},
-            {"opModExpLimW": 5000.0, "opModGenLimW": 4000.0, "minimum_count": 1, "maximum_count": 1},
+            {
+                "opModExpLimW": 5000.0,
+                "opModGenLimW": 4000.0,
+                "minimum_count": 1,
+                "maximum_count": 1,
+            },
             True,
         ),
     ],
@@ -180,16 +235,24 @@ def test_check_default_der_control_sub_id(
 
     # Setup store an initial sub tags
     dderc1 = resource_store.upsert_resource(
-        CSIPAusResource.DefaultDERControl, None, generate_class_instance(DefaultDERControl, seed=1)
+        CSIPAusResource.DefaultDERControl,
+        None,
+        generate_class_instance(DefaultDERControl, seed=1),
     )
     dderc2 = resource_store.upsert_resource(
-        CSIPAusResource.DefaultDERControl, None, generate_class_instance(DefaultDERControl, seed=2)
+        CSIPAusResource.DefaultDERControl,
+        None,
+        generate_class_instance(DefaultDERControl, seed=2),
     )
     resource_store.upsert_resource(
-        CSIPAusResource.DefaultDERControl, None, generate_class_instance(DefaultDERControl, seed=3)
+        CSIPAusResource.DefaultDERControl,
+        None,
+        generate_class_instance(DefaultDERControl, seed=3),
     )
     dderc4 = resource_store.upsert_resource(
-        CSIPAusResource.DefaultDERControl, None, generate_class_instance(DefaultDERControl, seed=4)
+        CSIPAusResource.DefaultDERControl,
+        None,
+        generate_class_instance(DefaultDERControl, seed=4),
     )
 
     context.resource_annotations(step, dderc1.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1")
@@ -201,22 +264,28 @@ def test_check_default_der_control_sub_id(
 
     # Perform queries
     assert_check_result(
-        check_default_der_control({"minimum_count": 3, "maximum_count": 3, "sub_id": "sub1"}, step, context), True
+        check_default_der_control({"minimum_count": 3, "maximum_count": 3, "sub_id": "sub1"}, step, context),
+        True,
     )
     assert_check_result(
-        check_default_der_control({"minimum_count": 0, "maximum_count": 5, "sub_id": "sub1"}, step, context), True
+        check_default_der_control({"minimum_count": 0, "maximum_count": 5, "sub_id": "sub1"}, step, context),
+        True,
     )
     assert_check_result(
-        check_default_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub1"}, step, context), False
+        check_default_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub1"}, step, context),
+        False,
     )
     assert_check_result(
-        check_default_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub2"}, step, context), True
+        check_default_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub2"}, step, context),
+        True,
     )
     assert_check_result(
-        check_default_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub3"}, step, context), False
+        check_default_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub3"}, step, context),
+        False,
     )
     assert_check_result(
-        check_default_der_control({"minimum_count": 0, "maximum_count": 0, "sub_id": "sub3"}, step, context), True
+        check_default_der_control({"minimum_count": 0, "maximum_count": 0, "sub_id": "sub3"}, step, context),
+        True,
     )
 
 
@@ -231,16 +300,24 @@ def test_check_der_control_sub_id(
 
     # Setup store an initial sub tags
     dderc1 = resource_store.upsert_resource(
-        CSIPAusResource.DERControl, None, generate_class_instance(DERControlResponse, seed=1)
+        CSIPAusResource.DERControl,
+        None,
+        generate_class_instance(DERControlResponse, seed=1),
     )
     dderc2 = resource_store.upsert_resource(
-        CSIPAusResource.DERControl, None, generate_class_instance(DERControlResponse, seed=2)
+        CSIPAusResource.DERControl,
+        None,
+        generate_class_instance(DERControlResponse, seed=2),
     )
     resource_store.upsert_resource(
-        CSIPAusResource.DERControl, None, generate_class_instance(DERControlResponse, seed=3)
+        CSIPAusResource.DERControl,
+        None,
+        generate_class_instance(DERControlResponse, seed=3),
     )
     dderc4 = resource_store.upsert_resource(
-        CSIPAusResource.DERControl, None, generate_class_instance(DERControlResponse, seed=4)
+        CSIPAusResource.DERControl,
+        None,
+        generate_class_instance(DERControlResponse, seed=4),
     )
 
     context.resource_annotations(step, dderc1.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1")
@@ -252,22 +329,28 @@ def test_check_der_control_sub_id(
 
     # Perform queries
     assert_check_result(
-        check_der_control({"minimum_count": 3, "maximum_count": 3, "sub_id": "sub1"}, step, context), True
+        check_der_control({"minimum_count": 3, "maximum_count": 3, "sub_id": "sub1"}, step, context),
+        True,
     )
     assert_check_result(
-        check_der_control({"minimum_count": 0, "maximum_count": 5, "sub_id": "sub1"}, step, context), True
+        check_der_control({"minimum_count": 0, "maximum_count": 5, "sub_id": "sub1"}, step, context),
+        True,
     )
     assert_check_result(
-        check_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub1"}, step, context), False
+        check_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub1"}, step, context),
+        False,
     )
     assert_check_result(
-        check_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub2"}, step, context), True
+        check_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub2"}, step, context),
+        True,
     )
     assert_check_result(
-        check_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub3"}, step, context), False
+        check_der_control({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub3"}, step, context),
+        False,
     )
     assert_check_result(
-        check_der_control({"minimum_count": 0, "maximum_count": 0, "sub_id": "sub3"}, step, context), True
+        check_der_control({"minimum_count": 0, "maximum_count": 0, "sub_id": "sub3"}, step, context),
+        True,
     )
 
 
@@ -295,13 +378,16 @@ def test_check_default_der_control_with_derp_primacy(
 
     # Test filtering by primacy
     assert_check_result(
-        check_default_der_control({"derp_primacy": 1, "minimum_count": 1, "maximum_count": 1}, step, context), True
+        check_default_der_control({"derp_primacy": 1, "minimum_count": 1, "maximum_count": 1}, step, context),
+        True,
     )
     assert_check_result(
-        check_default_der_control({"derp_primacy": 2, "minimum_count": 1, "maximum_count": 1}, step, context), True
+        check_default_der_control({"derp_primacy": 2, "minimum_count": 1, "maximum_count": 1}, step, context),
+        True,
     )
     assert_check_result(
-        check_default_der_control({"derp_primacy": 3, "minimum_count": 0, "maximum_count": 0}, step, context), True
+        check_default_der_control({"derp_primacy": 3, "minimum_count": 0, "maximum_count": 0}, step, context),
+        True,
     )
 
 

@@ -38,7 +38,11 @@ async def action_simulate_client(
     # Do discovery
     #
     for resource in context.resource_tree.discover_resource_plan(
-        [CSIPAusResource.EndDevice, CSIPAusResource.MirrorUsagePoint, CSIPAusResource.DERControl]
+        [
+            CSIPAusResource.EndDevice,
+            CSIPAusResource.MirrorUsagePoint,
+            CSIPAusResource.DERControl,
+        ]
     ):
         await discover_resource(resource, step, context, DISCOVERY_LIST_PAGE_SIZE)
 
@@ -56,7 +60,10 @@ async def action_simulate_client(
             {
                 "mup_id": SIMULATE_MUP_ID,
                 "location": CSIPAusReadingLocation.Site,
-                "reading_types": [CSIPAusReadingType.ActivePowerAverage, CSIPAusReadingType.VoltageSinglePhaseAverage],
+                "reading_types": [
+                    CSIPAusReadingType.ActivePowerAverage,
+                    CSIPAusReadingType.VoltageSinglePhaseAverage,
+                ],
             },
             step,
             context,
@@ -81,4 +88,8 @@ async def action_simulate_client(
     if step.repeat_number >= total_simulations:
         return ActionResult.done()
     else:
-        return ActionResult(completed=True, repeat=True, not_before=now + timedelta(seconds=frequency_seconds))
+        return ActionResult(
+            completed=True,
+            repeat=True,
+            not_before=now + timedelta(seconds=frequency_seconds),
+        )

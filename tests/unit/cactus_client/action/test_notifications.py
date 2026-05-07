@@ -1,7 +1,7 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from http import HTTPMethod, HTTPStatus
-from typing import AsyncIterator
 
 import pytest
 from aiohttp import ClientSession, web
@@ -61,7 +61,11 @@ def create_test_app_for_routes(routes: list[TestingAppRoute]):
                 return web.Response(body=b"No more mocked behaviour", status=500)
 
             b = route.behaviour.pop(0)
-            return web.Response(body=b.body, status=b.status, headers={"Content-Type": "application/json"})
+            return web.Response(
+                body=b.body,
+                status=b.status,
+                headers={"Content-Type": "application/json"},
+            )
 
         app.router.add_route(route.method.value, route.path, do_behaviour)
 
@@ -128,11 +132,17 @@ async def test_fetch_notification_webhook_for_subscription(aiohttp_client, testi
 
     # Assert the notifications context is populated with what we expect
     assert execution_context.notifications_context(step_execution).endpoints_by_sub_alias["sub123"] == [
-        NotificationEndpoint(create_endpoint_1, CSIPAusResource.DER, StoredResourceId.from_parent(None, "/hrefa"))
+        NotificationEndpoint(
+            create_endpoint_1,
+            CSIPAusResource.DER,
+            StoredResourceId.from_parent(None, "/hrefa"),
+        )
     ]
     assert execution_context.notifications_context(step_execution).endpoints_by_sub_alias["sub1234"] == [
         NotificationEndpoint(
-            create_endpoint_2, CSIPAusResource.DERControl, StoredResourceId.from_parent(None, "/hrefc")
+            create_endpoint_2,
+            CSIPAusResource.DERControl,
+            StoredResourceId.from_parent(None, "/hrefc"),
         )
     ]
 
@@ -148,7 +158,8 @@ async def test_notifications_server_request_status_error(aiohttp_client, testing
                 uri.URI_MANAGE_ENDPOINT_LIST,
                 [
                     RouteBehaviour(
-                        HTTPStatus.BAD_REQUEST, CreateEndpointResponse("abc123", "https://my.example:123/uri").to_json()
+                        HTTPStatus.BAD_REQUEST,
+                        CreateEndpointResponse("abc123", "https://my.example:123/uri").to_json(),
                     )
                 ],
             )
@@ -196,7 +207,12 @@ async def test_notifications_server_request_parsing_error(aiohttp_client, testin
         [generate_class_instance(CollectedNotification, seed=1, generate_relationships=True)],
         [
             generate_class_instance(CollectedNotification, seed=1, generate_relationships=True),
-            generate_class_instance(CollectedNotification, seed=2, generate_relationships=True, optional_is_none=True),
+            generate_class_instance(
+                CollectedNotification,
+                seed=2,
+                generate_relationships=True,
+                optional_is_none=True,
+            ),
         ],
     ],
 )
@@ -310,7 +326,13 @@ async def test_collect_notifications_for_subscription_multi(aiohttp_client, test
         execution_context, step_execution = testing_contexts_factory(None, session)
 
         notification_context: NotificationsContext = execution_context.notifications_context(step_execution)
-        notification_context.endpoints_by_sub_alias["sub1"] = [endpoint1, endpoint2, endpoint3, endpoint4, endpoint5]
+        notification_context.endpoints_by_sub_alias["sub1"] = [
+            endpoint1,
+            endpoint2,
+            endpoint3,
+            endpoint4,
+            endpoint5,
+        ]
 
         result = await collect_notifications_for_subscription(step_execution, execution_context, "sub1")
 
@@ -324,7 +346,12 @@ async def test_collect_notifications_for_subscription_multi(aiohttp_client, test
 async def test_collect_notifications_for_subscription_not_configured(aiohttp_client, testing_contexts_factory):
     """Does collect_notifications_for_subscription fail gracefully if an endpoint hasn't been created yet"""
     n1 = generate_class_instance(CollectedNotification, seed=1, generate_relationships=True)
-    n2 = generate_class_instance(CollectedNotification, seed=2, generate_relationships=True, optional_is_none=True)
+    n2 = generate_class_instance(
+        CollectedNotification,
+        seed=2,
+        generate_relationships=True,
+        optional_is_none=True,
+    )
 
     async with create_test_session(
         aiohttp_client,

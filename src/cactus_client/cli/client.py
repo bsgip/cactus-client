@@ -15,7 +15,7 @@ from cactus_client.cli.common import (
     rich_cert_file_value,
     rich_key_file_value,
 )
-from cactus_client.error import ConfigException
+from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     CONFIG_CWD,
     CONFIG_HOME,
@@ -46,7 +46,8 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     """Adds the sub command options for the client module"""
 
     client_parser = subparsers.add_parser(
-        COMMAND_NAME, help="For listing/editing configuration of the testing clients used by this tool"
+        COMMAND_NAME,
+        help="For listing/editing configuration of the testing clients used by this tool",
     )
     client_parser.add_argument(
         "-c",
@@ -55,7 +56,12 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         help=f"Override the config location. Defaults to {CONFIG_CWD} and then {CONFIG_HOME}",
     )
     client_parser.add_argument("id", help="The id of the client to manage", nargs="?")
-    client_parser.add_argument("config_key", help="The client setting to manage", nargs="?", choices=ClientConfigKey)
+    client_parser.add_argument(
+        "config_key",
+        help="The client setting to manage",
+        nargs="?",
+        choices=ClientConfigKey,
+    )
     client_parser.add_argument("new_value", help="The new value for config_key", nargs="?")
 
 
@@ -160,7 +166,11 @@ def print_client(console: Console, client: ClientConfig) -> None:
     table.add_column("value")
     table.add_column("description")
 
-    table.add_row("type", client.type, "What sort of client is this? [b]device[/] or [b]aggregator[/]")
+    table.add_row(
+        "type",
+        client.type,
+        "What sort of client is this? [b]device[/] or [b]aggregator[/]",
+    )
     table.add_row(
         "certificate_file",
         rich_cert_file_value(client.certificate_file),
@@ -186,13 +196,25 @@ def print_client(console: Console, client: ClientConfig) -> None:
         str(client.max_watts),
         "When registering a [b]DERCapability[/] and [b]DERSettings[/], use this value for max watts.",
     )
-    table.add_row("nmi", client.nmi, "Any valid NMI for [b]ConnectionPoint[/] registration ($(valid_nmi_1))")
     table.add_row(
-        "nmi_2", client.nmi_2, "Any other  valid NMI for tests that update a [b]ConnectionPoint[/] ($(valid_nmi_2))"
+        "nmi",
+        client.nmi,
+        "Any valid NMI for [b]ConnectionPoint[/] registration ($(valid_nmi_1))",
     )
-    table.add_row("pen", str(client.pen), "The IANA private enterprise number of this client. Used for [b]mRID's[/]")
     table.add_row(
-        "pin", str(client.pin), "The PIN that this client will attempt to match via [b]EndDevice[/] Registration"
+        "nmi_2",
+        client.nmi_2,
+        "Any other  valid NMI for tests that update a [b]ConnectionPoint[/] ($(valid_nmi_2))",
+    )
+    table.add_row(
+        "pen",
+        str(client.pen),
+        "The IANA private enterprise number of this client. Used for [b]mRID's[/]",
+    )
+    table.add_row(
+        "pin",
+        str(client.pin),
+        "The PIN that this client will attempt to match via [b]EndDevice[/] Registration",
     )
     table.add_row(
         "user_agent",
@@ -204,7 +226,10 @@ def print_client(console: Console, client: ClientConfig) -> None:
 
 
 def prompt_new_client(console: Console, new_client_id: str) -> ClientConfig:
-    create = Confirm.ask(f"Would you like to create a new client with id '{new_client_id}'", console=console)
+    create = Confirm.ask(
+        f"Would you like to create a new client with id '{new_client_id}'",
+        console=console,
+    )
     if not create:
         console.print("No changes made.")
         sys.exit(0)
@@ -252,14 +277,18 @@ def prompt_new_client(console: Console, new_client_id: str) -> ClientConfig:
     client = update_client_value(console, client, ClientConfigKey.LFDI, lfdi)
     client = update_client_value(console, client, ClientConfigKey.SFDI, str(sfdi))
 
-    pen = IntPrompt.ask("Client Private Enterprise Number (PEN) (used for mrid generation)", console=console)
+    pen = IntPrompt.ask(
+        "Client Private Enterprise Number (PEN) (used for mrid generation)",
+        console=console,
+    )
     client = update_client_value(console, client, ClientConfigKey.PEN, str(pen))
 
     pin = IntPrompt.ask("Client PIN (used for matching EndDevice.Registration)", console=console)
     client = update_client_value(console, client, ClientConfigKey.PIN, str(pin))
 
     max_watts = IntPrompt.ask(
-        "The DERSetting.setMaxW and DERCapability.rtgMaxW value to use (in Watts)", console=console
+        "The DERSetting.setMaxW and DERCapability.rtgMaxW value to use (in Watts)",
+        console=console,
     )
     return update_client_value(console, client, ClientConfigKey.MAXW, str(max_watts))
 
@@ -294,8 +323,11 @@ def run_action(args: argparse.Namespace) -> None:
 
     try:
         config, config_path = load_config(config_file_override)
-    except ConfigException:
-        console.print("Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]", style="red")
+    except ConfigError:
+        console.print(
+            "Error loading CACTUS configuration file. Have you run [b]cactus setup[/b]",
+            style="red",
+        )
         sys.exit(1)
 
     if not client_id:

@@ -1,6 +1,7 @@
 import asyncio
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
 from envoy_schema.server.schema.sep2.der import (
@@ -28,10 +29,14 @@ from cactus_client.action.server import (
     get_resource_for_step,
     paginate_list_resource_items,
 )
-from cactus_client.error import CactusClientException
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
-from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CombinedTimeTariffIntervalListResponse, ResourceStore
+from cactus_client.model.resource import (
+    RESOURCE_SEP2_TYPES,
+    CombinedTimeTariffIntervalListResponse,
+    ResourceStore,
+)
 from cactus_client.time import utc_now
 
 DISCOVERY_LIST_PAGE_SIZE = 3  # We want something suitably small (to ensure pagination is tested)
@@ -74,7 +79,7 @@ def get_list_item_callback(
         list_item_type: A CSIPAusResource matching the type of the child list items"""
     get_list_items: Callable[[Resource], list[Resource] | None] | None = None
     list_item_type: CSIPAusResource | None = None
-    match (list_resource):
+    match list_resource:
         case CSIPAusResource.MirrorUsagePointList:
             get_list_items = lambda list_: cast(MirrorUsagePointListResponse, list_).mirrorUsagePoints  # type: ignore # noqa: E731
             list_item_type = CSIPAusResource.MirrorUsagePoint
@@ -113,13 +118,16 @@ def get_list_item_callback(
             list_item_type = CSIPAusResource.ConsumptionTariffInterval
 
     if get_list_items is None or list_item_type is None:
-        raise CactusClientException(f"resource {list_resource} has no registered get_list_items function.")
+        raise CactusClientError(f"resource {list_resource} has no registered get_list_items function.")
 
     return (get_list_items, list_item_type)
 
 
 async def discover_resource(
-    resource: CSIPAusResource, step: StepExecution, context: ExecutionContext, list_limit: int | None
+    resource: CSIPAusResource,
+    step: StepExecution,
+    context: ExecutionContext,
+    list_limit: int | None,
 ) -> None:
     """Performs discovery for the particular resource - it is assumed that all parent resources have been previously
     fetched."""
@@ -160,7 +168,13 @@ async def discover_resource(
             # If list limit exists, make a single query of this length
             if list_limit is not None:
                 list_items, _ = await fetch_list_page(
-                    RESOURCE_SEP2_TYPES[parent_resource], step, context, list_href, 0, list_limit, get_list_items
+                    RESOURCE_SEP2_TYPES[parent_resource],
+                    step,
+                    context,
+                    list_href,
+                    0,
+                    list_limit,
+                    get_list_items,
                 )
             else:
                 # Paginate through each of the lists - each of those items are the things we want to store
@@ -175,7 +189,9 @@ async def discover_resource(
 
             for item in list_items:
                 resource_store.append_resource(
-                    resource, parent_sr.id, check_item_for_href(step, context, list_href, item)
+                    resource,
+                    parent_sr.id,
+                    check_item_for_href(step, context, list_href, item),
                 )
     else:
         # Not a list item - look for direct links from parent (eg an EndDevice.ConnectionPointLink -> ConnectionPoint)

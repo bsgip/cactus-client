@@ -1,7 +1,8 @@
 import os
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 if os.name == "nt":
     import msvcrt

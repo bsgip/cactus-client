@@ -24,7 +24,7 @@ def cli_entrypoint() -> None:
     """Handle command line arguments - call out to the appropriate CLI sub command"""
     args = root_parser.parse_args()
 
-    match (args.command):
+    match args.command:
         case client.COMMAND_NAME:
             client.run_action(args)
         case server.COMMAND_NAME:
