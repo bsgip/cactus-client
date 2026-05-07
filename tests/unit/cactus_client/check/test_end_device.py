@@ -255,7 +255,8 @@ def test_check_end_device(
             True,
             False,
         ),
-        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based, not href-based)
+        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based,
+        # not href-based)
         (
             ClientType.AGGREGATOR,
             [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
