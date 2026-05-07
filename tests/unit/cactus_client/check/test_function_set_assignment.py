@@ -14,7 +14,6 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 
-from cactus_client.check.end_device import VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX
 from cactus_client.check.function_set_assignment import check_function_set_assignment
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
@@ -382,8 +381,10 @@ def test_check_function_set_assignment_aggregator_skips_virtual_edev(
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
 ):
-    """Aggregator clients always see a virtual /edev/0 device with their LFDI. When matches_client_edev=True,
-    the check must skip /edev/0 and match the real registered device so FSAs stored under it are found."""
+    """Aggregator clients always see a virtual end device with their LFDI. When matches_client_edev=True, any
+    EndDevice whose LFDI matches the aggregator's LFDI is treated as the virtual placeholder and skipped.
+    Real registered devices belonging to other DERs have distinct LFDIs and are not affected.
+    This test verifies that all same-LFDI devices are skipped, so no client edev is found and the check fails."""
     context, step = testing_contexts_factory(mock.Mock())
 
     # Override client_config to AGGREGATOR type
@@ -399,35 +400,13 @@ def test_check_function_set_assignment_aggregator_skips_virtual_edev(
 
     store = context.discovered_resources(step)
 
-    # Virtual aggregator device at /edev/0 — same LFDI, should be skipped
+    # Virtual aggregator device — aggregator's LFDI, skipped
     store.append_resource(
         CSIPAusResource.EndDevice,
         None,
-        generate_class_instance(
-            EndDeviceResponse,
-            seed=1,
-            lFDI=original_cc.lfdi,
-            href=VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX,
-        ),
-    )
-
-    # Real registered device at /edev/10 — same LFDI, FSA lives here
-    real_edev = store.append_resource(
-        CSIPAusResource.EndDevice,
-        None,
-        generate_class_instance(EndDeviceResponse, seed=2, lFDI=original_cc.lfdi, href="/edev/10"),
-    )
-    fsal = store.append_resource(
-        CSIPAusResource.FunctionSetAssignmentsList,
-        real_edev.id,
-        generate_class_instance(FunctionSetAssignmentsListResponse, seed=3),
-    )
-    store.append_resource(
-        CSIPAusResource.FunctionSetAssignments,
-        fsal.id,
-        generate_class_instance(FunctionSetAssignmentsResponse, seed=4),
+        generate_class_instance(EndDeviceResponse, seed=1, lFDI=original_cc.lfdi),
     )
 
     result = check_function_set_assignment({"matches_client_edev": True, "minimum_count": 1}, step, context)
 
-    assert_check_result(result, True)
+    assert_check_result(result, False)

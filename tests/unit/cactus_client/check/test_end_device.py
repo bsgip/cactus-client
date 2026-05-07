@@ -255,27 +255,21 @@ def test_check_end_device(
             True,
             False,
         ),
-        # Aggregator: edev/0 plus real registered device - matches_client:false should fail
+        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based, not href-based)
         (
             ClientType.AGGREGATOR,
-            [
-                generate_class_instance(EndDeviceResponse, seed=101, lFDI="ABC123", href="/path/edev/0"),
-                generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", href="/path/edev/1"),
-            ],
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
             "ABC123",
             False,
-            False,
+            True,
         ),
-        # Aggregator: edev/0 plus real registered device - matches_client:true should pass
+        # Aggregator: virtual device at a non-standard path - matches_client:true should fail
         (
             ClientType.AGGREGATOR,
-            [
-                generate_class_instance(EndDeviceResponse, seed=101, lFDI="ABC123", href="/path/edev/0"),
-                generate_class_instance(EndDeviceResponse, seed=202, lFDI="ABC123", href="/path/edev/1"),
-            ],
+            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
             "ABC123",
             True,
-            True,
+            False,
         ),
         # Device client: edev/0 - matches_client:false should fail
         (

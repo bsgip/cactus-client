@@ -12,8 +12,6 @@ from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import ResourceStore, StoredResource
 
-VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX = "/edev/0"
-
 
 def is_checksum_valid(pin: int) -> bool:
     # SEP2 PINs are 6 digits: the first 5 are the raw PIN, the last digit is a checksum
@@ -26,8 +24,9 @@ def match_end_device_on_lfdi_caseless(
 ) -> StoredResource | None:
     """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None.
 
-    If is_aggregator is True, the virtual aggregator placeholder device at /edev/0 is excluded from matching.
-    Aggregator clients always see edev/0 regardless of whether a real device has been registered.
+    If is_aggregator is True, any EndDevice whose lFDI matches the search lfdi is excluded from matching.
+    Aggregator clients always see a virtual end device with the aggregator's LFDI regardless of whether a
+    real device has been registered; other registered devices belong to different DERs and have distinct LFDIs.
     """
     end_devices = resource_store.get_for_type(CSIPAusResource.EndDevice)
     if not end_devices:
@@ -40,9 +39,8 @@ def match_end_device_on_lfdi_caseless(
         if edev_resource.lFDI is None or edev_resource.lFDI.casefold() != lfdi_folded:
             continue
 
-        if is_aggregator and (
-            edev_resource.href is not None and edev_resource.href.endswith(VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX)
-        ):
+        # At this stage the lfdi already matches, so if is aggregator, this must be the virtual edev
+        if is_aggregator:
             continue
 
         return edev
