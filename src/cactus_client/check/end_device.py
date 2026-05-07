@@ -12,8 +12,6 @@ from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import ResourceStore, StoredResource
 
-VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX = "/edev/0"
-
 
 def is_checksum_valid(pin: int) -> bool:
     # SEP2 PINs are 6 digits: the first 5 are the raw PIN, the last digit is a checksum
@@ -26,8 +24,9 @@ def match_end_device_on_lfdi_caseless(
 ) -> StoredResource | None:
     """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None.
 
-    If is_aggregator is True, the virtual aggregator placeholder device at /edev/0 is excluded from matching.
-    Aggregator clients always see edev/0 regardless of whether a real device has been registered.
+    If is_aggregator is True, any EndDevice whose lFDI matches the search lfdi is excluded from matching.
+    Aggregator clients always see a virtual end device with the aggregator's LFDI regardless of whether a
+    real device has been registered; other registered devices belong to different DERs and have distinct LFDIs.
     """
     end_devices = resource_store.get_for_type(CSIPAusResource.EndDevice)
     if not end_devices:
@@ -40,9 +39,8 @@ def match_end_device_on_lfdi_caseless(
         if edev_resource.lFDI is None or edev_resource.lFDI.casefold() != lfdi_folded:
             continue
 
-        if is_aggregator and (
-            edev_resource.href is not None and edev_resource.href.endswith(VIRTUAL_AGGREGATOR_EDEV_HREF_SUFFIX)
-        ):
+        # At this stage the lfdi already matches, so if is aggregator, this must be the virtual edev
+        if is_aggregator:
             continue
 
         return edev
@@ -63,17 +61,25 @@ def check_end_device(
 
     # Start by finding a loose candidate match - then we can drill into the specifics
     matched_edev = match_end_device_on_lfdi_caseless(
-        resource_store, client_config.lfdi, is_aggregator=client_config.type == ClientType.AGGREGATOR
+        resource_store,
+        client_config.lfdi,
+        is_aggregator=client_config.type == ClientType.AGGREGATOR,
     )
     if matched_edev is None:
         if matches is True:
-            return CheckResult(False, f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.")
+            return CheckResult(
+                False,
+                f"Expected to find an EndDevice with lfdi {client_config.lfdi} but got none.",
+            )
         else:
             return CheckResult(True, None)  # We wanted none - we found none
 
     edev = cast(EndDeviceResponse, matched_edev.resource)
     if matches is False:
-        return CheckResult(False, f"Expected to find NO EndDevice with lfdi {client_config.lfdi} but found {edev.href}")
+        return CheckResult(
+            False,
+            f"Expected to find NO EndDevice with lfdi {client_config.lfdi} but found {edev.href}",
+        )
 
     # At this point - we are just asserting that the matched_edev is ACTUALLY a proper match
 
@@ -86,7 +92,8 @@ def check_end_device(
             actual_pin = cast(RegistrationResponse, registration.resource).pIN
             if actual_pin != client_config.pin:
                 return CheckResult(
-                    False, f"{edev.href} has a Registration with with PIN {actual_pin} but expected {client_config.pin}"
+                    False,
+                    f"{edev.href} has a Registration with with PIN {actual_pin} but expected {client_config.pin}",
                 )
             if not is_checksum_valid(actual_pin):
                 return CheckResult(False, f"{actual_pin} does not have a valid checksum")
@@ -131,12 +138,14 @@ def check_end_device_list(
 
     if minimum_count is not None and matches_found < minimum_count:
         return CheckResult(
-            False, f"EndDeviceList minimum_count is {minimum_count} but only found {matches_found} matches."
+            False,
+            f"EndDeviceList minimum_count is {minimum_count} but only found {matches_found} matches.",
         )
 
     if maximum_count is not None and matches_found > maximum_count:
         return CheckResult(
-            False, f"EndDeviceList maximum_count is {maximum_count} but only found {matches_found} matches."
+            False,
+            f"EndDeviceList maximum_count is {maximum_count} but only found {matches_found} matches.",
         )
 
     return CheckResult(True, None)
