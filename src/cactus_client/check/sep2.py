@@ -73,7 +73,9 @@ def is_invalid_signed_percent(signed_percent: int | None) -> str | None:
     return None
 
 
-def first_invalid_value(*validators: Callable[[], tuple[str, str | None]]) -> str | None:
+def first_invalid_value(
+    *validators: Callable[[], tuple[str, str | None]],
+) -> str | None:
     """Convenience function - executes a number of validation lambdas and returns the first one that fails
 
     Each validator function should return a label and error message in a tuple"""
@@ -87,13 +89,34 @@ def first_invalid_value(*validators: Callable[[], tuple[str, str | None]]) -> st
 def is_invalid_der_control(derc: DERControlResponse) -> str | None:
     """Returns a short (human readable) error or None if the DERControlResponse is valid"""
     return first_invalid_value(
-        lambda: ("opModExpLimW", is_invalid_power_type(derc.DERControlBase_.opModExpLimW)),
-        lambda: ("opModImpLimW", is_invalid_power_type(derc.DERControlBase_.opModImpLimW)),
-        lambda: ("opModGenLimW", is_invalid_power_type(derc.DERControlBase_.opModGenLimW)),
-        lambda: ("opModLoadLimW", is_invalid_power_type(derc.DERControlBase_.opModLoadLimW)),
-        lambda: ("opModTargetVar", is_invalid_power_type(derc.DERControlBase_.opModTargetVar)),
-        lambda: ("opModTargetW", is_invalid_power_type(derc.DERControlBase_.opModTargetW)),
-        lambda: ("opModFixedW", is_invalid_signed_percent(derc.DERControlBase_.opModFixedW)),
+        lambda: (
+            "opModExpLimW",
+            is_invalid_power_type(derc.DERControlBase_.opModExpLimW),
+        ),
+        lambda: (
+            "opModImpLimW",
+            is_invalid_power_type(derc.DERControlBase_.opModImpLimW),
+        ),
+        lambda: (
+            "opModGenLimW",
+            is_invalid_power_type(derc.DERControlBase_.opModGenLimW),
+        ),
+        lambda: (
+            "opModLoadLimW",
+            is_invalid_power_type(derc.DERControlBase_.opModLoadLimW),
+        ),
+        lambda: (
+            "opModTargetVar",
+            is_invalid_power_type(derc.DERControlBase_.opModTargetVar),
+        ),
+        lambda: (
+            "opModTargetW",
+            is_invalid_power_type(derc.DERControlBase_.opModTargetW),
+        ),
+        lambda: (
+            "opModFixedW",
+            is_invalid_signed_percent(derc.DERControlBase_.opModFixedW),
+        ),
     )
 
 
@@ -105,7 +128,7 @@ def is_invalid_resource(sr: StoredResource, expected_server_pen: int) -> str | N
 
     # Validate server generated mrids
     if hasattr(sr.resource, "mRID") and sr.resource_type not in CLIENT_CONTROLLED_MRIDS:
-        mrid: str = sr.resource.mRID
+        mrid: str = sr.resource.mRID  # type: ignore # Risk is managed here via the earlier hasattr
         mrid_error = is_invalid_mrid(mrid, expected_server_pen)
         if mrid_error:
             return f"mrid '{mrid}' is invalid: {mrid_error}"

@@ -31,6 +31,10 @@ ignore_missing_imports = true
 module = ["cactus_client.admin", "cactus_client.admin.*"]
 disallow_untyped_decorators = false
 
+[tool.ty.src]
+include = ["src"]
+exclude = ["tests"]
+
 
 [build-system]
 requires = ["setuptools >= 40.9.0", "wheel"]
@@ -63,7 +67,8 @@ dev = [
     "coverage",
     "flake8",
     "flake8-bugbear",
-    "mypy",
+    "ruff",
+    "ty",
     "types-PyYAML",
     "lxml-stubs",
     "types-reportlab",

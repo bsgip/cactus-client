@@ -14,14 +14,22 @@ CSIP_AUS_12_DIR = Path(csipaus12.__file__).parent
 class LocalXsdResolver(etree.Resolver):
     """Finds specific XSD files in our local schema directory"""
 
-    def resolve(self, url, id, context):  # type: ignore
+    def resolve(self, url, id, context):  # type: ignore # lxml stubs are faulty
         if url == "sep.xsd":
             return self.resolve_filename(str(CSIP_AUS_12_DIR / "sep.xsd"), context)  # type: ignore
         elif url == "csipaus-core.xsd":
-            return self.resolve_filename(str(CSIP_AUS_12_DIR / "csipaus-core.xsd"), context)  # type: ignore
+            return self.resolve_filename(  # type: ignore # lxml stubs are faulty
+                str(CSIP_AUS_12_DIR / "csipaus-core.xsd"), context
+            )
         elif url == "csipaus-ext.xsd":
-            return self.resolve_filename(str(CSIP_AUS_12_DIR / "csipaus-ext.xsd"), context)  # type: ignore
+            return self.resolve_filename(  # type: ignore # lxml stubs are faulty
+                str(CSIP_AUS_12_DIR / "csipaus-ext.xsd"), context
+            )
         return None
+
+
+etree.Resolver().resolve
+LocalXsdResolver().resolve
 
 
 @lru_cache
@@ -47,7 +55,10 @@ def validate_xml(xml: str) -> list[str]:
         xml_doc = etree.fromstring(xml)
     except Exception as exc:
         preview = xml[:32]
-        logger.error(f"validate_xml: Failure parsing string starting '{preview}'... as XML", exc_info=exc)
+        logger.error(
+            f"validate_xml: Failure parsing string starting '{preview}'... as XML",
+            exc_info=exc,
+        )
         return [f"The provided body '{preview}'... does NOT parse as XML"]
 
     schema = csip_aus_schema()
@@ -57,7 +68,7 @@ def validate_xml(xml: str) -> list[str]:
     if is_valid:
         return []
     else:
-        return [f"{e.line}: {e.message}" for e in schema.error_log]  # type: ignore
+        return [f"{e.line}: {e.message}" for e in schema.error_log]
 
 
 def to_hex_binary(v: int) -> str:
