@@ -258,6 +258,53 @@ def test_check_der_program_fsa_index_negatives(
     )
 
 
+def test_check_der_program_fsa_index_uuid_hrefs(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    assert_check_result: Callable[[CheckResult, bool], None],
+):
+    """fsa_index is ordered by DERProgram primacy, not href (UUID hrefs don't sort by primacy)"""
+    context, step = testing_contexts_factory(mock.Mock())
+    store = context.discovered_resources(step)
+
+    # '/fsa/123' sorts before '/fsa/321' alphabetically, but its DERProgram has higher primacy
+    for fsa_href, derp_href, primacy in [
+        ("/fsa/321", "/fsa/321/derp/1", 1),
+        ("/fsa/123", "/fsa/123/derp/1", 2),
+    ]:
+        fsa_sr = store.append_resource(
+            CSIPAusResource.FunctionSetAssignments,
+            None,
+            generate_class_instance(FunctionSetAssignmentsResponse, href=fsa_href),
+        )
+        derp_list_sr = store.append_resource(
+            CSIPAusResource.DERProgramList,
+            fsa_sr.id,
+            generate_class_instance(DERProgramListResponse, href=f"{fsa_href}/derp"),
+        )
+        store.append_resource(
+            CSIPAusResource.DERProgram,
+            derp_list_sr.id,
+            generate_class_instance(DERProgramResponse, primacy=primacy, href=derp_href),
+        )
+
+    assert_check_result(
+        check_der_program(
+            {"fsa_index": 0, "primacy": 1, "minimum_count": 1, "maximum_count": 1},
+            step,
+            context,
+        ),
+        True,
+    )
+    assert_check_result(
+        check_der_program(
+            {"fsa_index": 1, "primacy": 2, "minimum_count": 1, "maximum_count": 1},
+            step,
+            context,
+        ),
+        True,
+    )
+
+
 def test_check_der_program_sub_id(
     testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
