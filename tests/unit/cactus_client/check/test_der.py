@@ -52,9 +52,7 @@ from cactus_client.model.execution import CheckResult, StepExecution
     ],
 )
 def test_check_der_program_combinations_no_fsa(
-    testing_contexts_factory: Callable[
-        [ClientSession], tuple[ExecutionContext, StepExecution]
-    ],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
     stored_programs,
     check_params: dict[str, Any],
@@ -65,9 +63,7 @@ def test_check_der_program_combinations_no_fsa(
     resource_store = context.discovered_resources(step)
 
     for i, primacy in enumerate(stored_programs):
-        derp = generate_class_instance(
-            DERProgramResponse, primacy=primacy, href=f"/derp/{i + 1}"
-        )
+        derp = generate_class_instance(DERProgramResponse, primacy=primacy, href=f"/derp/{i + 1}")
         resource_store.upsert_resource(CSIPAusResource.DERProgram, None, derp)
 
     # Act
@@ -78,9 +74,7 @@ def test_check_der_program_combinations_no_fsa(
 
 
 def test_check_der_program_no_programs_in_store(
-    testing_contexts_factory: Callable[
-        [ClientSession], tuple[ExecutionContext, StepExecution]
-    ],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
 ):
     # Arrange
@@ -95,24 +89,16 @@ def test_check_der_program_no_programs_in_store(
 
 
 def test_check_der_program_fsa_index_order_independence(
-    testing_contexts_factory: Callable[
-        [ClientSession], tuple[ExecutionContext, StepExecution]
-    ],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
 ):
     """Test that fsa_index is consistent regardless of the order programs are added"""
     # Arrange - Create FSAs and DERPrograms
     fsa_data = []
     for i in range(3):
-        fsa = generate_class_instance(
-            FunctionSetAssignmentsResponse, href=f"/fsa/{i + 1}"
-        )
-        derp_list = generate_class_instance(
-            DERProgramListResponse, href=f"/fsa/{i + 1}/derp"
-        )
-        derp = generate_class_instance(
-            DERProgramResponse, primacy=1, href=f"/fsa/{i + 1}/derp/1"
-        )
+        fsa = generate_class_instance(FunctionSetAssignmentsResponse, href=f"/fsa/{i + 1}")
+        derp_list = generate_class_instance(DERProgramListResponse, href=f"/fsa/{i + 1}/derp")
+        derp = generate_class_instance(DERProgramResponse, primacy=1, href=f"/fsa/{i + 1}/derp/1")
         fsa_data.append((fsa, derp_list, derp))
 
     # First context: add in order 0, 1, 2
@@ -120,15 +106,9 @@ def test_check_der_program_fsa_index_order_independence(
     resource_store1 = context1.discovered_resources(step1)
 
     for fsa, derp_list, derp in fsa_data:
-        fsa_sr = resource_store1.upsert_resource(
-            CSIPAusResource.FunctionSetAssignments, None, fsa
-        )
-        derp_list_sr = resource_store1.upsert_resource(
-            CSIPAusResource.DERProgramList, fsa_sr.id, derp_list
-        )
-        resource_store1.upsert_resource(
-            CSIPAusResource.DERProgram, derp_list_sr.id, derp
-        )
+        fsa_sr = resource_store1.upsert_resource(CSIPAusResource.FunctionSetAssignments, None, fsa)
+        derp_list_sr = resource_store1.upsert_resource(CSIPAusResource.DERProgramList, fsa_sr.id, derp_list)
+        resource_store1.upsert_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp)
 
     # Second context: add in reverse order 2, 1, 0
     context2: ExecutionContext
@@ -136,15 +116,9 @@ def test_check_der_program_fsa_index_order_independence(
     resource_store2 = context2.discovered_resources(step2)
 
     for fsa, derp_list, derp in reversed(fsa_data):
-        fsa_sr = resource_store2.upsert_resource(
-            CSIPAusResource.FunctionSetAssignments, None, fsa
-        )
-        derp_list_sr = resource_store2.upsert_resource(
-            CSIPAusResource.DERProgramList, fsa_sr.id, derp_list
-        )
-        resource_store2.upsert_resource(
-            CSIPAusResource.DERProgram, derp_list_sr.id, derp
-        )
+        fsa_sr = resource_store2.upsert_resource(CSIPAusResource.FunctionSetAssignments, None, fsa)
+        derp_list_sr = resource_store2.upsert_resource(CSIPAusResource.DERProgramList, fsa_sr.id, derp_list)
+        resource_store2.upsert_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp)
 
     # Act & Assert - Check each fsa_index in both contexts
     for fsa_idx in range(3):
@@ -156,9 +130,7 @@ def test_check_der_program_fsa_index_order_independence(
 
 
 def test_check_der_program_fsa_index_negatives(
-    testing_contexts_factory: Callable[
-        [ClientSession], tuple[ExecutionContext, StepExecution]
-    ],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
 ):
     """Test that fsa_index supports negative values (i.e. referencing end of the list)"""
@@ -181,28 +153,14 @@ def test_check_der_program_fsa_index_negatives(
     #              - DERP H (primacy 32)
     #              - DERP I (primacy 33)
     for i in range(3):
-        fsa = generate_class_instance(
-            FunctionSetAssignmentsResponse, href=f"/fsa/{i + 1}"
-        )
-        derp_list = generate_class_instance(
-            DERProgramListResponse, href=f"/fsa/{i + 1}/derp"
-        )
-        derp1 = generate_class_instance(
-            DERProgramResponse, primacy=((i + 1) * 10) + 1, href=f"/fsa/{i + 1}/derp/1"
-        )
-        derp2 = generate_class_instance(
-            DERProgramResponse, primacy=((i + 1) * 10) + 2, href=f"/fsa/{i + 1}/derp/2"
-        )
-        derp3 = generate_class_instance(
-            DERProgramResponse, primacy=((i + 1) * 10) + 3, href=f"/fsa/{i + 1}/derp/3"
-        )
+        fsa = generate_class_instance(FunctionSetAssignmentsResponse, href=f"/fsa/{i + 1}")
+        derp_list = generate_class_instance(DERProgramListResponse, href=f"/fsa/{i + 1}/derp")
+        derp1 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 1, href=f"/fsa/{i + 1}/derp/1")
+        derp2 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 2, href=f"/fsa/{i + 1}/derp/2")
+        derp3 = generate_class_instance(DERProgramResponse, primacy=((i + 1) * 10) + 3, href=f"/fsa/{i + 1}/derp/3")
 
-        fsa_sr = store.append_resource(
-            CSIPAusResource.FunctionSetAssignments, None, fsa
-        )
-        derp_list_sr = store.append_resource(
-            CSIPAusResource.DERProgramList, fsa_sr.id, derp_list
-        )
+        fsa_sr = store.append_resource(CSIPAusResource.FunctionSetAssignments, None, fsa)
+        derp_list_sr = store.append_resource(CSIPAusResource.DERProgramList, fsa_sr.id, derp_list)
         store.append_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp1)
         store.append_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp2)
         store.append_resource(CSIPAusResource.DERProgram, derp_list_sr.id, derp3)
@@ -301,9 +259,7 @@ def test_check_der_program_fsa_index_negatives(
 
 
 def test_check_der_program_fsa_index_uuid_hrefs(
-    testing_contexts_factory: Callable[
-        [ClientSession], tuple[ExecutionContext, StepExecution]
-    ],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
 ):
     """fsa_index is ordered by DERProgram primacy, not href (UUID hrefs don't sort by primacy)"""
@@ -328,9 +284,7 @@ def test_check_der_program_fsa_index_uuid_hrefs(
         store.append_resource(
             CSIPAusResource.DERProgram,
             derp_list_sr.id,
-            generate_class_instance(
-                DERProgramResponse, primacy=primacy, href=derp_href
-            ),
+            generate_class_instance(DERProgramResponse, primacy=primacy, href=derp_href),
         )
 
     assert_check_result(
@@ -352,9 +306,7 @@ def test_check_der_program_fsa_index_uuid_hrefs(
 
 
 def test_check_der_program_sub_id(
-    testing_contexts_factory: Callable[
-        [ClientSession], tuple[ExecutionContext, StepExecution]
-    ],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
     assert_check_result: Callable[[CheckResult, bool], None],
 ):
     """Test that sub_id filtering works"""
@@ -384,55 +336,35 @@ def test_check_der_program_sub_id(
         generate_class_instance(DERProgramResponse, seed=4),
     )
 
-    context.resource_annotations(step, derp1.id).add_tag(
-        AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1"
-    )
-    context.resource_annotations(step, derp1.id).add_tag(
-        AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub2"
-    )
+    context.resource_annotations(step, derp1.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1")
+    context.resource_annotations(step, derp1.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub2")
 
-    context.resource_annotations(step, derp2.id).add_tag(
-        AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1"
-    )
+    context.resource_annotations(step, derp2.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1")
 
-    context.resource_annotations(step, derp4.id).add_tag(
-        AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1"
-    )
+    context.resource_annotations(step, derp4.id).add_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, "sub1")
 
     # Perform queries
     assert_check_result(
-        check_der_program(
-            {"minimum_count": 3, "maximum_count": 3, "sub_id": "sub1"}, step, context
-        ),
+        check_der_program({"minimum_count": 3, "maximum_count": 3, "sub_id": "sub1"}, step, context),
         True,
     )
     assert_check_result(
-        check_der_program(
-            {"minimum_count": 0, "maximum_count": 5, "sub_id": "sub1"}, step, context
-        ),
+        check_der_program({"minimum_count": 0, "maximum_count": 5, "sub_id": "sub1"}, step, context),
         True,
     )
     assert_check_result(
-        check_der_program(
-            {"minimum_count": 1, "maximum_count": 1, "sub_id": "sub1"}, step, context
-        ),
+        check_der_program({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub1"}, step, context),
         False,
     )
     assert_check_result(
-        check_der_program(
-            {"minimum_count": 1, "maximum_count": 1, "sub_id": "sub2"}, step, context
-        ),
+        check_der_program({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub2"}, step, context),
         True,
     )
     assert_check_result(
-        check_der_program(
-            {"minimum_count": 1, "maximum_count": 1, "sub_id": "sub3"}, step, context
-        ),
+        check_der_program({"minimum_count": 1, "maximum_count": 1, "sub_id": "sub3"}, step, context),
         False,
     )
     assert_check_result(
-        check_der_program(
-            {"minimum_count": 0, "maximum_count": 0, "sub_id": "sub3"}, step, context
-        ),
+        check_der_program({"minimum_count": 0, "maximum_count": 0, "sub_id": "sub3"}, step, context),
         True,
     )
