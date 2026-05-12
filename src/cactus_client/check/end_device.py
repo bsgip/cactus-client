@@ -8,9 +8,11 @@ from envoy_schema.server.schema.sep2.end_device import (
     RegistrationResponse,
 )
 
+from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 from cactus_client.model.resource import ResourceStore, StoredResource
+from cactus_client.sep2 import lfdi_from_cert_file
 
 
 def is_checksum_valid(pin: int) -> bool:
@@ -19,15 +21,8 @@ def is_checksum_valid(pin: int) -> bool:
     return pin % 10 == sum(int(d) for d in str(pin // 10)) % 10
 
 
-def match_end_device_on_lfdi_caseless(
-    resource_store: ResourceStore, lfdi: str, is_aggregator: bool = False
-) -> StoredResource | None:
-    """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None.
-
-    If is_aggregator is True, any EndDevice whose lFDI matches the search lfdi is excluded from matching.
-    Aggregator clients always see a virtual end device with the aggregator's LFDI regardless of whether a
-    real device has been registered; other registered devices belong to different DERs and have distinct LFDIs.
-    """
+def match_end_device_on_lfdi_caseless(resource_store: ResourceStore, lfdi: str) -> StoredResource | None:
+    """Does a very lightweight match on EndDevice.lfdi - returning the first EndDevice that matches or None."""
     end_devices = resource_store.get_for_type(CSIPAusResource.EndDevice)
     if not end_devices:
         return None
@@ -39,13 +34,20 @@ def match_end_device_on_lfdi_caseless(
         if edev_resource.lFDI is None or edev_resource.lFDI.casefold() != lfdi_folded:
             continue
 
-        # At this stage the lfdi already matches, so if is aggregator, this must be the virtual edev
-        if is_aggregator:
-            continue
-
         return edev
 
     return None
+
+
+def match_aggregator_end_device(resource_store: ResourceStore, client_config: ClientConfig) -> StoredResource | None:
+    """Searches the resource_store for the CSIP Aggregator EndDevice for the specified client_config, returning it (or
+    returning None if it DNE)"""
+
+    if client_config.type != ClientType.AGGREGATOR:
+        return None
+
+    lfdi = lfdi_from_cert_file(client_config.certificate_file)
+    return match_end_device_on_lfdi_caseless(resource_store, lfdi)
 
 
 def check_end_device(
@@ -60,11 +62,7 @@ def check_end_device(
     client_config = context.client_config(step)
 
     # Start by finding a loose candidate match - then we can drill into the specifics
-    matched_edev = match_end_device_on_lfdi_caseless(
-        resource_store,
-        client_config.lfdi,
-        is_aggregator=client_config.type == ClientType.AGGREGATOR,
-    )
+    matched_edev = match_end_device_on_lfdi_caseless(resource_store, client_config.lfdi)
     if matched_edev is None:
         if matches is True:
             return CheckResult(

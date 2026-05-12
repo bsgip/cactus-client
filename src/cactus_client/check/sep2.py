@@ -120,7 +120,24 @@ def is_invalid_der_control(derc: DERControlResponse) -> str | None:
     )
 
 
-def is_invalid_resource(sr: StoredResource, expected_server_pen: int) -> str | None:
+def is_invalid_subscription_list(sub_list: StoredResource, aggregator_edev: StoredResource | None) -> str | None:
+    if aggregator_edev is None:
+        # All subscriptions should be discovered ONLY via the Aggregator EndDevice (eg /edev/0)
+        return (
+            f"Found SubscriptionList '{sub_list.resource.href}'"
+            + " but it doesn't appear to be nested under the (missing) aggregator EndDevice"
+        )
+
+    if not sub_list.id.is_descendent_of(aggregator_edev.id):
+        return (
+            f"Found SubscriptionList '{sub_list.resource.href}'"
+            + f" but it doesn't appear to be nested under aggregator EndDevice {aggregator_edev.resource.href}"
+        )
+
+
+def is_invalid_resource(
+    sr: StoredResource, expected_server_pen: int, aggregator_edev: StoredResource | None
+) -> str | None:
     """Does a deep inspection on sr (specifically the underlying CSIP-Aus Resource) looking for "common" failures
     of various forms. eg- having a malformed mrid
 
@@ -140,6 +157,10 @@ def is_invalid_resource(sr: StoredResource, expected_server_pen: int) -> str | N
     # DERControls
     if sr.resource_type == CSIPAusResource.DERControl:
         return is_invalid_der_control(cast(DERControlResponse, sr.resource))
+
+    # SubscriptionList
+    if sr.resource_type == CSIPAusResource.SubscriptionList:
+        return is_invalid_subscription_list(sr, aggregator_edev)
 
     # Everything is OK
     return None

@@ -274,6 +274,18 @@ def prompt_new_client(console: Console, new_client_id: str) -> ClientConfig:
         lfdi = Prompt.ask("Client LFDI", console=console)
         sfdi = IntPrompt.ask("Client SFDI", console=console)
 
+    # This is likely a user misunderstanding the purpose of an AGGREGATOR client's lfdi
+    # We'll prevent this from happening as it will result in all sorts of downstream headaches otherwise
+    if client_type == ClientType.AGGREGATOR and lfdi.casefold() == lfdi_from_cert_file(cert_file).casefold():
+        console.print(
+            "[red]For an [b]Aggregator[/b] client, the LFDI/SFDI should [b]NOT[/b] match the client certificate.[/red]"
+        )
+        console.print("[red]This is to prevent a collision with the CSIP Aggregator EndDevice.[/red]")
+        console.print("[red]Use a unique LFDI/SFDI value.[/red]")
+        console.print("")
+        console.print("No changes made.")
+        sys.exit(0)
+
     client = update_client_value(console, client, ClientConfigKey.LFDI, lfdi)
     client = update_client_value(console, client, ClientConfigKey.SFDI, str(sfdi))
 

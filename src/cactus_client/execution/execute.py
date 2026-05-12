@@ -7,6 +7,7 @@ from dataclasses import replace
 from cactus_client.action import execute_action
 from cactus_client.admin import get_plugin_manager
 from cactus_client.check import execute_checks
+from cactus_client.check.end_device import match_aggregator_end_device
 from cactus_client.check.sep2 import is_invalid_resource
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, ExecutionResult, StepExecution
@@ -21,8 +22,9 @@ def validate_all_resources(context: ExecutionContext) -> None:
     warnings"""
     server_pen = context.server_config.pen
     for client_context in context.clients_by_alias.values():
+        aggregator_edev = match_aggregator_end_device(client_context.discovered_resources, client_context.client_config)
         for sr in client_context.discovered_resources.resources():
-            error = is_invalid_resource(sr, server_pen)
+            error = is_invalid_resource(sr, server_pen, aggregator_edev)
             if error:
                 context.warnings.log_stored_resource_warning(sr, error)
 
