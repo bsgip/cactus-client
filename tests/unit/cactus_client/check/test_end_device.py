@@ -1,5 +1,6 @@
 import unittest.mock as mock
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -17,10 +18,13 @@ from cactus_client.check.end_device import (
     check_end_device,
     check_end_device_list,
     is_checksum_valid,
+    match_aggregator_end_device,
+    match_end_device_on_lfdi_caseless,
 )
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import AnnotationNamespace, ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
+from cactus_client.model.resource import StoredResource
 
 
 @pytest.mark.parametrize(
@@ -39,6 +43,110 @@ from cactus_client.model.execution import CheckResult, StepExecution
 )
 def test_is_checksum_valid(pin: int, expected: bool):
     assert is_checksum_valid(pin) == expected
+
+
+@pytest.mark.parametrize(
+    "existing_edev_lfdis, lfdi, expected_idx",
+    [
+        ([], "", None),
+        ([], "abc123", None),
+        (["abc123"], "abc123", 0),
+        (["abc123", "", "123ABC", "DEF456abc"], "DEF", None),
+        (["abc123", "", "123ABC", "DEF456abc"], "123abc", 2),
+        (["abc123", "", "123ABC", "DEF456abc"], "123ABC", 2),
+        (["abc123", "", "123ABC", "DEF456abc"], "def456ABC", 3),
+    ],
+)
+def test_match_end_device_on_lfdi_caseless(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    existing_edev_lfdis: list[str],
+    lfdi: str,
+    expected_idx: int | None,
+):
+
+    # Arrange
+    if expected_idx is not None:
+        assert expected_idx >= 0 and expected_idx < len(existing_edev_lfdis)
+
+    context, step = testing_contexts_factory(mock.Mock())
+    store = context.discovered_resources(step)
+    expected_sr: StoredResource | None = None
+    for idx, existing_lfdi in enumerate(existing_edev_lfdis):
+        new_sr = store.append_resource(
+            CSIPAusResource.EndDevice, None, generate_class_instance(EndDeviceResponse, seed=idx, lFDI=existing_lfdi)
+        )
+        if idx == expected_idx:
+            expected_sr = new_sr
+
+    # Act
+    actual_sr = match_end_device_on_lfdi_caseless(store, lfdi)
+
+    # Assert
+    if expected_sr is not None:
+        assert actual_sr is expected_sr
+    else:
+        assert actual_sr is None
+
+
+@pytest.mark.parametrize(
+    "existing_edev_lfdis, client_type, agg_edev_lfdi, expected_idx",
+    [
+        ([], ClientType.AGGREGATOR, "", None),
+        ([], ClientType.DEVICE, "", None),
+        ([], ClientType.AGGREGATOR, "abc123", None),
+        ([], ClientType.DEVICE, "abc123", None),
+        (["abc123"], ClientType.AGGREGATOR, "abc123", 0),
+        (["abc123"], ClientType.DEVICE, "abc123", None),  # Device clients never look for an agg EndDevice
+        (["abc123", "", "123ABC", "DEF456abc"], ClientType.AGGREGATOR, "DEF", None),
+        (["abc123", "", "123ABC", "DEF456abc"], ClientType.AGGREGATOR, "123abc", 2),
+        (["abc123", "", "123ABC", "DEF456abc"], ClientType.AGGREGATOR, "123ABC", 2),
+        (["abc123", "", "123ABC", "DEF456abc"], ClientType.AGGREGATOR, "def456ABC", 3),
+        (["abc123", "", "123ABC", "DEF456abc"], ClientType.DEVICE, "DEF456abc", None),
+    ],
+)
+@mock.patch("cactus_client.check.end_device.lfdi_from_cert_file")
+def test_match_aggregator_end_device(
+    mock_lfdi_from_cert_file: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    existing_edev_lfdis: list[str],
+    client_type: ClientType,
+    agg_edev_lfdi: str,
+    expected_idx: int | None,
+):
+
+    # Arrange
+    if expected_idx is not None:
+        assert expected_idx >= 0 and expected_idx < len(existing_edev_lfdis)
+
+    # Rewrite the client config to have the nominated client type
+    context, step = testing_contexts_factory(mock.Mock())
+    store = context.discovered_resources(step)
+    client_config = replace(context.client_config(step), type=client_type)
+    context.clients_by_alias[step.client_alias].client_config = client_config
+
+    # Build the resource store
+    mock_lfdi_from_cert_file.return_value = agg_edev_lfdi
+    expected_sr: StoredResource | None = None
+    for idx, existing_lfdi in enumerate(existing_edev_lfdis):
+        new_sr = store.append_resource(
+            CSIPAusResource.EndDevice, None, generate_class_instance(EndDeviceResponse, seed=idx, lFDI=existing_lfdi)
+        )
+        if idx == expected_idx:
+            expected_sr = new_sr
+
+    # Act
+    actual_sr = match_aggregator_end_device(store, context.client_config(step))
+
+    # Assert
+    if expected_sr is not None:
+        assert actual_sr is expected_sr
+    else:
+        assert actual_sr is None
+
+    if client_type == ClientType.AGGREGATOR:
+        mock_lfdi_from_cert_file.assert_called_once_with(client_config.certificate_file)
+    else:
+        mock_lfdi_from_cert_file.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -234,83 +342,6 @@ def test_check_end_device(
         assert len(context.warnings.warnings) > 0
     else:
         assert len(context.warnings.warnings) == 0
-
-
-@pytest.mark.parametrize(
-    "client_type, edevs, client_lfdi, matches, expected_result",
-    [
-        # Aggregator: only edev/0 - matches_client:false should pass
-        (
-            ClientType.AGGREGATOR,
-            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
-            "ABC123",
-            False,
-            True,
-        ),
-        # Aggregator: only edev/0 - matches_client:true should fail-
-        (
-            ClientType.AGGREGATOR,
-            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
-            "ABC123",
-            True,
-            False,
-        ),
-        # Aggregator: virtual device at a non-standard path - matches_client:false should pass (LFDI-based,
-        # not href-based)
-        (
-            ClientType.AGGREGATOR,
-            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
-            "ABC123",
-            False,
-            True,
-        ),
-        # Aggregator: virtual device at a non-standard path - matches_client:true should fail
-        (
-            ClientType.AGGREGATOR,
-            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/300")],
-            "ABC123",
-            True,
-            False,
-        ),
-        # Device client: edev/0 - matches_client:false should fail
-        (
-            ClientType.DEVICE,
-            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
-            "ABC123",
-            False,
-            False,
-        ),
-        # Device client: edev/0 - matches_client:true should pass
-        (
-            ClientType.DEVICE,
-            [generate_class_instance(EndDeviceResponse, lFDI="ABC123", href="/path/edev/0")],
-            "ABC123",
-            True,
-            True,
-        ),
-    ],
-)
-def test_check_end_device_aggregator_virtual_edev(
-    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
-    assert_check_result: Callable[[CheckResult, bool], None],
-    client_type: ClientType,
-    edevs: list[EndDeviceResponse],
-    client_lfdi: str,
-    matches: bool,
-    expected_result: bool,
-):
-
-    context, step = testing_contexts_factory(mock.Mock())
-    context.clients_by_alias[step.client_alias].client_config = generate_class_instance(
-        ClientConfig, lfdi=client_lfdi, type=client_type
-    )
-
-    store = context.discovered_resources(step)
-    for edev in edevs:
-        store.append_resource(CSIPAusResource.EndDevice, None, edev)
-
-    result = check_end_device({"matches_client": matches}, step, context)
-    assert_check_result(result, expected_result)
 
 
 @pytest.mark.parametrize(

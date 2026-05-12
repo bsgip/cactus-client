@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime
 
 import pytest
@@ -5,8 +6,10 @@ from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import DERControlBase, DERControlResponse
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower, ReactivePower
+from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
+from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 from envoy_schema.server.schema.sep2.time import TimeResponse
 
 from cactus_client.check.sep2 import (
@@ -15,6 +18,7 @@ from cactus_client.check.sep2 import (
     is_invalid_power_type,
     is_invalid_resource,
     is_invalid_signed_percent,
+    is_invalid_subscription_list,
 )
 from cactus_client.model.resource import (
     StoredResource,
@@ -144,6 +148,31 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
     return StoredResource(StoredResourceId(("/fake/1",)), datetime(2024, 11, 1), type, {}, None, resource)
 
 
+def test_is_invalid_subscription_list():
+    edev_1 = sr(CSIPAusResource.EndDevice, generate_class_instance(EndDeviceResponse, seed=1))
+    edev_1 = replace(edev_1, id=StoredResourceId(("/edev/1",)))
+    edev_2 = sr(CSIPAusResource.EndDevice, generate_class_instance(EndDeviceResponse, seed=2))
+    edev_2 = replace(edev_2, id=StoredResourceId(("/edev/2",)))
+
+    # Nest SubscriptionList 1 under EndDevice 1 and SubscriptionList 2 under EndDevice 2
+    sub_list_1 = sr(CSIPAusResource.SubscriptionList, generate_class_instance(SubscriptionListResponse, seed=3))
+    sub_list_2 = sr(CSIPAusResource.SubscriptionList, generate_class_instance(SubscriptionListResponse, seed=4))
+    sub_list_1 = replace(sub_list_1, id=StoredResourceId.from_parent(edev_1.id, "/sublist/1"))
+    sub_list_2 = replace(sub_list_2, id=StoredResourceId.from_parent(edev_2.id, "/sublist/2"))
+
+    # Check the valid combos
+    assert is_invalid_subscription_list(sub_list_1, edev_1) is None
+    assert is_invalid_subscription_list(sub_list_2, edev_2) is None
+
+    # No aggregator EndDevice
+    result = is_invalid_subscription_list(sub_list_1, None)
+    assert result and isinstance(result, str)
+
+    # invalid aggregator EndDevice
+    result = is_invalid_subscription_list(sub_list_1, edev_2)
+    assert result and isinstance(result, str)
+
+
 @pytest.mark.parametrize(
     "sr, expected_pass",
     [
@@ -224,10 +253,17 @@ def sr(type: CSIPAusResource, resource: Resource) -> StoredResource:
             ),
             True,
         ),
+        (
+            sr(
+                CSIPAusResource.SubscriptionList,
+                generate_class_instance(SubscriptionListResponse),
+            ),
+            False,  # No Aggregator EndDevice - therefore we fail - we will test more closely in a seperate test
+        ),
     ],
 )
 def test_is_invalid_resource(sr: StoredResource, expected_pass: bool):
-    actual = is_invalid_resource(sr, VALID_SERVER_PEN)
+    actual = is_invalid_resource(sr, VALID_SERVER_PEN, None)
     if expected_pass:
         assert actual is None
     else:
