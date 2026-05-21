@@ -89,8 +89,6 @@ def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
             [instr("set-post-rate", resource="MirrorUsagePoint", rate_seconds=300)],
             "Set post rate for MirrorUsagePoint to 300s",
         ),
-        # unknown fallback
-        ([instr("some-unknown-type")], "some-unknown-type"),
         # multiple instructions joined
         (
             [

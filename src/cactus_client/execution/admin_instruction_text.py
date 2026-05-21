@@ -63,7 +63,5 @@ def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  #
                 parts.append(f"Set poll rate for {p['resource']} to {p['rate_seconds']}s")
             case AdminInstructionType.SET_POST_RATE:
                 parts.append(f"Set post rate for {p['resource']} to {p['rate_seconds']}s")
-            case _:
-                parts.append(instr.type)
 
     return ". ".join(parts)
