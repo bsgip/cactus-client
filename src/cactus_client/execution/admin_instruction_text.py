@@ -1,4 +1,4 @@
-from cactus_test_definitions.server.admin_instructions import AdminInstruction
+from cactus_test_definitions.server.admin_instructions import AdminInstruction, AdminInstructionType
 from cactus_test_definitions.variable_expressions import BaseExpression
 
 
@@ -17,7 +17,7 @@ def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  #
         client_suffix = f" for {instr.client}" if instr.client else ""
 
         match instr.type:
-            case "ensure-end-device":
+            case AdminInstructionType.ENSURE_END_DEVICE:
                 if p.get("registered", True):
                     detail = "Register EndDevice"
                     if p.get("has_der_list"):
@@ -25,43 +25,43 @@ def describe_admin_instructions(instructions: list[AdminInstruction]) -> str:  #
                 else:
                     detail = "Remove EndDevice registration"
                 parts.append(detail + client_suffix)
-            case "ensure-mup-list-empty":
+            case AdminInstructionType.ENSURE_MUP_LIST_EMPTY:
                 parts.append("Clear all MirrorUsagePoints")
-            case "ensure-fsa":
+            case AdminInstructionType.ENSURE_FSA:
                 detail = "Ensure FunctionSetAssignment"
                 if p.get("annotation"):
                     detail += f"'{p['annotation']}'"
                 if p.get("primacy") is not None:
                     detail += f" primacy={p['primacy']}"
                 parts.append(detail + client_suffix)
-            case "ensure-der-program":
+            case AdminInstructionType.ENSURE_DER_PROGRAM:
                 detail = "Ensure DERProgram"
                 if p.get("fsa_annotation"):
                     detail += f"'{p['fsa_annotation']}'"
                 if p.get("primacy") is not None:
                     detail += f" primacy={p['primacy']}"
                 parts.append(detail + client_suffix)
-            case "set-client-access":
+            case AdminInstructionType.SET_CLIENT_ACCESS:
                 detail = "Grant client access" if p.get("granted", True) else "Revoke client access"
                 parts.append(detail + client_suffix)
-            case "ensure-der-control-list":
+            case AdminInstructionType.ENSURE_DER_CONTROL_LIST:
                 detail = "Ensure DERControlList accessible"
                 if p.get("subscribable"):
                     detail += ", subscribable"
                 parts.append(detail + client_suffix)
-            case "create-der-control":
+            case AdminInstructionType.CREATE_DER_CONTROL:
                 detail = f"Create {p['status']} DERControl"
                 detail += "".join(f" {k}={_fmt(v)}" for k, v in p.items() if k != "status")
                 parts.append(detail + client_suffix)
-            case "create-default-der-control":
+            case AdminInstructionType.CREATE_DEFAULT_DER_CONTROL:
                 parts.append(
                     "Create DefaultDERControl" + "".join(f" {k}={_fmt(v)}" for k, v in p.items()) + client_suffix
                 )
-            case "clear-der-controls":
+            case AdminInstructionType.CLEAR_DER_CONTROLS:
                 parts.append("Cancel all active DERControls" if p.get("all") else "Cancel latest DERControl")
-            case "set-poll-rate":
+            case AdminInstructionType.SET_POLL_RATE:
                 parts.append(f"Set poll rate for {p['resource']} to {p['rate_seconds']}s")
-            case "set-post-rate":
+            case AdminInstructionType.SET_POST_RATE:
                 parts.append(f"Set post rate for {p['resource']} to {p['rate_seconds']}s")
             case _:
                 parts.append(instr.type)
