@@ -1,11 +1,11 @@
 import pytest
-from cactus_test_definitions.server.admin_instructions import AdminInstruction
+from cactus_test_definitions.server.admin_instructions import AdminInstruction, AdminInstructionType
 
 from cactus_client.execution.admin_instruction_text import describe_admin_instructions
 
 
 def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
-    return AdminInstruction(type=type_, client=client, parameters=params)
+    return AdminInstruction(type=AdminInstructionType(type_), client=client, parameters=params)
 
 
 @pytest.mark.parametrize(

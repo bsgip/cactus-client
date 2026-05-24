@@ -4,6 +4,7 @@ from collections.abc import Callable
 import apluggy
 import pytest
 from aiohttp import ClientSession
+from cactus_test_definitions.server.admin_instructions import AdminInstructionType
 from cactus_test_definitions.server.test_procedures import AdminInstruction
 
 from cactus_client.admin.plugins import (
@@ -59,7 +60,7 @@ async def test_admin_instruction_default_returns_none(
     """Default admin_instruction returns None — no instruction types are handled without a provider plugin."""
     context, step = testing_contexts_factory(mock.Mock())
     pm = make_plugin_manager()
-    instr = AdminInstruction(type="ensure-end-device", parameters={"registered": True})
+    instr = AdminInstruction(type=AdminInstructionType.ENSURE_END_DEVICE, parameters={"registered": True})
 
     results = await pm.ahook.admin_instruction(instruction=instr, step=step, context=context.to_admin_context())
 
@@ -111,8 +112,8 @@ async def test_provider_plugin_handles_instruction(
     pm = make_plugin_manager()
     pm.register(ProviderPlugin())
 
-    handled = AdminInstruction(type="ensure-end-device", parameters={})
-    unhandled = AdminInstruction(type="set-poll-rate", parameters={})
+    handled = AdminInstruction(type=AdminInstructionType.ENSURE_END_DEVICE, parameters={})
+    unhandled = AdminInstruction(type=AdminInstructionType.SET_POLL_RATE, parameters={})
 
     admin_context = context.to_admin_context()
     handled_results = await pm.ahook.admin_instruction(instruction=handled, step=step, context=admin_context)
