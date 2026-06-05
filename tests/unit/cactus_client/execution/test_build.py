@@ -102,6 +102,25 @@ async def test_build_execution_context_s_all_01(
 
 
 @pytest.mark.asyncio
+async def test_build_execution_context_offers_mandatory_2030_5_cipher(
+    generate_testing_key_cert, no_deprecation_warnings
+):
+    """Test that the IEEE 2030.5 mandatory cipher suite (ECDHE-ECDSA-AES128-CCM8) is offered by the client."""
+    with TemporaryDirectory() as tempdirname:
+        key_file = Path(tempdirname) / "my.key"
+        cert_file = Path(tempdirname) / "my.cert"
+        generate_testing_key_cert(key_file, cert_file)
+
+        _, user_config, run_config = generate_valid_config(tempdirname, str(key_file), str(cert_file), None, None)
+
+        async with build_execution_context(user_config, run_config) as result:
+            client_context = result.clients_by_alias["client"]
+            ssl_context = client_context.session.connector._ssl
+            offered_ciphers = {c["name"] for c in ssl_context.get_ciphers()}
+            assert "ECDHE-ECDSA-AES128-CCM8" in offered_ciphers
+
+
+@pytest.mark.asyncio
 async def test_build_execution_context_junk_certs(generate_testing_key_cert, no_deprecation_warnings):
     with TemporaryDirectory() as tempdirname:
         key_file = Path(tempdirname) / "my.key"
