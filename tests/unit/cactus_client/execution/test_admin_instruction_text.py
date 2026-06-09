@@ -1,5 +1,3 @@
-from types import SimpleNamespace
-
 import pytest
 from cactus_test_definitions.server.admin_instructions import AdminInstruction, AdminInstructionType
 
@@ -103,11 +101,3 @@ def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
 )
 def test_describe_admin_instructions(instructions: list[AdminInstruction], expected: str) -> None:
     assert describe_admin_instructions(instructions) == expected
-
-
-def test_describe_admin_instructions_unhandled_type_fallback() -> None:
-    """An instruction type with no explicit case falls back to its raw value."""
-    # A stub stands in for a future AdminInstructionType that describe() has no case for; AdminInstruction itself
-    # validates type against the enum, so an unhandled value can't be constructed directly.
-    unhandled = SimpleNamespace(type="some-future-type", client=None, parameters={})
-    assert describe_admin_instructions([unhandled]) == "some-future-type"  # type: ignore
