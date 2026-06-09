@@ -1,5 +1,5 @@
 import unittest.mock as mock
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from http import HTTPMethod
 from itertools import product
 from typing import cast
@@ -402,7 +402,7 @@ async def test_collect_and_validate_notification(
     collected_notification = CollectedNotification(
         method="POST",
         headers=[CollectedHeader("Content-Type", MIME_TYPE_SEP2)],
-        received_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
+        received_at=datetime(2025, 1, 2, tzinfo=UTC),
         remote="127.0.0.1",
         body=cast(str, notification.to_xml()),
     )

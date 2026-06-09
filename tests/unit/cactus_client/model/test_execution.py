@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from assertical.fake.generator import generate_class_instance
 
@@ -7,7 +7,7 @@ from cactus_client.model.execution import StepExecution, StepExecutionList
 
 def test_StepExecutionList():
     se_list = StepExecutionList()
-    now = datetime(2025, 1, 2, tzinfo=timezone.utc)
+    now = datetime(2025, 1, 2, tzinfo=UTC)
 
     # Empty list should still work OK
     assert se_list.pop(now) is None

@@ -12,6 +12,7 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "S", "C90", "B", "UP", "ANN", "N"]
+ignore = ["UP046", "UP047"]  # don't enforce PEP 695 generics; classic TypeVar style preferred
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
@@ -31,8 +32,9 @@ build-backend = "setuptools.build_meta"
 name = "cactus_client"
 dynamic = ["version", "readme"]
 description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
+requires-python = ">= 3.12"
 dependencies = [
-    "cactus-test-definitions>=1.14.3",
+    "cactus-test-definitions>=1.14.6",
     "cactus-schema>=0.0.11",
     "envoy-schema>=1.1.0,<2",
     "rich>=14.1.0,<15",
@@ -50,10 +52,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "bandit",
-    "black",
     "coverage",
-    "flake8",
-    "flake8-bugbear",
     "ruff",
     "ty",
     "types-PyYAML",

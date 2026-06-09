@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http import HTTPMethod, HTTPStatus
 from unittest import mock
 
@@ -316,7 +316,7 @@ async def test_action_insert_readings_minimum_wait_respects_server_post_rate(
 ):
     """When the server sets a postRate on a MUP, the minimum wait between readings should use that"""
 
-    frozen_now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    frozen_now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
 
     # Arrange
     post_route = TestingAppRoute(HTTPMethod.POST, "/mup/test", [RouteBehaviour(HTTPStatus.CREATED, b"", {})])

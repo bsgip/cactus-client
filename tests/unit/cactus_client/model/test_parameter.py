@@ -1,5 +1,5 @@
 import unittest.mock as mock
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -77,7 +77,7 @@ CONFIG_SET_MAX_W = 22020.0
         (Constant(timedelta(hours=1.23)), timedelta(hours=1.23)),
         (
             NamedVariable(NamedVariableType.NOW),
-            datetime(2024, 9, 10, 1, 2, 3, tzinfo=timezone.utc),
+            datetime(2024, 9, 10, 1, 2, 3, tzinfo=UTC),
         ),  # Time frozen to this
         (NamedVariable(NamedVariableType.DERSETTING_SET_MAX_W), CONFIG_SET_MAX_W),
         (
@@ -86,7 +86,7 @@ CONFIG_SET_MAX_W = 22020.0
                 NamedVariable(NamedVariableType.NOW),
                 Constant(timedelta(hours=1)),
             ),
-            datetime(2024, 9, 10, 2, 2, 3, tzinfo=timezone.utc),
+            datetime(2024, 9, 10, 2, 2, 3, tzinfo=UTC),
         ),
         (
             Expression(
@@ -94,7 +94,7 @@ CONFIG_SET_MAX_W = 22020.0
                 NamedVariable(NamedVariableType.NOW),
                 Constant(timedelta(hours=1)),
             ),
-            datetime(2024, 9, 10, 0, 2, 3, tzinfo=timezone.utc),
+            datetime(2024, 9, 10, 0, 2, 3, tzinfo=UTC),
         ),
         (
             Expression(
