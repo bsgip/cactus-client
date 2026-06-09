@@ -1,6 +1,6 @@
 import unittest.mock as mock
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from aiohttp import ClientSession
@@ -14,7 +14,7 @@ from cactus_client.constants import MAX_TIME_DRIFT_SECONDS
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
 
-NOW = datetime(2001, 4, 6, 1, 2, 3, tzinfo=timezone.utc)
+NOW = datetime(2001, 4, 6, 1, 2, 3, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(

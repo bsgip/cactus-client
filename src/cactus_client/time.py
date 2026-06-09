@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def utc_now() -> datetime:
     """Returns an unambiguous timezone aware (UTC) datetime representing this moment"""
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 def relative_time(delta: timedelta) -> str:

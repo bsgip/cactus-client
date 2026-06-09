@@ -53,8 +53,8 @@ async def _run_and_await_tasks(
             )
         else:
             await _cancel_tasks(tasks)
-            raise asyncio.TimeoutError()
-    except asyncio.TimeoutError:
+            raise TimeoutError()
+    except TimeoutError:
         logger.error("Aborting test due to timeout after %d seconds.", timeout)
         console.print(f"[bold red]Test timed out after {timeout} seconds[/bold red]")
         return ResultsEvaluation(context, ExecutionResult(completed=False))

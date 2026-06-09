@@ -1,6 +1,6 @@
 import unittest.mock as mock
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from aiohttp import ClientSession
@@ -393,7 +393,7 @@ def test_calculate_wait_next_polling_window(
 
     dcap = generate_class_instance(DeviceCapabilityResponse, pollRate=poll_rate, href="/dcap")
     resource_store.append_resource(CSIPAusResource.DeviceCapability, None, dcap)
-    now = datetime.fromtimestamp(current_seconds, tz=timezone.utc)
+    now = datetime.fromtimestamp(current_seconds, tz=UTC)
 
     wait = calculate_wait_next_polling_window(now, resource_store)
 
