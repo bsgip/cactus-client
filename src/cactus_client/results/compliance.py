@@ -1,4 +1,5 @@
 import re
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -77,3 +78,36 @@ def render_compliance_report(console: Console, output_dir: Path, include: list[T
             table.add_row(str(tp_id), "[red]FAIL[/red]", str(record.run_number))
 
     console.print(table)
+
+
+def create_bundle(output_dir: Path, target_ids: list[TestProcedureId]) -> tuple[Path, bool]:
+    """Zip the latest run of each target test into a single bundle in *output_dir*.
+
+    Returns (zip_path, all_passed) where all_passed is True only if every target test has a
+    latest run that PASSED. The zip is named ``cactus-bundle.passed.zip`` or
+    ``cactus-bundle.failed.zip`` accordingly — the filename is the pass/fail record. A top-level
+    ``compliance-report.html`` summarising every target test is also written into the bundle."""
+    latest = scan_output_dir(output_dir)
+    all_passed = all((r := latest.get(tp_id)) is not None and r.result == "PASS" for tp_id in target_ids)
+
+    # Render the same summary that `cactus report` prints, captured as standalone HTML
+    recorder = Console(record=True)
+    render_compliance_report(recorder, output_dir, include=target_ids)
+    summary_html = recorder.export_html()
+
+    # Remove any stale bundle from a previous run so only the current result is present
+    for stale in ("cactus-bundle.passed.zip", "cactus-bundle.failed.zip"):
+        (output_dir / stale).unlink(missing_ok=True)
+
+    zip_path = output_dir / f"cactus-bundle.{'passed' if all_passed else 'failed'}.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for tp_id in target_ids:
+            record = latest.get(tp_id)
+            if record is None:
+                continue
+            for file in record.run_dir.rglob("*"):
+                if file.is_file():
+                    zf.write(file, file.relative_to(output_dir))
+        zf.writestr("compliance-report.html", summary_html)
+
+    return zip_path, all_passed
