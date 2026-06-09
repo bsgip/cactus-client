@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from aiohttp import TCPConnector
 from assertical.asserts.type import assert_dict_type
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusVersion
@@ -115,8 +116,9 @@ async def test_build_execution_context_offers_mandatory_2030_5_cipher(
 
         async with build_execution_context(user_config, run_config) as result:
             client_context = result.clients_by_alias["client"]
-            ssl_context = client_context.session.connector._ssl
-            offered_ciphers = {c["name"] for c in ssl_context.get_ciphers()}
+            connector = client_context.session.connector
+            assert isinstance(connector, TCPConnector)
+            offered_ciphers = {c["name"] for c in connector._ssl.get_ciphers()}  # ty: ignore[unresolved-attribute]
             assert "ECDHE-ECDSA-AES128-CCM8" in offered_ciphers
 
 
