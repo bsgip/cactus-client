@@ -85,9 +85,15 @@ def create_bundle(output_dir: Path, target_ids: list[TestProcedureId]) -> tuple[
 
     Returns (zip_path, all_passed) where all_passed is True only if every target test has a
     latest run that PASSED. The zip is named ``cactus-bundle.passed.zip`` or
-    ``cactus-bundle.failed.zip`` accordingly — the filename is the pass/fail record."""
+    ``cactus-bundle.failed.zip`` accordingly — the filename is the pass/fail record. A top-level
+    ``compliance-report.html`` summarising every target test is also written into the bundle."""
     latest = scan_output_dir(output_dir)
     all_passed = all((r := latest.get(tp_id)) is not None and r.result == "PASS" for tp_id in target_ids)
+
+    # Render the same summary that `cactus report` prints, captured as standalone HTML
+    recorder = Console(record=True)
+    render_compliance_report(recorder, output_dir, include=target_ids)
+    summary_html = recorder.export_html()
 
     # Remove any stale bundle from a previous run so only the current result is present
     for stale in ("cactus-bundle.passed.zip", "cactus-bundle.failed.zip"):
@@ -102,5 +108,6 @@ def create_bundle(output_dir: Path, target_ids: list[TestProcedureId]) -> tuple[
             for file in record.run_dir.rglob("*"):
                 if file.is_file():
                     zf.write(file, file.relative_to(output_dir))
+        zf.writestr("compliance-report.html", summary_html)
 
     return zip_path, all_passed

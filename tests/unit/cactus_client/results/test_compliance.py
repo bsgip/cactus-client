@@ -30,9 +30,13 @@ def test_create_bundle_all_passed(tmp_path: Path):
 
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
+        summary = zf.read("compliance-report.html").decode()
     # Every target's run dir contents are bundled
     assert "run 001 - S-ALL-01/cactus.log" in names
     assert "run 002 - S-ALL-02/cactus.log" in names
+    # A top-level HTML summary of the targets is included
+    assert "compliance-report.html" in names
+    assert "S-ALL-01" in summary and "PASS" in summary
 
 
 def test_create_bundle_failed_on_not_run(tmp_path: Path):
