@@ -31,6 +31,7 @@ build-backend = "setuptools.build_meta"
 name = "cactus_client"
 dynamic = ["version", "readme"]
 description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
+requires-python = ">= 3.12"
 dependencies = [
     "cactus-test-definitions>=1.13.2",
     "cactus-schema>=0.0.11",
@@ -50,10 +51,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "bandit",
-    "black",
     "coverage",
-    "flake8",
-    "flake8-bugbear",
     "ruff",
     "ty",
     "types-PyYAML",
