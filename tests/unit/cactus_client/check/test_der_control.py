@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from enum import IntEnum
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -149,7 +150,7 @@ def test_check_default_der_control_combinations(
     resource_store = context.discovered_resources(step)
 
     # Build the DERControl and base to insert to store
-    control_base_kwargs = {}
+    control_base_kwargs: dict[str, Any] = {}
     set_grad_w = None
 
     for key, value in stored_values.items():

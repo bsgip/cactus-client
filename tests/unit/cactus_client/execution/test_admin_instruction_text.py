@@ -1,11 +1,11 @@
 import pytest
-from cactus_test_definitions.server.admin_instructions import AdminInstruction
+from cactus_test_definitions.server.admin_instructions import AdminInstruction, AdminInstructionType
 
 from cactus_client.execution.admin_instruction_text import describe_admin_instructions
 
 
 def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
-    return AdminInstruction(type=type_, client=client, parameters=params)
+    return AdminInstruction(type=AdminInstructionType(type_), client=client, parameters=params)
 
 
 @pytest.mark.parametrize(
@@ -89,8 +89,6 @@ def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
             [instr("set-post-rate", resource="MirrorUsagePoint", rate_seconds=300)],
             "Set post rate for MirrorUsagePoint to 300s",
         ),
-        # unknown fallback
-        ([instr("some-unknown-type")], "some-unknown-type"),
         # multiple instructions joined
         (
             [
@@ -103,3 +101,10 @@ def instr(type_: str, client: str | None = None, **params) -> AdminInstruction:
 )
 def test_describe_admin_instructions(instructions: list[AdminInstruction], expected: str) -> None:
     assert describe_admin_instructions(instructions) == expected
+
+
+def test_describe_admin_instructions_unhandled_type_fallback() -> None:
+    """An instruction type with no explicit case falls back to its raw value."""
+    unhandled = instr("ensure-end-device")
+    unhandled.type = "some-future-type"  # type: ignore # simulate a type describe() does not handle
+    assert describe_admin_instructions([unhandled]) == "some-future-type"
