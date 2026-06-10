@@ -106,7 +106,8 @@ async def test_build_execution_context_s_all_01(
 async def test_build_execution_context_offers_mandatory_2030_5_cipher(
     generate_testing_key_cert, no_deprecation_warnings
 ):
-    """Test that the IEEE 2030.5 mandatory cipher suite (ECDHE-ECDSA-AES128-CCM8) is offered by the client."""
+    """Test the IEEE 2030.5 mandatory suite (ECDHE-ECDSA-AES128-CCM8) is offered, and RSA-authenticated suites are
+    still offered"""
     with TemporaryDirectory() as tempdirname:
         key_file = Path(tempdirname) / "my.key"
         cert_file = Path(tempdirname) / "my.cert"
@@ -118,8 +119,9 @@ async def test_build_execution_context_offers_mandatory_2030_5_cipher(
             client_context = result.clients_by_alias["client"]
             connector = client_context.session.connector
             assert isinstance(connector, TCPConnector)
-            offered_ciphers = {c["name"] for c in connector._ssl.get_ciphers()}  # ty: ignore[unresolved-attribute]
-            assert "ECDHE-ECDSA-AES128-CCM8" in offered_ciphers
+            offered_ciphers = connector._ssl.get_ciphers()  # ty: ignore[unresolved-attribute]
+            assert any(c["name"] == "ECDHE-ECDSA-AES128-CCM8" for c in offered_ciphers)
+            assert any("Au=RSA" in c["description"] for c in offered_ciphers)
 
 
 @pytest.mark.asyncio
