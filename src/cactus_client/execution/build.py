@@ -85,7 +85,10 @@ def build_clients_by_alias(
 
         # Load the client certs into a SSLContext
         ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
-        ssl_context.set_ciphers("ECDHE-ECDSA-AES128-CCM8:DEFAULT")  # ECDHE-ECDSA-AES128-CCM8 required by 2030.5
+        # ECDHE-ECDSA-AES128-CCM8 is mandatory per 2030.5; keep the broad set too so RSA servers still negotiate.
+        # CCM8 must be listed before ALL. DEFAULT can't be used as it permanently excludes CCM8. 
+        # !aNULL drops the anonymous (unauthenticated) suites ALL would otherwise allow when verify-ssl is off.
+        ssl_context.set_ciphers("ECDHE-ECDSA-AES128-CCM8:ALL:!aNULL")
         ssl_context.check_hostname = verify_host_name
         ssl_context.verify_mode = ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE
         if verify_ssl and serca_pem_path:
