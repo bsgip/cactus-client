@@ -106,8 +106,13 @@ def parse_type_response(t: type[AnyResourceType], response: ServerResponse) -> A
 def parse_error_response(
     step: StepExecution, context: ExecutionContext, response: ServerResponse
 ) -> ErrorResponse | None:
-    """Attempts to parse an ErrorResponse from a 4xx response body. Returns None if the body cannot
-    be parsed, logging a warning instead. Error response bodies are not required to contain valid XML."""
+    """Attempts to parse an ErrorResponse from a 4xx response body. Returns None if the body is empty or cannot
+    be parsed. CSIP-Aus only mandates an ErrorResponse body for ConnectionPoint requests - for every other request
+    a server is free to return an error with no body, so a missing body is not logged as a warning. A non-empty
+    body that fails to parse is still logged, as that indicates a malformed (rather than absent) error payload."""
+    if not response.body:
+        return None
+
     try:
         return ErrorResponse.from_xml(response.body)
     except Exception as exc:
