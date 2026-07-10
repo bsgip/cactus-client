@@ -74,6 +74,11 @@ def run_action(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
+    validation_error = global_config.get_validation_error()
+    if validation_error is not None:
+        Console().print(f"Invalid CACTUS configuration: {validation_error}", style="red")
+        sys.exit(1)
+
     if test_id not in TestProcedureId:
         Console().print(
             f"[b]{test_id}[/b] isn't a recognised test procedure id. Try running [b]cactus tests[/b]",
