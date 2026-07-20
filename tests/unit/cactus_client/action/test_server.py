@@ -810,6 +810,31 @@ async def test_client_error_request_for_step_success(aiohttp_client, testing_con
     assert len(execution_context.responses.responses) == 1
 
 
+@pytest.mark.asyncio
+async def test_client_error_request_for_step_empty_body(aiohttp_client, testing_contexts_factory):
+    """CSIP-Aus only mandates an ErrorResponse body for ConnectionPoint requests - elsewhere a 4xx with no body
+    is valid and should not raise a warning."""
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.POST,
+                "/foo/bar",
+                [RouteBehaviour.no_content_location(HTTPStatus.BAD_REQUEST, "")],
+            )
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        result = await client_error_request_for_step(
+            step_execution, execution_context, "/foo/bar", HTTPMethod.POST, "post body"
+        )
+
+    # Assert - no body means no ErrorResponse, but this shouldn't raise a warning
+    assert result is None
+    assert len(execution_context.warnings.warnings) == 0
+    assert len(execution_context.responses.responses) == 1
+
+
 @pytest.mark.parametrize("status_code", [HTTPStatus.OK, HTTPStatus.INTERNAL_SERVER_ERROR])
 @pytest.mark.asyncio
 async def test_client_error_request_for_step_non_client_error(status_code, aiohttp_client, testing_contexts_factory):

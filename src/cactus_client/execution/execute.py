@@ -43,7 +43,10 @@ async def setup_and_teardown(context: ExecutionContext) -> AsyncIterator[ActionR
     logger.debug("Running admin setup")
     setup_results = await pm.ahook.admin_setup(context=admin_context)
     setup_result: ActionResult = next((r for r in setup_results if not r.completed), ActionResult.done())
-    logger.debug("Admin setup complete")
+    if not setup_result.completed:
+        logger.error("Admin setup failed: %s", setup_result.description)
+    else:
+        logger.debug("Admin setup complete")
 
     try:
         yield setup_result
