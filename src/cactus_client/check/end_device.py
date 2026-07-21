@@ -123,12 +123,22 @@ def check_end_device_list(
     edev_lists = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
     for edev_list_sr in edev_lists:
         if matches_poll_rate is not None:
-            if cast(EndDeviceListResponse, edev_list_sr.resource).pollRate != matches_poll_rate:
+            actual_poll_rate = cast(EndDeviceListResponse, edev_list_sr.resource).pollRate
+            if actual_poll_rate != matches_poll_rate:
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping EndDeviceList {edev_list_sr.id.href()} - pollRate {actual_poll_rate} != "
+                    f"expected {matches_poll_rate}.",
+                )
                 continue
 
         if sub_id is not None:
             annotations = context.resource_annotations(step, edev_list_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping EndDeviceList {edev_list_sr.id.href()} - not received via subscription {sub_id}.",
+                )
                 continue
 
         matches_found += 1

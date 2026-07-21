@@ -42,6 +42,10 @@ def check_der_program(
 
         # Filter by primacy if specified
         if primacy is not None and derp.primacy != primacy:
+            context.warnings.log_step_warning(
+                step,
+                f"Skipping DERProgram {derp_sr.id.href()} - primacy {derp.primacy} != expected {primacy}.",
+            )
             continue
 
         # Filter by FSA index if specified
@@ -50,15 +54,28 @@ def check_der_program(
             actual_parent_fsa = resource_store.get_ancestor_of(CSIPAusResource.FunctionSetAssignments, derp_sr.id)
 
             if actual_parent_fsa is None:
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping DERProgram {derp_sr.id.href()} - has no parent FunctionSetAssignments.",
+                )
                 continue
 
             # Find the index of this FSA
             if sorted_fsas[fsa_index].id != actual_parent_fsa.id:
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping DERProgram {derp_sr.id.href()} - parent FSA {actual_parent_fsa.id.href()} is not at "
+                    f"fsa_index {fsa_index} (that's {sorted_fsas[fsa_index].id.href()}).",
+                )
                 continue
 
         if sub_id is not None:
             annotations = context.resource_annotations(step, derp_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping DERProgram {derp_sr.id.href()} - not received via subscription {sub_id}.",
+                )
                 continue
 
         total_matches += 1
