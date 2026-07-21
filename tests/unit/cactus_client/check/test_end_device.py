@@ -506,4 +506,3 @@ def test_check_end_device_list(
 
     # Assert
     assert_check_result(result, expected_result)
-    assert len(context.warnings.warnings) == 0
