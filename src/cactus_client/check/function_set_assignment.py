@@ -39,12 +39,21 @@ def check_function_set_assignment(
         # We might be ONLY looking at FSA's that are a direct descendent of this EndDevice
         if matched_edev is not None:
             if not fsa_sr.id.is_descendent_of(matched_edev.id):
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping FunctionSetAssignment {fsa_sr.id.href()} - not a descendent of "
+                    f"client edev {matched_edev.id.href()}.",
+                )
                 continue
 
         # We might be ONLY looking at FSA's that arrived via a particular subscription n
         if sub_id is not None:
             annotations = context.resource_annotations(step, fsa_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                context.warnings.log_step_warning(
+                    step,
+                    f"Skipping FunctionSetAssignment {fsa_sr.id.href()} - not received via subscription {sub_id}.",
+                )
                 continue
 
         matches_found += 1
