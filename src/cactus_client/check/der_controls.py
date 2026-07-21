@@ -47,53 +47,65 @@ def check_default_der_control(  # noqa: C901 # This complexity is from the long 
 
     # Check each DefaultDERControl (typically there should be only one)
     total_matches = 0
+    rejection_details: list[str] = []
     for dderc_sr in default_der_controls:
         dderc = cast(DefaultDERControl, dderc_sr.resource)
 
         if import_limit_w is not None:
             actual_import = sep2_to_value(dderc.DERControlBase_.opModImpLimW)
             if actual_import != import_limit_w:
+                rejection_details.append(f"{dderc.href}: opModImpLimW {actual_import} != expected {import_limit_w}")
                 continue
 
         if export_limit_w is not None:
             actual_export = sep2_to_value(dderc.DERControlBase_.opModExpLimW)
             if actual_export != export_limit_w:
+                rejection_details.append(f"{dderc.href}: opModExpLimW {actual_export} != expected {export_limit_w}")
                 continue
 
         if load_limit_w is not None:
             actual_load = sep2_to_value(dderc.DERControlBase_.opModLoadLimW)
             if actual_load != load_limit_w:
+                rejection_details.append(f"{dderc.href}: opModLoadLimW {actual_load} != expected {load_limit_w}")
                 continue
 
         if generation_limit_w is not None:
             actual_gen = sep2_to_value(dderc.DERControlBase_.opModGenLimW)
             if actual_gen != generation_limit_w:
+                rejection_details.append(f"{dderc.href}: opModGenLimW {actual_gen} != expected {generation_limit_w}")
                 continue
 
         if set_grad_w is not None:
             actual_grad_w = dderc.setGradW
             if actual_grad_w != set_grad_w:
+                rejection_details.append(f"{dderc.href}: setGradW {actual_grad_w} != expected {set_grad_w}")
                 continue
 
         if sub_id is not None:
             annotations = context.resource_annotations(step, dderc_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                rejection_details.append(f"{dderc.href}: not received via subscription {sub_id}")
                 continue
 
         if derp_primacy is not None:
             parent_derp_sr = resource_store.get_ancestor_of(CSIPAusResource.DERProgram, dderc_sr.id)
             if parent_derp_sr is None:
                 raise CactusClientError(f"DERControl {dderc.href} {dderc.mRID} has no link to a parent DERProgram")
-            if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
+            actual_derp_primacy = cast(DERProgramResponse, parent_derp_sr.resource).primacy
+            if actual_derp_primacy != derp_primacy:
+                rejection_details.append(
+                    f"{dderc.href}: parent DERProgram primacy {actual_derp_primacy} != expected {derp_primacy}"
+                )
                 continue
 
         total_matches += 1
 
     total_found = len(default_der_controls)
     metadata = f"Found {total_found} DefaultDERControls, {total_matches} matched criteria"
+    rejection_info = f" Rejections: {'; '.join(rejection_details)}" if rejection_details else ""
 
     if minimum_count is not None and total_matches < minimum_count:
-        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}")
+        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}.{rejection_info}")
 
     if maximum_count is not None and total_matches > maximum_count:
         return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
@@ -149,55 +161,91 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
 
     # Perform filtering
     total_matches = 0
+    rejection_details: list[str] = []
     for derc_sr in all_dercontrols:
         derc = cast(DERControlResponse, derc_sr.resource)
 
-        if import_limit_w is not None and import_limit_w != sep2_to_value(derc.DERControlBase_.opModImpLimW):
-            continue
+        if import_limit_w is not None:
+            actual_import = sep2_to_value(derc.DERControlBase_.opModImpLimW)
+            if import_limit_w != actual_import:
+                rejection_details.append(f"{derc.href}: opModImpLimW {actual_import} != expected {import_limit_w}")
+                continue
 
-        if export_limit_w is not None and export_limit_w != sep2_to_value(derc.DERControlBase_.opModExpLimW):
-            continue
+        if export_limit_w is not None:
+            actual_export = sep2_to_value(derc.DERControlBase_.opModExpLimW)
+            if export_limit_w != actual_export:
+                rejection_details.append(f"{derc.href}: opModExpLimW {actual_export} != expected {export_limit_w}")
+                continue
 
-        if load_limit_w is not None and load_limit_w != sep2_to_value(derc.DERControlBase_.opModLoadLimW):
-            continue
+        if load_limit_w is not None:
+            actual_load = sep2_to_value(derc.DERControlBase_.opModLoadLimW)
+            if load_limit_w != actual_load:
+                rejection_details.append(f"{derc.href}: opModLoadLimW {actual_load} != expected {load_limit_w}")
+                continue
 
-        if generation_limit_w is not None and generation_limit_w != sep2_to_value(derc.DERControlBase_.opModGenLimW):
-            continue
+        if generation_limit_w is not None:
+            actual_gen = sep2_to_value(derc.DERControlBase_.opModGenLimW)
+            if generation_limit_w != actual_gen:
+                rejection_details.append(f"{derc.href}: opModGenLimW {actual_gen} != expected {generation_limit_w}")
+                continue
 
         if energize is not None and energize != derc.DERControlBase_.opModEnergize:
+            rejection_details.append(
+                f"{derc.href}: opModEnergize {derc.DERControlBase_.opModEnergize} != expected {energize}"
+            )
             continue
 
         if connect is not None and connect != derc.DERControlBase_.opModConnect:
+            rejection_details.append(
+                f"{derc.href}: opModConnect {derc.DERControlBase_.opModConnect} != expected {connect}"
+            )
             continue
 
         if fixed_w is not None and fixed_w != derc.DERControlBase_.opModFixedW:
+            rejection_details.append(
+                f"{derc.href}: opModFixedW {derc.DERControlBase_.opModFixedW} != expected {fixed_w}"
+            )
             continue
 
         if ramp_tms is not None and ramp_tms != derc.DERControlBase_.rampTms:
+            rejection_details.append(f"{derc.href}: rampTms {derc.DERControlBase_.rampTms} != expected {ramp_tms}")
             continue
 
         if randomize_start is not None and randomize_start != derc.randomizeStart:
+            rejection_details.append(f"{derc.href}: randomizeStart {derc.randomizeStart} != expected {randomize_start}")
             continue
 
         if event_status is not None and event_status != derc.EventStatus_.currentStatus:
+            rejection_details.append(
+                f"{derc.href}: eventStatus {derc.EventStatus_.currentStatus} != expected {event_status}"
+            )
             continue
 
         if response_required is not None and not hex_binary_equal(response_required, derc.responseRequired):
+            rejection_details.append(
+                f"{derc.href}: responseRequired {derc.responseRequired} != expected {response_required}"
+            )
             continue
 
         if derp_primacy is not None:
             parent_derp_sr = resource_store.get_ancestor_of(CSIPAusResource.DERProgram, derc_sr.id)
             if parent_derp_sr is None:
                 raise CactusClientError(f"DERControl {derc.href} {derc.mRID} has no link to a parent DERProgram")
-            if cast(DERProgramResponse, parent_derp_sr.resource).primacy != derp_primacy:
+            actual_derp_primacy = cast(DERProgramResponse, parent_derp_sr.resource).primacy
+            if actual_derp_primacy != derp_primacy:
+                rejection_details.append(
+                    f"{derc.href}: parent DERProgram primacy {actual_derp_primacy} != expected {derp_primacy}"
+                )
                 continue
 
         if sub_id is not None:
             annotations = context.resource_annotations(step, derc_sr.id)
             if not annotations.has_tag(AnnotationNamespace.SUBSCRIPTION_RECEIVED, sub_id):
+                rejection_details.append(f"{derc.href}: not received via subscription {sub_id}")
                 continue
 
         if duration is not None and duration != derc.interval.duration:
+            rejection_details.append(f"{derc.href}: duration {derc.interval.duration} != expected {duration}")
             continue
 
         total_matches += 1
@@ -208,10 +256,11 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
         metadata = f"Found {total_found} DERControls, examined latest only, {total_matches} matched criteria"
     else:
         metadata = f"Found {total_found} DERControls, {total_matches} matched criteria"
+    rejection_info = f" Rejections: {'; '.join(rejection_details)}" if rejection_details else ""
 
     # Figure out our match criteria
     if minimum_count is not None and total_matches < minimum_count:
-        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}")
+        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}.{rejection_info}")
 
     if maximum_count is not None and total_matches > maximum_count:
         return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
