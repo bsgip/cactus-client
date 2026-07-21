@@ -6,6 +6,7 @@ from cactus_test_definitions.server.test_procedures import ClientType, TestProce
 from dataclass_wizard import YAMLWizard
 
 from cactus_client.error import ConfigError
+from cactus_client.sep2 import lfdi_from_cert_file
 
 CONFIG_FILE_NAME = Path(".cactus.yaml")  # Name of the config
 
@@ -107,6 +108,17 @@ class GlobalConfig(YAMLWizard):
 
             if c.key_file is not None and not Path(c.key_file).exists():
                 return f"Client {c.id} references key_file {c.key_file} which does not exist."
+
+            if (
+                c.type == ClientType.AGGREGATOR
+                and c.lfdi.casefold() == lfdi_from_cert_file(c.certificate_file).casefold()
+            ):
+                return (
+                    f"Client {c.id} is an aggregator whose DER-lfdi matches its certificate_file's LFDI. "
+                    "An aggregator's lfdi must be unique from its own certificate LFDI (which is reserved for the "
+                    "aggregator's virtual EndDevice) otherwise EndDevice/FunctionSetAssignment matching will resolve "
+                    "to the wrong EndDevice."
+                )
 
         return None
 

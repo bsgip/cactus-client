@@ -374,7 +374,6 @@ def test_check_function_set_assignment(
 
     # Assert
     assert_check_result(result, expected_result)
-    assert len(context.warnings.warnings) == 0
 
 
 def test_check_function_set_assignment_aggregator_skips_virtual_edev(

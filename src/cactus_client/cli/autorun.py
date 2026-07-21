@@ -87,6 +87,11 @@ def run_action(args: argparse.Namespace) -> None:
         )
         sys.exit(1)
 
+    validation_error = global_config.get_validation_error()
+    if validation_error is not None:
+        console.print(f"Invalid CACTUS configuration: {validation_error}", style="red")
+        sys.exit(1)
+
     runner_cfg = global_config.runner
 
     # CLI args take precedence over persistent config; fall back to config values when not supplied

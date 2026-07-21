@@ -12,6 +12,8 @@ from cactus_client.model.config import (
     ServerConfig,
     load_config,
 )
+from cactus_client.sep2 import lfdi_from_cert_file
+from tests.unit.cactus_client.test_sep2 import CERTIFICATE_CONTENTS
 
 
 def test_load_config_errors():
@@ -134,19 +136,21 @@ def test_GlobalConfig_is_valid():
         missing_file = Path(tempdirname) / "missing"
 
         working_dir.mkdir()
-        cert1_file.write_text("dummy content")
+        cert1_file.write_bytes(CERTIFICATE_CONTENTS)
         cert1_key.write_text("dummy content")
-        cert2_file.write_text("dummy content")
+        cert2_file.write_bytes(CERTIFICATE_CONTENTS)
 
         c1_cfg = generate_class_instance(
             ClientConfig,
             seed=101,
+            type=ClientType.DEVICE,
             certificate_file=cert1_file.absolute(),
             key_file=cert1_key.absolute(),
         )
         c2_cfg = generate_class_instance(
             ClientConfig,
             seed=202,
+            type=ClientType.DEVICE,
             certificate_file=cert2_file.absolute(),
             key_file=None,
         )
@@ -176,6 +180,41 @@ def test_GlobalConfig_is_valid():
 
         # should be back to valid now
         assert_validation_error(GlobalConfig(working_dir.absolute(), s_cfg, [c1_cfg, c2_cfg]), True)
+
+
+def test_GlobalConfig_is_valid_aggregator_lfdi_collision():
+    """An aggregator client's lfdi must not match its own certificate's LFDI - that value is reserved for the
+    aggregator's virtual EndDevice and a collision causes EndDevice/FunctionSetAssignment matching to resolve to the
+    wrong EndDevice."""
+    with tempfile.TemporaryDirectory() as tempdirname:
+        working_dir = Path(tempdirname) / "my_dir/"
+        working_dir.mkdir()
+
+        cert_file = Path(tempdirname) / "aggregator.cert"
+        cert_file.write_bytes(CERTIFICATE_CONTENTS)
+        cert_lfdi = lfdi_from_cert_file(cert_file)
+
+        s_cfg = generate_class_instance(ServerConfig)
+
+        colliding_cfg = generate_class_instance(
+            ClientConfig,
+            seed=101,
+            type=ClientType.AGGREGATOR,
+            certificate_file=cert_file.absolute(),
+            key_file=None,
+            lfdi=cert_lfdi,
+        )
+        assert_validation_error(GlobalConfig(working_dir.absolute(), s_cfg, [colliding_cfg]), False)
+
+        distinct_cfg = generate_class_instance(
+            ClientConfig,
+            seed=101,
+            type=ClientType.AGGREGATOR,
+            certificate_file=cert_file.absolute(),
+            key_file=None,
+            lfdi=cert_lfdi + "FF",
+        )
+        assert_validation_error(GlobalConfig(working_dir.absolute(), s_cfg, [distinct_cfg]), True)
 
 
 @pytest.mark.parametrize("seed, optional_is_none", [(101, False), (202, False), (303, True)])
