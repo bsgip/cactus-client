@@ -80,7 +80,13 @@ def render_console(  # noqa: C901
     client_table.add_column(style="b")
     client_table.add_column()
     for client_alias, client in sorted(context.clients_by_alias.items()):
-        client_table.add_row(f"{client_alias}", client.client_config.lfdi)
+        client_table.add_row("alias", client_alias)
+        client_table.add_row("type", str(client.client_config.type))
+        client_table.add_row("lfdi", client.client_config.lfdi)
+        client_table.add_row("sfdi", str(client.client_config.sfdi))
+        client_table.add_row("pen", str(client.client_config.pen))
+        client_table.add_row("max watts", str(client.client_config.max_watts))
+        client_table.add_section()
     panel_items.append(client_table)
 
     if context.warnings.warnings:
