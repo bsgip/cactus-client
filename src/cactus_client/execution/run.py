@@ -14,7 +14,7 @@ from cactus_client.model.config import GlobalConfig, RunConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
 from cactus_client.model.output import RunOutputFile, RunOutputManager
-from cactus_client.results.common import ResultsEvaluation
+from cactus_client.results.common import ResultsEvaluation, skipped_steps
 from cactus_client.results.console import render_console
 from cactus_client.results.requests import persist_all_request_data
 
@@ -140,18 +140,25 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
             tasks.append(asyncio.create_task(run_tui(console=console, context=context, run_id=output_manager.run_id)))
 
         results = await _run_and_await_tasks(execute_task, tasks, run_config.timeout, context, log_file_path, console)
+        passed = results.has_passed(strict=run_config.strict)
 
-        logger.info(f"Test passed: {results.has_passed(strict=run_config.strict)}")
+        logger.info(f"Test passed: {passed}")
         logger.debug(f"ResultsEvaluation: {results}")
 
         # Print the results to the console
         console.record = True
-        render_console(console, context, results, output_manager)
+        render_console(console, context, results, output_manager, strict=run_config.strict)
         console.save_html(str(output_manager.file_path(RunOutputFile.Report).absolute()))
 
         # Write pass/fail result file
         with open(output_manager.file_path(RunOutputFile.Result), "w") as fp:
-            fp.write("PASS" if results.has_passed(strict=run_config.strict) else "FAIL")
+            fp.write("PASS" if passed else "FAIL")
+
+        # Any waived steps are recorded alongside the result - a PASS with skips is not a clean pass
+        skips = skipped_steps(context)
+        if skips:
+            with open(output_manager.file_path(RunOutputFile.Skips), "w") as fp:
+                fp.writelines([f"{s.step.id}\t{s.skip_reason}\n" for s in skips])
 
         # Print the path in a "nice" way so that common terminals support ctrl+click to open the directory
         quoted_path = urllib.parse.quote(str(output_manager.run_output_dir.absolute()))
@@ -160,4 +167,4 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         # Generate other "results" outputs in the output directory
         persist_all_request_data(context, output_manager)
 
-        return results.has_passed(strict=run_config.strict)
+        return passed

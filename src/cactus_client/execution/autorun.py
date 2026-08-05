@@ -129,6 +129,7 @@ async def autorun_entrypoint(
     headless: bool,
     timeout: int | None,
     strict: bool = False,
+    allow_skips: bool = False,
 ) -> list[AutorunRecord]:
     """Run selected test procedures sequentially with automatic client assignment.
 
@@ -158,6 +159,7 @@ async def autorun_entrypoint(
             headless=headless,
             timeout=timeout,
             strict=strict,
+            allow_skips=allow_skips,
         )
 
         try:

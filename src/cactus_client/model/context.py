@@ -166,6 +166,7 @@ class ExecutionContext:
     repeat_delay: timedelta = timedelta(
         seconds=5
     )  # If during execution an action is to be run in a tight loop, use this delay
+    allow_skips: bool = False  # If True - admin plugins may waive a step's pass/fail judgement
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     def to_admin_context(self) -> AdminContext:

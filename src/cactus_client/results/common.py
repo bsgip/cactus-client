@@ -3,6 +3,7 @@ from datetime import datetime
 
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ExecutionResult
+from cactus_client.model.progress import StepResult
 from cactus_client.time import relative_time, utc_now
 
 
@@ -20,7 +21,10 @@ class ResultsEvaluation:
     total_warnings: int
     total_xsd_errors: int
     total_steps_passed: int
+    total_steps_skipped: int
     total_steps: int
+
+    skips_applied: bool  # True if any step had its result waived by an admin plugin
 
     created_at: datetime
 
@@ -28,10 +32,13 @@ class ResultsEvaluation:
         self.total_warnings = len(context.warnings.warnings)
         self.total_xsd_errors = sum(bool(r.xsd_errors) for r in context.responses.responses)
         self.total_steps_passed = sum(sr.is_passed() for sr in context.progress.all_results)
+        self.total_steps_skipped = sum(sr.is_skipped() for sr in context.progress.all_results)
         self.total_steps = len(context.test_procedure.steps)
+        self.skips_applied = self.total_steps_skipped > 0
 
         self.all_steps_evaluated = len(context.progress.all_results) == self.total_steps
-        self.all_steps_passed = self.total_steps_passed == self.total_steps
+        # A skipped step doesn't count as passed - but it doesn't block the run from passing either
+        self.all_steps_passed = self.total_steps_passed + self.total_steps_skipped == self.total_steps
         self.no_warnings = self.total_warnings == 0
         self.no_xsd_errors = self.total_xsd_errors == 0
         self.execution_complete = execute_result.completed
@@ -50,3 +57,8 @@ class ResultsEvaluation:
 def context_relative_time(context: ExecutionContext, dt: datetime) -> str:
     """Returns the time relative to context as a human readable string"""
     return relative_time(dt - context.created_at)
+
+
+def skipped_steps(context: ExecutionContext) -> list[StepResult]:
+    """Every step result in this run that was skipped (in the order they were resolved)"""
+    return [sr for sr in context.progress.all_results if sr.skip_reason is not None]

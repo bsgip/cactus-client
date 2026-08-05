@@ -243,6 +243,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         resource_tree=resource_tree,
         responses=ResponseTracker(),
         warnings=WarningTracker(),
+        allow_skips=run_config.allow_skips,
     )
 
     #
