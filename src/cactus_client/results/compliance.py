@@ -18,6 +18,7 @@ class RunRecord:
     test_id: TestProcedureId
     result: str  # "PASS" or "FAIL"
     run_dir: Path
+    skips: int = 0  # How many steps in this run had their result waived by an admin plugin
 
 
 def scan_output_dir(output_dir: Path) -> dict[TestProcedureId, RunRecord]:
@@ -49,9 +50,12 @@ def scan_output_dir(output_dir: Path) -> dict[TestProcedureId, RunRecord]:
 
         result = result_file.read_text().strip()
 
+        skips_file = entry / RunOutputFile.Skips
+        skips = len(skips_file.read_text().splitlines()) if skips_file.exists() else 0
+
         existing = latest.get(tp_id)
         if existing is None or run_number > existing.run_number:
-            latest[tp_id] = RunRecord(run_number=run_number, test_id=tp_id, result=result, run_dir=entry)
+            latest[tp_id] = RunRecord(run_number=run_number, test_id=tp_id, result=result, run_dir=entry, skips=skips)
 
     return latest
 
@@ -67,15 +71,18 @@ def render_compliance_report(console: Console, output_dir: Path, include: list[T
     table.add_column("Test ID", style="bold")
     table.add_column("Result")
     table.add_column("Run #")
+    table.add_column("Skipped")
 
     for tp_id in include if include is not None else TestProcedureId:
         record = latest_runs.get(tp_id)
         if record is None:
-            table.add_row(str(tp_id), "[dim]NOT RUN[/dim]", "-")
+            table.add_row(str(tp_id), "[dim]NOT RUN[/dim]", "-", "-")
         elif record.result == "PASS":
-            table.add_row(str(tp_id), "[green]PASS[/green]", str(record.run_number))
+            # PASS* marks a run that only passed because one or more steps were skipped
+            result = "[dark_orange]PASS*[/dark_orange]" if record.skips else "[green]PASS[/green]"
+            table.add_row(str(tp_id), result, str(record.run_number), str(record.skips))
         else:
-            table.add_row(str(tp_id), "[red]FAIL[/red]", str(record.run_number))
+            table.add_row(str(tp_id), "[red]FAIL[/red]", str(record.run_number), str(record.skips))
 
     console.print(table)
 

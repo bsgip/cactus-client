@@ -46,6 +46,12 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         help="Treat warnings as failures.",
     )
     run_parser.add_argument(
+        "--allow-skips",
+        required=False,
+        action="store_true",
+        help="Permit admin plugins to waive individual steps that can't be set up in this environment.",
+    )
+    run_parser.add_argument(
         "id",
         help="The id of the test procedure to execute (To list ids run 'cactus tests')",
     )
@@ -64,6 +70,7 @@ def run_action(args: argparse.Namespace) -> None:
     headless = True if args.headless else False
     timeout: int | None = args.timeout
     strict: bool = bool(args.strict)
+    allow_skips: bool = bool(args.allow_skips)
 
     try:
         global_config, _ = load_config(config_file_override)
@@ -93,6 +100,7 @@ def run_action(args: argparse.Namespace) -> None:
         headless=headless,
         timeout=timeout,
         strict=strict,
+        allow_skips=allow_skips,
     )
 
     try:
