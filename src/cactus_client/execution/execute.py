@@ -88,10 +88,13 @@ async def execute_for_context(context: ExecutionContext) -> ExecutionResult:
     return result
 
 
-async def _fire_admin_instructions(context: ExecutionContext, current_step: StepExecution) -> None:
-    """Fire each admin instruction for the step via the plugin manager, logging unhandled instructions."""
+async def _fire_admin_instructions(context: ExecutionContext, current_step: StepExecution) -> str | None:
+    """Fire each admin instruction for the step via the plugin manager, logging unhandled instructions.
+
+    Returns the reason from the first plugin that requested a skip of this step (if any)."""
     pm = get_plugin_manager()
     admin_context = context.to_admin_context()
+    skip_reason: str | None = None
     for instr in current_step.source.admin_instructions or []:
         client_config = admin_context.client_config_for(instr.client)
         resolved_params = await resolve_variable_expressions_from_parameters(client_config, instr.parameters)
@@ -109,6 +112,18 @@ async def _fire_admin_instructions(context: ExecutionContext, current_step: Step
                 instr.type,
                 current_step.source.id,
             )
+            continue
+
+        requested_skip = next((r.skip_reason for r in results if r is not None and r.skip_reason is not None), None)
+        if requested_skip is not None and skip_reason is None:
+            logger.warning(
+                "[admin-instruction] skip of step=%s requested: %s",
+                current_step.source.id,
+                requested_skip,
+            )
+            skip_reason = requested_skip
+
+    return skip_reason
 
 
 async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
@@ -131,9 +146,10 @@ async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
         await context.progress.update_current_step(current_step, delay=None)
 
         # Fire admin instructions before the first attempt at this step
+        skip_reason: str | None = None
         if current_step.attempts == 0 and current_step.source.admin_instructions:
             try:
-                await _fire_admin_instructions(context, current_step)
+                skip_reason = await _fire_admin_instructions(context, current_step)
             except Exception as exc:
                 return await _handle_step_exception(context, current_step, exc, "Admin instruction")
 
@@ -153,8 +169,8 @@ async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
         step_passed = action_result.completed and check_result.passed
 
         # Depending on how the step ran - we may need to add a repeat or requeue
-        if step_passed and action_result.repeat:
-            # The step was successful, but asked for a repeat
+        if action_result.repeat and (step_passed or skip_reason is not None):
+            # The action is still mid-flight and asked for a repeat (honoured for skipped steps too)
             repeat_step = replace(
                 current_step,
                 repeat_number=current_step.repeat_number + 1,
@@ -162,6 +178,20 @@ async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
                 not_before=action_result.not_before,
             )
             context.steps.add(repeat_step)
+        elif skip_reason is not None:
+            if context.allow_skips:
+                # The step ran but its pass/fail judgement is waived.
+                # It is deliberately never re-queued via repeat_until_pass - it would re-queue forever.
+                await context.progress.set_step_result(
+                    current_step,
+                    action_result,
+                    check_result,
+                    skip_reason=skip_reason,
+                )
+            else:
+                failure = ActionResult.failed(f"skip requested: {skip_reason}; skips are not enabled")
+                await context.progress.set_step_result(current_step, failure, check_result)
+                break
         elif not step_passed and current_step.source.repeat_until_pass:
             # The step failed (action or check) - but it might be marked as repeat_until_pass
             repeat_step = replace(current_step, attempts=current_step.attempts + 1, not_before=None)

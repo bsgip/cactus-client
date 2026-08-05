@@ -22,6 +22,7 @@ class ActionResult:
     repeat: bool  # If true - this will trigger the action to retrigger again (with a higher repeat number)
     not_before: datetime | None  # If repeat is true - this will be the new value for StepExecution.not_before
     description: str | None = None  # description of the failure (when passed=False)
+    skip_reason: str | None = None  # If set - this is a request to skip (rather than fail) the owning step
 
     @staticmethod
     def done() -> "ActionResult":
@@ -32,6 +33,20 @@ class ActionResult:
     def failed(description: str) -> "ActionResult":
         """Action failed in a retriable way - will be retried if repeat_until_pass is set on the step."""
         return ActionResult(completed=False, repeat=False, not_before=None, description=description)
+
+    @staticmethod
+    def skip_step(reason: str | None = None) -> "ActionResult":
+        """The plugin cannot establish the server state this step requires. Honoured only when skips are enabled;
+        otherwise treated as a step failure."""
+        if not reason or not reason.strip():
+            reason = "no reason given"
+        return ActionResult(
+            completed=False,
+            repeat=False,
+            not_before=None,
+            description=f"Skip requested: {reason}",
+            skip_reason=reason,
+        )
 
 
 @dataclass

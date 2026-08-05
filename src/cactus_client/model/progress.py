@@ -93,10 +93,16 @@ class StepResult:
     failure_result: CheckResult | None
     exc: Exception | None
 
+    # Set when an admin plugin waived this step (and skips were enabled for the run)
+    skip_reason: str | None = None
+
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     def is_passed(self) -> bool:
-        return self.failure_result is None and self.exc is None
+        return self.failure_result is None and self.exc is None and self.skip_reason is None
+
+    def is_skipped(self) -> bool:
+        return self.skip_reason is not None
 
 
 @dataclass
@@ -200,8 +206,24 @@ class ProgressTracker:
         step_execution: StepExecution,
         action_result: ActionResult,
         check_result: CheckResult,
+        skip_reason: str | None = None,
     ) -> None:
-        """Logs that a step execution is that LAST time the underlying step will run."""
+        """Logs that a step execution is that LAST time the underlying step will run.
+
+        If skip_reason is set, the step is recorded as skipped - its action/check outcomes are
+        discarded from the pass/fail judgement."""
+
+        if skip_reason is not None:
+            result = StepResult(
+                step=step_execution.source,
+                failure_result=None,
+                exc=None,
+                skip_reason=skip_reason,
+            )
+            self.all_results.append(result)
+            self._update_progress(step_execution, lambda p: setattr(p, "result", result))
+            await self.add_log(step_execution, f"{step_execution.source.id} was skipped: {skip_reason}")
+            return
 
         step_passed = action_result.completed and check_result.passed
         if step_passed:
