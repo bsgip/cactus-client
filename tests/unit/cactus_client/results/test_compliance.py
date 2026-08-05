@@ -4,16 +4,24 @@ from pathlib import Path
 from cactus_test_definitions.server.test_procedures import TestProcedureId
 
 from cactus_client.model.output import RunOutputFile
-from cactus_client.results.compliance import create_bundle
+from cactus_client.results.compliance import create_bundle, render_compliance_report, scan_output_dir
 
 
-def make_run(output_dir: Path, run_number: int, test_id: TestProcedureId, result: str) -> Path:
+def make_run(
+    output_dir: Path,
+    run_number: int,
+    test_id: TestProcedureId,
+    result: str,
+    skips: list[str] | None = None,
+) -> Path:
     """Create a fake run directory matching what RunOutputManager produces."""
     run_dir = output_dir / f"run {run_number:03} - {test_id}"
     run_dir.mkdir()
     (run_dir / RunOutputFile.TestProcedureId).write_text(str(test_id))
     (run_dir / RunOutputFile.Result).write_text(result)
     (run_dir / RunOutputFile.ConsoleLogs).write_text("log line\n")
+    if skips:
+        (run_dir / RunOutputFile.Skips).write_text("".join(f"{s}\treason\n" for s in skips))
     return run_dir
 
 
@@ -80,3 +88,26 @@ def test_create_bundle_removes_stale_bundle(tmp_path: Path):
 
     assert not stale.exists()
     assert (tmp_path / "cactus-bundle.passed.zip").exists()
+
+
+def test_scan_output_dir_reads_skips(tmp_path: Path):
+    make_run(tmp_path, 1, TestProcedureId.S_ALL_01, "PASS", skips=["5 - DISALLOW ACCESS"])
+    make_run(tmp_path, 2, TestProcedureId.S_ALL_02, "PASS")
+
+    records = scan_output_dir(tmp_path)
+
+    assert records[TestProcedureId.S_ALL_01].skips == 1
+    assert records[TestProcedureId.S_ALL_02].skips == 0
+
+
+def test_render_compliance_report_marks_skips(tmp_path: Path):
+    from rich.console import Console
+
+    make_run(tmp_path, 1, TestProcedureId.S_ALL_01, "PASS", skips=["step-a"])
+    make_run(tmp_path, 2, TestProcedureId.S_ALL_02, "PASS")
+
+    console = Console(record=True, width=200)
+    render_compliance_report(console, tmp_path, include=[TestProcedureId.S_ALL_01, TestProcedureId.S_ALL_02])
+    output = console.export_text()
+
+    assert "PASS*" in output, "A run with skips is marked to distinguish it from a clean pass"
