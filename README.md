@@ -9,8 +9,6 @@ This is a set of tools for evaluating CSIP-Aus server test procedures defined at
 
 `pip install -e .[dev,test]`
 
-
-
 ## Quickstart
 
 ### Installing
@@ -132,6 +130,7 @@ cactus run S-ALL-01 myclient1
 | `--headless` | Disable the terminal UI — logs are written to stderr instead. Useful for CI/scripted environments. |
 | `--timeout SECONDS` | Abort and fail the test if it exceeds this many seconds. |
 | `--strict` | Treat warnings as failures. The test will be marked FAIL if any warnings were emitted, even if all steps passed. |
+| `--allow-skips` | Permit admin plugins to waive individual steps that can't be set up in this environment (see [Admin plugins](#admin-plugins)). A run that only passed because of a waived step is reported as `PASS*`, not a clean pass. |
 | `-c PATH` | Override the config file location (defaults to `./.cactus.yaml` then `~/.cactus.yaml`). |
 
 ### Running all tests automatically
@@ -154,6 +153,7 @@ cactus autorun --strict --headless --timeout 120
 | `--exclude ID [ID ...]` | Skip these test procedure IDs. Applied after `--include`/`--include-file`. |
 | `--timeout SECONDS` | Per-test timeout in seconds. A test that times out is marked as failed and the run stops. |
 | `--strict` | Treat warnings as failures for every test in the run. |
+| `--allow-skips` | Permit admin plugins to waive individual steps for every test in the run. Overrides `runner.allow_skips` from config. |
 | `--headless` | Disable the terminal UI for all tests. |
 | `-c PATH` | Override the config file location. |
 
@@ -168,6 +168,7 @@ runner:
   exclude: []          # list of test IDs to skip
   timeout: null        # per-test timeout in seconds
   strict: false        # treat warnings as failures
+  allow_skips: false   # permit admin plugins to waive individual steps
 ```
 
 ### Viewing the compliance report
@@ -202,5 +203,16 @@ my-plugin = "my_package.plugin:MyServerPlugin"
 ```
 
 Install your plugin alongside `cactus-client` (`pip install -e .`) and it will be loaded on next invocation.
+
+**Waiving steps your plugin can't set up:** You may want to skip certain test steps based on different server use cases
+(difficulty with state in certain environments like CI/CD). If `admin_instruction` returns 
+`ActionResult.skip_step("reason")`, the step's action still runs, but its pass/fail judgement is waived — provided the
+run was started with `--allow-skips` / `runner.allow_skips`. Without that flag, a requested skip is treated as a normal
+step failure. A run containing waived steps is reported as `PASS*`, and the reason strings are recorded in `.skips` in
+the run's output directory. See the `admin_instruction` hookspec docstring in 
+[`plugins.py`](src/cactus_client/admin/plugins.py) for the full contract, including why skipping only makes sense on 
+terminal/leaf steps.
+
+Runs with --allow-skips set will not be considered suitable for compliance testing. 
 
 **Reference implementation:** [cactus-client-envoy](https://github.com/bsgip/cactus-client-envoy) is a full worked example — it implements all three hooks against a local [Envoy](https://github.com/bsgip/envoy) CSIP-Aus server via direct database access, and includes setup scripts and a complete quickstart guide.

@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.server.actions import Action
 from cactus_test_definitions.server.test_procedures import (
@@ -13,7 +14,13 @@ from rich.console import Console
 
 from cactus_client.model.config import ServerConfig
 from cactus_client.model.context import ExecutionContext
-from cactus_client.model.execution import ExecutionResult, StepExecutionList
+from cactus_client.model.execution import (
+    ActionResult,
+    CheckResult,
+    ExecutionResult,
+    StepExecution,
+    StepExecutionList,
+)
 from cactus_client.model.http import ServerRequest, ServerResponse
 from cactus_client.model.progress import (
     ProgressTracker,
@@ -109,3 +116,56 @@ def test_render_console_multi_client_shows_alias_column(assertical_extensions):
 
     assert "clienta" in output
     assert "clientb" in output
+
+
+@pytest.mark.asyncio
+async def test_render_console_shows_skip_banner(assertical_extensions):
+    """A skip enabled run must be unmistakeable in the report - banner, count and step row."""
+    tree = CSIPAusResourceTree()
+    context = _make_context({"clienta": make_client_context("clienta", tree)})
+    step = context.test_procedure.steps[0]
+    step_execution = generate_class_instance(StepExecution, source=step)
+
+    await context.progress.set_step_result(
+        step_execution,
+        ActionResult.done(),
+        CheckResult(False, None),
+        skip_reason="cannot revoke access here",
+    )
+
+    output = _render(context)
+
+    assert "SKIPPED" in output
+    assert "cannot revoke access here" in output
+
+
+def test_render_console_no_skip_banner_on_clean_run(assertical_extensions):
+    tree = CSIPAusResourceTree()
+    context = _make_context({"clienta": make_client_context("clienta", tree)})
+
+    output = _render(context)
+
+    assert "SKIPPED" not in output
+
+
+@pytest.mark.asyncio
+async def test_render_console_strict_warnings_render_as_failure(assertical_extensions):
+    """The report must agree with the .result file - a strict run with warnings renders as failed"""
+    tree = CSIPAusResourceTree()
+    context = _make_context({"clienta": make_client_context("clienta", tree)})
+    step_execution = generate_class_instance(StepExecution, source=context.test_procedure.steps[0])
+    await context.progress.set_step_result(step_execution, ActionResult.done(), CheckResult(True, None))
+    context.warnings.log_step_warning(step_execution, "Added a warning")
+
+    console = Console(record=True, width=120, force_terminal=True)
+    render_console(
+        console,
+        context,
+        ResultsEvaluation(context, ExecutionResult(True)),
+        _make_output_manager(),
+        strict=True,
+    )
+    output = console.export_text()
+
+    assert "failed" in output
+    assert "success" not in output
