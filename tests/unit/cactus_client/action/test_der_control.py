@@ -162,6 +162,59 @@ async def test_action_respond_der_controls_with_previous_responses(
 
 
 @freeze_time("2025-11-19 12:00:00")
+@mock.patch("cactus_client.action.der_controls.request_for_step")
+@pytest.mark.asyncio
+async def test_action_respond_der_controls_completes_after_clear(
+    mock_request_for_step: mock.AsyncMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """Regression test: a DERControl that completes and is removed from the resource store
+    (eg because it dropped off the server's DERControlList on rediscovery) should still receive an
+    EVENT_COMPLETED response, sourced from the archive rather than the live store."""
+
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    current_timestamp = int(utc_now().timestamp())
+
+    edev = generate_class_instance(EndDeviceResponse, seed=1, generate_relationships=True)
+    edev.lFDI = to_hex_binary(1000)
+    stored_edev = resource_store.append_resource(CSIPAusResource.EndDevice, None, edev)
+
+    der_control = generate_class_instance(DERControlResponse, seed=1, generate_relationships=True)
+    der_control.replyTo = "/edev/rsp"
+    der_control.responseRequired = to_hex_binary(1)
+    der_control.EventStatus_ = generate_class_instance(EventStatus, currentStatus=1)  # Active
+    der_control.mRID = to_hex_binary(2000)
+    der_control.interval = DateTimeIntervalType(start=current_timestamp - 3600, duration=1800)  # already ended
+
+    stored_der_control = resource_store.append_resource(CSIPAusResource.DERControl, stored_edev.id, der_control)
+
+    annotations = context.resource_annotations(step, stored_der_control.id)
+    annotations.add_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_RECEIVED)
+    annotations.add_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_STARTED)
+
+    # Simulate a rediscovery removing the completed control from the server's DERControlList
+    resource_store.clear_resource(CSIPAusResource.DERControl)
+    assert resource_store.get_for_type(CSIPAusResource.DERControl) == []
+
+    mock_post_response = mock.Mock()
+    mock_post_response.is_success.return_value = True
+    mock_request_for_step.return_value = mock_post_response
+
+    # Act
+    result = await action_respond_der_controls(step, context)
+
+    # Assert
+    assert result.done()
+    assert mock_request_for_step.call_count == 1
+
+    call = mock_request_for_step.call_args_list[0]
+    assert f"<status>{int(ResponseType.EVENT_COMPLETED)}</status>" in call.kwargs["sep2_xml_body"]
+    assert annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_COMPLETED)
+
+
+@freeze_time("2025-11-19 12:00:00")
 @mock.patch("cactus_client.action.der_controls.client_error_request_for_step")
 @pytest.mark.asyncio
 @pytest.mark.parametrize(

@@ -334,6 +334,22 @@ def test_ResourceStore():
     assert s.get_for_id(sr3.id) is None, "Cleared"
     assert s.get_for_id(sr4.id) is None, "Cleared"
 
+    # Cleared resources should now be queryable via the archive
+    assert s.get_archived_for_type(CSIPAusResource.EndDevice) == [sr3, sr4]
+    assert s.get_archived_for_type(CSIPAusResource.DER) == [], "Never cleared"
+    assert s.get_archived_for_type(CSIPAusResource.DeviceCapability) == [], "Was never live"
+
+    # Re-appending a previously-archived ID should evict it from the archive immediately (not just on next clear) -
+    # otherwise it would exist in both the live and archived collections at once
+    sr3b = s.append_resource(CSIPAusResource.EndDevice, sr1.id, r3)
+    assert sr3b.id == sr3.id
+    assert sr3b is not sr3
+    assert s.get_archived_for_type(CSIPAusResource.EndDevice) == [sr4], "sr3 was re-appended, so no longer archived"
+
+    # Re-clearing should then move the newly re-appended resource back into the archive
+    s.clear_resource(CSIPAusResource.EndDevice)
+    assert s.get_archived_for_type(CSIPAusResource.EndDevice) == [sr4, sr3b], "sr3b re-inserted last due to the pop"
+
     # Test deleting
     assert s.delete_resource(sr1.id) is sr1
     assert s.get_for_type(CSIPAusResource.EndDevice) == []
@@ -344,6 +360,9 @@ def test_ResourceStore():
     assert s.get_for_id(sr2.id) is sr2
     assert s.get_for_id(sr3.id) is None, "Cleared"
     assert s.get_for_id(sr4.id) is None, "Cleared"
+
+    # delete_resource is an intentional/confirmed removal - unlike clear_resource it should NOT archive
+    assert s.get_archived_for_type(CSIPAusResource.DER) == []
 
     # Test upsert
     r5 = generate_class_instance(DER, seed=505)
@@ -371,6 +390,11 @@ def test_ResourceStore():
     assert s.get_for_id(sr4.id) is None, "Cleared"
     assert s.get_for_id(sr6.id) is sr6
     assert list(s.resources()) == [sr2, sr6]
+
+    # Test that a full clear() also wipes the archive
+    assert s.get_archived_for_type(CSIPAusResource.EndDevice) != []
+    s.clear()
+    assert s.get_archived_for_type(CSIPAusResource.EndDevice) == []
 
 
 def test_ResourceStore_upsert_resource():
