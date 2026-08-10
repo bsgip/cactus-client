@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import logging.config
 import urllib.parse
@@ -90,7 +91,10 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         log_format = "%(asctime)s %(levelname)s %(name)s %(funcName)s - %(message)s"
         log_file_path = output_manager.file_path(RunOutputFile.ConsoleLogs)
         if run_config.headless:
-            # Headless config also echoes the logs via stderr
+            # Headless config also echoes the logs via stderr - in quiet mode that echo is
+            # dropped to WARNING so passing tests don't flood the console. The file handler
+            # always stays at DEBUG so nothing is lost from cactus.log.
+            stderr_level = "WARNING" if run_config.quiet else "DEBUG"
             logging.config.dictConfig(
                 {
                     "version": 1,
@@ -108,7 +112,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
                         },
                         "stderr_handler": {
                             "class": "logging.StreamHandler",
-                            "level": "DEBUG",
+                            "level": stderr_level,
                             "formatter": "standard",
                             "stream": "ext://sys.stderr",
                         },
@@ -144,9 +148,12 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         logger.info(f"Test passed: {results.has_passed(strict=run_config.strict)}")
         logger.debug(f"ResultsEvaluation: {results}")
 
-        # Print the results to the console
+        # Print the results to the console - in quiet mode, passed tests are rendered into the
+        # HTML report but not printed to the live console
         console.record = True
-        render_console(console, context, results, output_manager)
+        suppress_output = run_config.quiet and results.has_passed(strict=run_config.strict)
+        with console.capture() if suppress_output else contextlib.nullcontext():
+            render_console(console, context, results, output_manager)
         console.save_html(str(output_manager.file_path(RunOutputFile.Report).absolute()))
 
         # Write pass/fail result file
@@ -154,8 +161,9 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
             fp.write("PASS" if results.has_passed(strict=run_config.strict) else "FAIL")
 
         # Print the path in a "nice" way so that common terminals support ctrl+click to open the directory
-        quoted_path = urllib.parse.quote(str(output_manager.run_output_dir.absolute()))
-        console.print(f"Results stored at file://{quoted_path}")
+        if not suppress_output:
+            quoted_path = urllib.parse.quote(str(output_manager.run_output_dir.absolute()))
+            console.print(f"Results stored at file://{quoted_path}")
 
         # Generate other "results" outputs in the output directory
         persist_all_request_data(context, output_manager)
