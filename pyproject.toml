@@ -34,9 +34,9 @@ dynamic = ["version", "readme"]
 description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
 requires-python = ">= 3.12"
 dependencies = [
-    "cactus-test-definitions>=1.14.6",
-    "cactus-schema>=0.0.11",
-    "envoy-schema>=1.1.0,<2",
+    "cactus-test-definitions>=1.15.0",
+    "cactus-schema>=1.3.2",
+    "envoy-schema>=1.3.0,<2",
     "rich>=14.1.0,<15",
     "treelib>=1.8.0,<2",
     "aiohttp>=3.11.12,<4",

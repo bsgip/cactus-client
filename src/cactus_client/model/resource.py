@@ -306,25 +306,33 @@ class ResourceStore:
 
     resource_store: dict[CSIPAusResource, list[StoredResource]]
     id_store: dict[StoredResourceId, StoredResource]
+    # Resources that were once live but got removed by clear_resource (eg a DERControl that completed and dropped
+    # off the server's DERControlList). Bounded by however many distinct resources a test server produces in a
+    # single run - cactus-client is a short-lived CLI process, not a long-running service, so no eviction is needed.
+    archive_store: dict[CSIPAusResource, dict[StoredResourceId, StoredResource]]
     tree: CSIPAusResourceTree
 
     def __init__(self, tree: CSIPAusResourceTree) -> None:
         self.resource_store = {}
         self.id_store = {}
+        self.archive_store = {}
         self.tree = tree
 
     def clear(self) -> None:
         """Fully resets this store to its initial state"""
         self.resource_store.clear()
         self.id_store.clear()
+        self.archive_store.clear()
 
     def clear_resource(self, type: CSIPAusResource) -> None:
         """Updates the store so that future calls to get (for type) will return an empty list. Also unlinks ALL
-        of the ID entries that are removed"""
+        of the ID entries that are removed, archiving them so they can still be queried via get_archived_for_type"""
         existing_srs = self.resource_store.get(type)
         if existing_srs is not None:
+            archive = self.archive_store.setdefault(type, {})
             for sr in existing_srs:
                 del self.id_store[sr.id]
+                archive[sr.id] = sr
             del self.resource_store[type]
 
     def append_resource(
@@ -343,6 +351,8 @@ class ResourceStore:
         if duplicate is not None:
             raise CactusClientError(f"Resource store already has {type} {new_resource.id}. Cannot append a copy.")
         self.id_store[new_resource.id] = new_resource
+        # An id going live again must stop being archived, or it would count as both live and archived at once
+        self.archive_store.get(type, {}).pop(new_resource.id, None)
 
         existing_resources_of_type = self.resource_store.get(type, None)
         if existing_resources_of_type is None:
@@ -364,6 +374,8 @@ class ResourceStore:
 
         # Update ID store
         self.id_store[new_resource.id] = new_resource
+        # Same reasoning as append_resource: undo any prior archiving now that this id is live again
+        self.archive_store.get(type, {}).pop(new_resource.id, None)
 
         # Update resource store
         existing_resources_of_type = self.resource_store.get(type, None)
@@ -407,6 +419,11 @@ class ResourceStore:
     def get_for_type(self, type: CSIPAusResource) -> list[StoredResource]:
         """Finds all StoredResources of the specified resource type. Returns empty list if none are found"""
         return self.resource_store.get(type, [])
+
+    def get_archived_for_type(self, type: CSIPAusResource) -> list[StoredResource]:
+        """Finds all archived StoredResources of the specified resource type (ie resources that were once live but
+        have since been removed via clear_resource). Returns empty list if none are found"""
+        return list(self.archive_store.get(type, {}).values())
 
     def get_descendents_of(self, type: CSIPAusResource, parent: StoredResourceId) -> list[StoredResource]:
         """Finds all StoredResources of the specified resource type that ALSO list parent in the their chain of parents

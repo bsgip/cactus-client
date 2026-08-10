@@ -155,6 +155,7 @@ cactus autorun --strict --headless --timeout 120
 | `--strict` | Treat warnings as failures for every test in the run. |
 | `--allow-skips` | Permit admin plugins to waive individual steps for every test in the run. Overrides `runner.allow_skips` from config. |
 | `--headless` | Disable the terminal UI for all tests. |
+| `--quiet` | Only print the full result panel for failed tests — passed tests still get their per-test HTML report, just not the console panel. Useful for large suites where dozens of passed-test panels bury the failures. |
 | `-c PATH` | Override the config file location. |
 
 #### Persistent autorun config
@@ -169,6 +170,7 @@ runner:
   timeout: null        # per-test timeout in seconds
   strict: false        # treat warnings as failures
   allow_skips: false   # permit admin plugins to waive individual steps
+  quiet: false          # only show the result panel for failed tests
 ```
 
 ### Viewing the compliance report

@@ -103,8 +103,6 @@ def determine_response_status(
                 return ResponseType.EVENT_STARTED
 
         # Check if control should have completed
-        # NOTE: Currently the discovery process will remove old controls, so this branch will not ever be accessed
-        # A fix is in progress
         if current_timestamp >= event_end:
             if not annotations.has_tag(AnnotationNamespace.RESPONSES, ResponseType.EVENT_COMPLETED):
                 return ResponseType.EVENT_COMPLETED
@@ -119,7 +117,11 @@ async def action_respond_der_controls(step: StepExecution, context: ExecutionCon
 
     resource_store = context.discovered_resources(step)
 
-    stored_der_controls = [sr for sr in resource_store.get_for_type(CSIPAusResource.DERControl)]
+    # A DERControl id only ever lives in one of these two lists at a time - clear_resource moves it from live to
+    # archived when it drops off the server's DERControlList, so no de-duplication is required here.
+    stored_der_controls = resource_store.get_for_type(
+        CSIPAusResource.DERControl
+    ) + resource_store.get_archived_for_type(CSIPAusResource.DERControl)
 
     # Keep track of controls for better error messages
     total_found = len(stored_der_controls)

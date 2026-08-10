@@ -240,13 +240,13 @@ requires-dist = [
     { name = "apluggy", specifier = ">=1.1.2,<2" },
     { name = "assertical", marker = "extra == 'test'", specifier = ">=0.4.0" },
     { name = "bandit", marker = "extra == 'dev'" },
-    { name = "cactus-schema", specifier = ">=0.0.11" },
-    { name = "cactus-test-definitions", specifier = ">=1.14.6" },
+    { name = "cactus-schema", specifier = ">=1.3.2" },
+    { name = "cactus-test-definitions", specifier = ">=1.15.0" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "cryptography" },
     { name = "cryptography", marker = "extra == 'test'" },
     { name = "dataclass-wizard", specifier = ">=0.35.0,<1" },
-    { name = "envoy-schema", specifier = ">=1.1.0,<2" },
+    { name = "envoy-schema", specifier = ">=1.3.0,<2" },
     { name = "freezegun", marker = "extra == 'test'" },
     { name = "lxml-stubs", marker = "extra == 'dev'" },
     { name = "pydantic-xml", extras = ["lxml"], specifier = ">=2.11.7,<3" },
@@ -266,29 +266,28 @@ provides-extras = ["dev", "test"]
 
 [[package]]
 name = "cactus-schema"
-version = "0.0.23"
+version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cactus-test-definitions" },
     { name = "dataclass-wizard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/ea/ba86486f93571effc23037885dd4cb3e27ff3670cb6f64dd1230082ac69f/cactus_schema-0.0.23.tar.gz", hash = "sha256:327c3d3a6d79a0f11c7a30c01276d9dd9a041120d324e6debcf246acdc98e374", size = 11052, upload-time = "2026-05-27T01:18:23.516Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/d0/d99e93a82ac1ea6f69ab28238baf3ef7b41d08da199a337bd9fc2be94e65/cactus_schema-1.3.3.tar.gz", hash = "sha256:d8b6ae479158898cc03b1043d741edd21991911772bc3d5bfecec105a920d69b", size = 11857, upload-time = "2026-08-04T03:34:13.195Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/c4/4e90ffe68c15812f361e04b73ec279d1d5b31164f5110d94cac7450d338b/cactus_schema-0.0.23-py3-none-any.whl", hash = "sha256:d9a2e3505ed83401f53ad026af94ff9bb46a08e4554a69102ad0ff1edf2022d7", size = 12729, upload-time = "2026-05-27T01:18:21.999Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/88/0456bc6e9aa798412469d97ac501ca66ec88f5b1908aa6a33ec378529064/cactus_schema-1.3.3-py3-none-any.whl", hash = "sha256:eb4e5c8c59d59199d94c79a1bbe3252c9a19906c01c7207283b7c33924eb1799", size = 13826, upload-time = "2026-08-04T03:34:11.787Z" },
 ]
 
 [[package]]
 name = "cactus-test-definitions"
-version = "1.14.6"
+version = "1.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dataclass-wizard" },
     { name = "pyyaml" },
     { name = "pyyaml-include" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/5a/3e3d10fc72bab90470edc3585d28d94ee09314a53d6e4e4737a022e9fa52/cactus_test_definitions-1.14.6.tar.gz", hash = "sha256:7be86a1c9d9f257d9261ac89fe751f736c01737f621c716735c42009a055013a", size = 166823, upload-time = "2026-06-05T05:16:32.047Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/3e/2761a13c8c20736eaaca13bd2e964f39ae64ee69302bb256f43645befa2b/cactus_test_definitions-1.15.0.tar.gz", hash = "sha256:b6f8783579c8d76184be9c9150e30dd8c57b248a6afe6344dcbb5beb64692d75", size = 178077, upload-time = "2026-07-21T01:52:26.593Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/50/21/335d1430373271572be39a9372b34b33506aa221a63910c6c86d00544590/cactus_test_definitions-1.14.6-py3-none-any.whl", hash = "sha256:4934e49e42d3af985e3ebb7f881dd16fa659c3dcfd69c86ec985ef960f16e551", size = 318707, upload-time = "2026-06-05T05:16:30.248Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/b9/cb06d1585ec4917e1cdd491e65f3e11763b6cddddaf058ba4171324c35e8/cactus_test_definitions-1.15.0-py3-none-any.whl", hash = "sha256:c4276362faa32a8049b8b720f7823eb4670d8f9116fbba532f3896df71b7ec32", size = 352224, upload-time = "2026-07-21T01:52:24.661Z" },
 ]
 
 [[package]]
@@ -590,15 +589,15 @@ wheels = [
 
 [[package]]
 name = "envoy-schema"
-version = "1.1.0"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-xml", extra = ["lxml"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8e/ef/e95f2c46cd5e55f3b0d50dae5516532d67b45dea6c5ed955fcefdde9f277/envoy_schema-1.1.0.tar.gz", hash = "sha256:9f8f1b21d1c335d7e1e3d429a418aba6f6d101efc987973a99bb6342dce85901", size = 41262, upload-time = "2026-04-24T01:08:42.479Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/38/e8c29f4d5f9292f2805eb251ed260576683f37966a3aca08bc850a6481f0/envoy_schema-1.3.0.tar.gz", hash = "sha256:768a193f48525f3642cc9925f8602d1974479dfee1801c8811296fcbd617bfe3", size = 42450, upload-time = "2026-07-30T02:14:15.887Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/26/805e6616fcd0508e4b23556a1824510cebc6e448af88701172f6d237b831/envoy_schema-1.1.0-py3-none-any.whl", hash = "sha256:95aac87680e5eeb5ae8678f5315e70898822fd9135f34bd72c6ca6a1c275ee53", size = 53842, upload-time = "2026-04-24T01:08:41.009Z" },
+    { url = "https://files.pythonhosted.org/packages/16/92/2dbca8aaa640ca1ff0321a92a1aefad3bb3a3642fadbed0c0b7139cfec05/envoy_schema-1.3.0-py3-none-any.whl", hash = "sha256:4c237b462e53cc03db07378dd29c20615556a62e3f7703bd70d06adec61151dc", size = 55084, upload-time = "2026-07-30T02:14:14.54Z" },
 ]
 
 [[package]]

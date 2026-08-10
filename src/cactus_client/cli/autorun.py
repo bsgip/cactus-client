@@ -73,6 +73,13 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         default=None,
         help="Permit admin plugins to waive individual steps. Overrides runner.allow_skips from config.",
     )
+    autorun_parser.add_argument(
+        "--quiet",
+        required=False,
+        action="store_true",
+        default=None,
+        help="Only print the full result panel for failed tests. Overrides runner.quiet from config.",
+    )
 
 
 def run_action(args: argparse.Namespace) -> None:
@@ -108,6 +115,7 @@ def run_action(args: argparse.Namespace) -> None:
     cli_timeout: int | None = args.timeout
     cli_strict: bool | None = args.strict
     cli_allow_skips: bool | None = args.allow_skips
+    cli_quiet: bool | None = args.quiet
 
     include = cli_include if cli_include is not None else (runner_cfg.include or None if runner_cfg else None)
     include_file = (
@@ -117,6 +125,7 @@ def run_action(args: argparse.Namespace) -> None:
     timeout = cli_timeout if cli_timeout is not None else (runner_cfg.timeout if runner_cfg else None)
     strict = cli_strict if cli_strict is not None else (runner_cfg.strict if runner_cfg else False)
     allow_skips = cli_allow_skips if cli_allow_skips is not None else (runner_cfg.allow_skips if runner_cfg else False)
+    quiet = cli_quiet if cli_quiet is not None else (runner_cfg.quiet if runner_cfg else False)
 
     headless: bool = bool(args.headless)
 
@@ -131,6 +140,7 @@ def run_action(args: argparse.Namespace) -> None:
                 timeout=timeout,
                 strict=strict,
                 allow_skips=allow_skips,
+                quiet=quiet,
             )
         )
     except ConfigError as exc:

@@ -38,6 +38,41 @@ from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
 logger = logging.getLogger(__name__)
 
 
+def build_client_ssl_context(
+    client_config: ClientConfig,
+    verify_ssl: bool,
+    verify_host_name: bool,
+    serca_pem_path: str | None,
+) -> SSLContext:
+    """Builds the SSLContext used for connecting to the utility server as a particular client - raises ConfigError
+    if the client certificate/key or SERCA trust anchor can't be loaded."""
+
+    ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
+    # ECDHE-ECDSA-AES128-CCM8 is mandatory per 2030.5; keep the broad set too so RSA servers still negotiate.
+    # CCM8 must be listed before ALL. DEFAULT can't be used as it permanently excludes CCM8.
+    # !aNULL drops the anonymous (unauthenticated) suites ALL would otherwise allow when verify-ssl is off.
+    ssl_context.set_ciphers("ECDHE-ECDSA-AES128-CCM8:ALL:!aNULL")
+    ssl_context.check_hostname = verify_host_name
+    ssl_context.verify_mode = ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE
+    if verify_ssl and serca_pem_path:
+        try:
+            ssl_context.load_verify_locations(cafile=serca_pem_path)
+        except Exception as exc:
+            raise ConfigError(
+                f"Failure loading SERCA certificate for {client_config.id} from SERCA PEM file '{serca_pem_path}'"
+            ) from exc
+
+    try:
+        ssl_context.load_cert_chain(client_config.certificate_file, client_config.key_file)
+    except Exception as exc:
+        raise ConfigError(
+            f"Failure loading client certificate chain for {client_config.id} from "
+            + f"cert file {client_config.certificate_file} and key file {client_config.key_file}. {exc}"
+        ) from exc
+
+    return ssl_context
+
+
 def build_clients_by_alias(
     resource_tree: CSIPAusResourceTree,
     base_uri: str,
@@ -84,28 +119,7 @@ def build_clients_by_alias(
             )
 
         # Load the client certs into a SSLContext
-        ssl_context = SSLContext(ssl.PROTOCOL_TLSv1_2)  # TLS 1.2 required by 2030.5
-        # ECDHE-ECDSA-AES128-CCM8 is mandatory per 2030.5; keep the broad set too so RSA servers still negotiate.
-        # CCM8 must be listed before ALL. DEFAULT can't be used as it permanently excludes CCM8.
-        # !aNULL drops the anonymous (unauthenticated) suites ALL would otherwise allow when verify-ssl is off.
-        ssl_context.set_ciphers("ECDHE-ECDSA-AES128-CCM8:ALL:!aNULL")
-        ssl_context.check_hostname = verify_host_name
-        ssl_context.verify_mode = ssl.CERT_REQUIRED if verify_ssl else ssl.CERT_NONE
-        if verify_ssl and serca_pem_path:
-            try:
-                ssl_context.load_verify_locations(cafile=serca_pem_path)
-            except Exception as exc:
-                raise ConfigError(
-                    f"Failure loading SERCA certificate for {client_config_id} from SERCA PEM file '{serca_pem_path}'"
-                ) from exc
-
-        try:
-            ssl_context.load_cert_chain(client_config.certificate_file, client_config.key_file)
-        except Exception as exc:
-            raise ConfigError(
-                f"Failure loading client certificate chain for {client_config_id} from"
-                + f"cert file {client_config.certificate_file} and key file {client_config.key_file}. {exc}"
-            ) from exc
+        ssl_context = build_client_ssl_context(client_config, verify_ssl, verify_host_name, serca_pem_path)
 
         clients_by_alias[tp_client_precondition.id] = ClientContext(
             test_procedure_alias=tp_client_precondition.id,

@@ -31,6 +31,7 @@ class AutoRunConfig:
     timeout: int | None = None  # Per-test timeout in seconds (overrides main timeout)
     strict: bool = False  # If True, warnings are treated as failures
     allow_skips: bool = False  # If True, admin plugins may waive individual steps
+    quiet: bool = False  # If True, only failed tests print their full result panel
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,7 @@ class RunConfig:
     timeout: int | None = None  # Optional timeout in seconds
     strict: bool = False  # If True, warnings are treated as failures
     allow_skips: bool = False  # If True, admin plugins may waive individual steps
+    quiet: bool = False  # If True, suppress the result panel when the test passes
 
 
 @dataclass(frozen=True)

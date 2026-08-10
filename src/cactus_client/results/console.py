@@ -87,14 +87,25 @@ def render_console(  # noqa: C901
     server_table.add_column(style="b")
     server_table.add_column()
     server_table.add_row("dcap", context.server_config.device_capability_uri)
-    server_table.add_row("verify", str(context.server_config.verify_ssl))
+    server_table.add_row("verify ssl", str(context.server_config.verify_ssl))
+    server_table.add_row("verify host name", str(context.server_config.verify_host_name))
+    server_table.add_row("serca pem file", str(context.server_config.serca_pem_file))
+    server_table.add_row("notification uri", str(context.server_config.notification_uri))
+    server_table.add_row("pen", str(context.server_config.pen))
+    server_table.add_row("refetch delay ms", str(context.server_config.refetch_delay_ms))
     panel_items.append(server_table)
 
     client_table = Table(title="Client(s)", title_justify="left", show_header=False, expand=True)
     client_table.add_column(style="b")
     client_table.add_column()
     for client_alias, client in sorted(context.clients_by_alias.items()):
-        client_table.add_row(f"{client_alias}", client.client_config.lfdi)
+        client_table.add_row("alias", client_alias)
+        client_table.add_row("type", str(client.client_config.type))
+        client_table.add_row("lfdi", client.client_config.lfdi)
+        client_table.add_row("sfdi", str(client.client_config.sfdi))
+        client_table.add_row("pen", str(client.client_config.pen))
+        client_table.add_row("max watts", str(client.client_config.max_watts))
+        client_table.add_section()
     panel_items.append(client_table)
 
     if context.warnings.warnings:

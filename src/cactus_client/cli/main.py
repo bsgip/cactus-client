@@ -2,6 +2,7 @@ import argparse
 
 import cactus_client.cli.autorun as autorun
 import cactus_client.cli.client as client
+import cactus_client.cli.connect as connect
 import cactus_client.cli.report as report
 import cactus_client.cli.run as run
 import cactus_client.cli.server as server
@@ -18,6 +19,7 @@ run.add_sub_commands(root_subparsers)
 tests.add_sub_commands(root_subparsers)
 report.add_sub_commands(root_subparsers)
 autorun.add_sub_commands(root_subparsers)
+connect.add_sub_commands(root_subparsers)
 
 
 def cli_entrypoint() -> None:
@@ -39,6 +41,8 @@ def cli_entrypoint() -> None:
             report.run_action(args)
         case autorun.COMMAND_NAME:
             autorun.run_action(args)
+        case connect.COMMAND_NAME:
+            connect.run_action(args)
         case _:
             root_parser.print_help()
 
