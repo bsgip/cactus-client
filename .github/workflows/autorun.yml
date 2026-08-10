@@ -18,7 +18,7 @@ env:
   # Pinned to a commit on support_latest_envoy_version for now, since that branch is working
   # towards compatibility with envoy versions beyond cactus-client-envoy's released dependency
   # pin. Switch this to a main-branch SHA once that work has landed and merged.
-  CACTUS_CLIENT_ENVOY_PIN: 6a3310f24b6c338c097552ed20905ce7d1161a1a
+  CACTUS_CLIENT_ENVOY_PIN: bba29b29d6a3fdf512d80ce22093d53179ddc6a0
 
 jobs:
   autorun:
