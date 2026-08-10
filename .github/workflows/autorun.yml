@@ -15,10 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Pinned to a commit on support_latest_envoy_version for now, since that branch is working
-  # towards compatibility with envoy versions beyond cactus-client-envoy's released dependency
-  # pin. Switch this to a main-branch SHA once that work has landed and merged.
-  CACTUS_CLIENT_ENVOY_PIN: bba29b29d6a3fdf512d80ce22093d53179ddc6a0
+  # Bump deliberately - see https://github.com/bsgip/cactus-client-envoy/releases
+  CACTUS_CLIENT_ENVOY_PIN: v1.1.0
 
 jobs:
   autorun:
