@@ -155,6 +155,7 @@ cactus autorun --strict --headless --timeout 120
 | `--timeout SECONDS` | Per-test timeout in seconds. A test that times out is marked as failed and the run stops. |
 | `--strict` | Treat warnings as failures for every test in the run. |
 | `--headless` | Disable the terminal UI for all tests. |
+| `--quiet` | Only print the full result panel for failed tests — passed tests still get their per-test HTML report, just not the console panel. Useful for large suites where dozens of passed-test panels bury the failures. |
 | `-c PATH` | Override the config file location. |
 
 #### Persistent autorun config
@@ -168,6 +169,7 @@ runner:
   exclude: []          # list of test IDs to skip
   timeout: null        # per-test timeout in seconds
   strict: false        # treat warnings as failures
+  quiet: false          # only show the result panel for failed tests
 ```
 
 ### Viewing the compliance report

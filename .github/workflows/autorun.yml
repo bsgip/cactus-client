@@ -98,7 +98,7 @@ jobs:
             sleep 3
           done
           echo "envoy did not become reachable in time" >&2
-          docker compose -f envoy/demo/docker-compose.yaml logs
+          docker compose -f envoy/demo/docker-compose.yaml logs --tail=50
           exit 1
 
       - name: Install cactus-client-envoy and cactus-client
@@ -130,7 +130,7 @@ jobs:
       - name: Run short test suite
         run: |
           source .venv/bin/activate
-          cactus autorun --include-file ./cactus-client/include_short.txt --headless --timeout 60
+          cactus autorun --include-file ./cactus-client/include_short.txt --headless --quiet --timeout 60
 
       - name: Upload test reports
         if: always()
