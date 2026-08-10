@@ -1,14 +1,15 @@
 # One test procedure ID per line. Lines starting with # are ignored.
-# This list excludes slow tests with explicit wait steps:
-#   - S-ALL-41 (~6-8 min), S-ALL-46 (~5-7 min), S-ALL-50 (~72 hours)
-# Run with: cactus autorun --include-file include_short.txt --timeout 20
+# This list excludes slow tests:
+#   - readings insertions with 4+ values: S-ALL-04, S-ALL-06 (postRate-gated -
+#     each extra reading waits max(next_reading_time, now + mup.postRate), and
+#     envoy defaults mup_postrate_seconds to 60s, so 4 values takes ~3 min)
+#   - explicit wait steps: S-ALL-41 (~6-8 min), S-ALL-46 (~5-7 min), S-ALL-50 (~72 hours)
+# Run with: cactus autorun --include-file include_short.txt --timeout 60
 
 S-ALL-01
 S-ALL-02
 S-ALL-03
-S-ALL-04
 S-ALL-05
-S-ALL-06
 S-ALL-07
 S-ALL-08
 S-ALL-09
