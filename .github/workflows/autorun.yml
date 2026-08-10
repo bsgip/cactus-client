@@ -117,6 +117,7 @@ jobs:
           cactus server dcap https://localhost:8443/dcap
           cactus server verify true
           cactus server serca ./envoy/demo/tls-termination/test_certs/testca.crt
+          cactus server notification https://cactus.cecs.anu.edu.au/client-notifications/
 
       - name: Register demo clients
         run: |
