@@ -1,12 +1,13 @@
 import logging
 import re
 from http import HTTPMethod
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import (
     DER,
     ActivePower,
+    ApparentPower,
     ConnectStatusTypeValue,
     DERCapability,
     DERControlType,
@@ -16,6 +17,9 @@ from envoy_schema.server.schema.sep2.der import (
     DOESupportedMode,
     OperationalModeStatusType,
     OperationalModeStatusTypeValue,
+    PowerFactor,
+    ReactivePower,
+    WattHour,
 )
 
 from cactus_client.action.server import (
@@ -53,6 +57,26 @@ def _validate_fields(expected: object, actual: object, fields: list[str]) -> Non
         raise CactusClientError(f"{actual.__class__.__name__} validation failed: " + "; ".join(mismatches))
 
 
+TPowerValue = TypeVar("TPowerValue", ActivePower, ApparentPower, ReactivePower, WattHour)
+
+
+def _optional_power(cls: type[TPowerValue], resolved_parameters: dict[str, Any], key: str) -> TPowerValue | None:
+    """Builds a multiplier=0 power/energy value type from an optional integer parameter"""
+    value = resolved_parameters.get(key)
+    return cls(value=int(value), multiplier=0) if value is not None else None
+
+
+def _optional_power_factor(resolved_parameters: dict[str, Any], key: str) -> PowerFactor | None:
+    """Builds a PowerFactor from an optional integer parameter - displacement is scaled by 10^-2"""
+    value = resolved_parameters.get(key)
+    return PowerFactor(displacement=int(value), multiplier=-2) if value is not None else None
+
+
+def _optional_hex_binary(resolved_parameters: dict[str, Any], key: str) -> str | None:
+    value = resolved_parameters.get(key)
+    return to_hex_binary(int(value)) if value is not None else None
+
+
 async def action_upsert_der_capability(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
@@ -64,6 +88,17 @@ async def action_upsert_der_capability(
     rtg_max_w = ActivePower(value=resolved_parameters["rtgMaxW"], multiplier=0)
     modes_supported = to_hex_binary(int(resolved_parameters["modesSupported"]))
     doe_modes_supported = to_hex_binary(int(resolved_parameters["doeModesSupported"]))
+
+    # Optional storage-related fields
+    rtg_max_va = _optional_power(ApparentPower, resolved_parameters, "rtgMaxVA")
+    rtg_max_var = _optional_power(ReactivePower, resolved_parameters, "rtgMaxVar")
+    rtg_max_var_neg = _optional_power(ReactivePower, resolved_parameters, "rtgMaxVarNeg")
+    rtg_min_pf_over_excited = _optional_power_factor(resolved_parameters, "rtgMinPFOverExcited")
+    rtg_min_pf_under_excited = _optional_power_factor(resolved_parameters, "rtgMinPFUnderExcited")
+    rtg_max_charge_rate_w = _optional_power(ActivePower, resolved_parameters, "rtgMaxChargeRateW")
+    rtg_max_discharge_rate_w = _optional_power(ActivePower, resolved_parameters, "rtgMaxDischargeRateW")
+    rtg_max_wh = _optional_power(WattHour, resolved_parameters, "rtgMaxWh")
+    vpp_modes_supported = _optional_hex_binary(resolved_parameters, "vppModesSupported")
 
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
@@ -81,6 +116,15 @@ async def action_upsert_der_capability(
             rtgMaxW=rtg_max_w,
             modesSupported=modes_supported,
             doeModesSupported=doe_modes_supported,
+            rtgMaxVA=rtg_max_va,
+            rtgMaxVar=rtg_max_var,
+            rtgMaxVarNeg=rtg_max_var_neg,
+            rtgMinPFOverExcited=rtg_min_pf_over_excited,
+            rtgMinPFUnderExcited=rtg_min_pf_under_excited,
+            rtgMaxChargeRateW=rtg_max_charge_rate_w,
+            rtgMaxDischargeRateW=rtg_max_discharge_rate_w,
+            rtgMaxWh=rtg_max_wh,
+            vppModesSupported=vpp_modes_supported,
         )
 
         # Send request then retreive it from the server and save to resource store
@@ -100,7 +144,21 @@ async def action_upsert_der_capability(
         _validate_fields(
             dercap_request,
             inserted_dercap,
-            ["type_", "rtgMaxW", "modesSupported", "doeModesSupported"],
+            [
+                "type_",
+                "rtgMaxW",
+                "modesSupported",
+                "doeModesSupported",
+                "rtgMaxVA",
+                "rtgMaxVar",
+                "rtgMaxVarNeg",
+                "rtgMinPFOverExcited",
+                "rtgMinPFUnderExcited",
+                "rtgMaxChargeRateW",
+                "rtgMaxDischargeRateW",
+                "rtgMaxWh",
+                "vppModesSupported",
+            ],
         )
 
     return ActionResult.done()
@@ -119,6 +177,18 @@ async def action_upsert_der_settings(
     modes_enabled = to_hex_binary(int(resolved_parameters["modesEnabled"]))
     doe_modes_enabled = to_hex_binary(int(resolved_parameters["doeModesEnabled"]))
 
+    # Optional storage-related fields
+    set_max_va = _optional_power(ApparentPower, resolved_parameters, "setMaxVA")
+    set_max_var = _optional_power(ReactivePower, resolved_parameters, "setMaxVar")
+    set_max_var_neg = _optional_power(ReactivePower, resolved_parameters, "setMaxVarNeg")
+    set_min_pf_over_excited = _optional_power_factor(resolved_parameters, "setMinPFOverExcited")
+    set_min_pf_under_excited = _optional_power_factor(resolved_parameters, "setMinPFUnderExcited")
+    set_max_charge_rate_w = _optional_power(ActivePower, resolved_parameters, "setMaxChargeRateW")
+    set_max_discharge_rate_w = _optional_power(ActivePower, resolved_parameters, "setMaxDischargeRateW")
+    set_max_wh = _optional_power(WattHour, resolved_parameters, "setMaxWh")
+    set_min_wh = _optional_power(WattHour, resolved_parameters, "setMinWh")
+    vpp_modes_enabled = _optional_hex_binary(resolved_parameters, "vppModesEnabled")
+
     # Loop through and upsert the resource for EVERY device
     stored_der = [sr for sr in resource_store.get_for_type(CSIPAusResource.DER)]
     for der in stored_der:
@@ -136,6 +206,16 @@ async def action_upsert_der_settings(
             setGradW=set_grad_w,
             modesEnabled=modes_enabled,
             doeModesEnabled=doe_modes_enabled,
+            setMaxVA=set_max_va,
+            setMaxVar=set_max_var,
+            setMaxVarNeg=set_max_var_neg,
+            setMinPFOverExcited=set_min_pf_over_excited,
+            setMinPFUnderExcited=set_min_pf_under_excited,
+            setMaxChargeRateW=set_max_charge_rate_w,
+            setMaxDischargeRateW=set_max_discharge_rate_w,
+            setMaxWh=set_max_wh,
+            setMinWh=set_min_wh,
+            vppModesEnabled=vpp_modes_enabled,
         )
 
         # Send request then retrieve it from the server and save to resource store
@@ -155,7 +235,23 @@ async def action_upsert_der_settings(
         _validate_fields(
             der_settings_request,
             inserted_der_settings,
-            ["updatedTime", "setMaxW", "setGradW", "modesEnabled", "doeModesEnabled"],
+            [
+                "updatedTime",
+                "setMaxW",
+                "setGradW",
+                "modesEnabled",
+                "doeModesEnabled",
+                "setMaxVA",
+                "setMaxVar",
+                "setMaxVarNeg",
+                "setMinPFOverExcited",
+                "setMinPFUnderExcited",
+                "setMaxChargeRateW",
+                "setMaxDischargeRateW",
+                "setMaxWh",
+                "setMinWh",
+                "vppModesEnabled",
+            ],
         )
 
     return ActionResult.done()
