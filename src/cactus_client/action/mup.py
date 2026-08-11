@@ -16,6 +16,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePointRequest,
 )
 from envoy_schema.server.schema.sep2.types import (
+    DataQualifierType,
     DateTimeIntervalType,
     FlowDirectionType,
     ServiceKind,
@@ -30,6 +31,7 @@ from cactus_client.action.server import (
 from cactus_client.check.mup import (
     generate_mmr_mrids,
     generate_mup_mrids,
+    generate_reading_type_extra_fields,
     generate_reading_type_values,
     generate_role_flags,
 )
@@ -63,6 +65,7 @@ def generate_upsert_mup_request(
     mmrs: list[MirrorMeterReading] = []
     for rt in reading_types:
         uom, kind, dq = generate_reading_type_values(rt)
+        accumulation_behaviour, commodity = generate_reading_type_extra_fields(rt)
         mmr_mrid = mrids.mmr_mrids[rt]
 
         mmrs.append(
@@ -71,7 +74,10 @@ def generate_upsert_mup_request(
                 readingType=ReadingType(
                     uom=uom,
                     kind=kind,
-                    dataQualifier=dq,
+                    # NOT_APPLICABLE means "not to be provided" for this reading type - omit rather than send 0
+                    dataQualifier=dq if dq != DataQualifierType.NOT_APPLICABLE else None,
+                    accumulationBehaviour=accumulation_behaviour,
+                    commodity=commodity,
                     flowDirection=FlowDirectionType.FORWARD,
                     powerOfTenMultiplier=pow10_multiplier,
                 ),
