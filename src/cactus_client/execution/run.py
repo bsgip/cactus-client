@@ -152,7 +152,7 @@ async def run_entrypoint(global_config: GlobalConfig, run_config: RunConfig) -> 
         # Print the results to the console - in quiet mode, passed tests are rendered into the
         # HTML report but not printed to the live console
         console.record = True
-        
+
         suppress_output = run_config.quiet and results.has_passed(strict=run_config.strict)
         with console.capture() if suppress_output else contextlib.nullcontext():
             render_console(console, context, results, output_manager, strict=run_config.strict)
