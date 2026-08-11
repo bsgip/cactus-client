@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
-from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import (
     ClientType,
     RequiredClient,
@@ -15,6 +14,7 @@ from cactus_test_definitions.server.test_procedures import (
 from cactus_client.error import ConfigError
 from cactus_client.execution.run import run_entrypoint
 from cactus_client.model.config import ClientConfig, GlobalConfig, RunConfig
+from cactus_client.schema.validator import ACTIVE_CSIP_AUS_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ async def autorun_entrypoint(
         run_config = RunConfig(
             test_procedure_id=test_id,
             client_ids=client_ids,
-            csip_aus_version=CSIPAusVersion.RELEASE_1_2,
+            csip_aus_version=ACTIVE_CSIP_AUS_VERSION,
             headless=headless,
             timeout=timeout,
             strict=strict,

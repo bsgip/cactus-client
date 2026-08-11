@@ -2,13 +2,17 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 
+from cactus_test_definitions.csipaus import CSIPAusVersion
 from lxml import etree
 
 import cactus_client.schema.csipaus13 as active_csipaus_version
 
 logger = logging.getLogger(__name__)
 
-# Lets us distinguis v1.2 from 1.3 branches. sep.xsd is unversioned and shared across all csipaus1x dirs.
+# Lets us distinguish v1.2 from v1.3 branches - keep in sync with the schema import above.
+ACTIVE_CSIP_AUS_VERSION = CSIPAusVersion.RELEASE_1_3
+
+# sep.xsd is unversioned and shared across all csipaus1x dirs.
 SCHEMA_DIR = Path(active_csipaus_version.__file__).parent
 SEP_XSD = Path(__file__).parent / "sep.xsd"
 
