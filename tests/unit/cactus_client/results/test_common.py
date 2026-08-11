@@ -32,7 +32,7 @@ from cactus_client.model.progress import (
     WarningTracker,
 )
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CSIPAusResourceTree
-from cactus_client.results.common import ResultsEvaluation
+from cactus_client.results.common import ResultsEvaluation, skipped_steps
 
 
 def generate_step(seed: int) -> Step:
@@ -303,3 +303,94 @@ def test_RESOURCE_SEP2_TYPES_typos():
     for resource_enum, response_type in RESOURCE_SEP2_TYPES.items():
         expected = response_type.__name__.replace("Response", "")
         assert resource_enum.value == expected
+
+
+@pytest.mark.asyncio
+async def test_ResultsEvaluation_passed_with_skips(assertical_extensions):
+    """A skipped step doesn't count as passed but doesn't block the run from passing"""
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
+
+    context = generate_empty_context([step_1, step_2])
+
+    step_execution_1 = generate_class_instance(StepExecution, seed=101, source=step_1)
+    step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
+
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(
+        step_execution_2,
+        ActionResult.done(),
+        CheckResult(False, None),
+        skip_reason="cant set that up here",
+    )
+
+    actual = ResultsEvaluation(context, ExecutionResult(True))
+    assert actual.has_passed()
+    assert actual.all_steps_evaluated
+    assert actual.all_steps_passed
+    assert actual.skips_applied
+    assert actual.total_steps == 2
+    assert actual.total_steps_passed == 1
+    assert actual.total_steps_skipped == 1
+
+    assert [(sr.step.id, sr.skip_reason) for sr in skipped_steps(context)] == [(step_2.id, "cant set that up here")]
+
+
+@pytest.mark.asyncio
+async def test_ResultsEvaluation_failing_step_with_skips(assertical_extensions):
+    """A skip doesn't rescue a genuinely failing step"""
+    step_1 = generate_step(1)
+    step_2 = generate_step(2)
+    step_3 = generate_step(3)
+
+    context = generate_empty_context([step_1, step_2, step_3])
+
+    step_execution_1 = generate_class_instance(StepExecution, seed=101, source=step_1)
+    step_execution_2 = generate_class_instance(StepExecution, seed=202, source=step_2)
+    step_execution_3 = generate_class_instance(StepExecution, seed=303, source=step_3)
+
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    await context.progress.set_step_result(
+        step_execution_2, ActionResult.done(), CheckResult(True, None), skip_reason="waived"
+    )
+    await context.progress.set_step_result(step_execution_3, ActionResult.done(), CheckResult(False, None))
+
+    actual = ResultsEvaluation(context, ExecutionResult(True))
+    assert not actual.has_passed()
+    assert not actual.all_steps_passed
+    assert actual.skips_applied
+    assert actual.total_steps_passed == 1
+    assert actual.total_steps_skipped == 1
+    assert actual.total_steps == 3
+
+
+@pytest.mark.asyncio
+async def test_ResultsEvaluation_no_skips(assertical_extensions):
+    """A clean run reports no skips"""
+    step_1 = generate_step(1)
+    context = generate_empty_context([step_1])
+    step_execution_1 = generate_class_instance(StepExecution, seed=101, source=step_1)
+
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+
+    actual = ResultsEvaluation(context, ExecutionResult(True))
+    assert actual.has_passed()
+    assert not actual.skips_applied
+    assert actual.total_steps_skipped == 0
+    assert skipped_steps(context) == []
+
+
+@pytest.mark.asyncio
+async def test_ResultsEvaluation_strict_warnings_fail(assertical_extensions):
+    """A strict run treats warnings as failures"""
+    step_1 = generate_step(1)
+    context = generate_empty_context([step_1])
+    step_execution_1 = generate_class_instance(StepExecution, seed=101, source=step_1)
+
+    await context.progress.set_step_result(step_execution_1, ActionResult.done(), CheckResult(True, None))
+    context.warnings.log_step_warning(step_execution_1, "Added a warning")
+
+    actual = ResultsEvaluation(context, ExecutionResult(True))
+
+    assert actual.has_passed()
+    assert not actual.has_passed(strict=True)

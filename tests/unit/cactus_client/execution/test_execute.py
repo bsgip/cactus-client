@@ -7,6 +7,10 @@ import pytest
 from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
 from cactus_test_definitions.csipaus import CSIPAusResource
+from cactus_test_definitions.server.admin_instructions import (
+    AdminInstruction,
+    AdminInstructionType,
+)
 from cactus_test_definitions.server.test_procedures import (
     Action,
     Check,
@@ -970,9 +974,10 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
         assert len(context.warnings.warnings) == expected_warnings, readable_warnings
 
 
-def _make_context_with_steps(step_list: StepExecutionList) -> ExecutionContext:
+def _make_context_with_steps(step_list: StepExecutionList, allow_skips: bool = False) -> ExecutionContext:
     tree = CSIPAusResourceTree()
     return ExecutionContext(
+        allow_skips=allow_skips,
         test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
@@ -1158,3 +1163,200 @@ async def test_teardown_exception_does_not_mask_execution_result(
             result = await execute_for_context(context)
 
     assert result.completed  # teardown failure must not mask the successful execution
+
+
+#
+# Plugin declared step skips
+#
+
+SKIP_INSTRUCTION = AdminInstruction(
+    type=AdminInstructionType.SET_CLIENT_ACCESS, client=None, parameters={"granted": False}
+)
+
+
+def _skip_step(step_id: str, action_type: str, check_type: str, primacy: int, repeat_until_pass: bool = False):
+    return StepExecution(
+        Step(
+            id=step_id,
+            action=Action(action_type),
+            checks=[Check(check_type)],
+            admin_instructions=[SKIP_INSTRUCTION],
+            repeat_until_pass=repeat_until_pass,
+        ),
+        client_alias="client-test",
+        client_resources_alias="client-test",
+        primacy=primacy,
+        repeat_number=0,
+        not_before=None,
+        attempts=0,
+    )
+
+
+def _make_pm(*plugins) -> apluggy.PluginManager:
+    pm = apluggy.PluginManager(project_name)
+    pm.add_hookspecs(AdminSpec)
+    pm.register(DefaultAdminPlugin())
+    for p in plugins:
+        pm.register(p)
+    return pm
+
+
+class SkippingPlugin:
+    """Always asks for the step to be skipped"""
+
+    @hookimpl
+    async def admin_instruction(
+        self, instruction: AdminInstruction, step: StepExecution, context: AdminContext
+    ) -> ActionResult | None:
+        return ActionResult.skip_step("cannot revoke access in this environment")
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_execute_skip_honoured_when_skips_enabled(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """A plugin requested skip neutralises the step (but still runs it) and execution continues"""
+    mock_get_pm.return_value = _make_pm(SkippingPlugin())
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(_skip_step("1", ACTION_DONE, CHECK_FAIL, primacy=0))
+    step_list.add(
+        StepExecution(
+            Step(id="2", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    context = _make_context_with_steps(step_list, allow_skips=True)
+
+    result = await execute_for_context(context)
+
+    assert result.completed
+    assert mock_execute_action.call_count == 2, "The skipped step's action must still run (mode b)"
+    assert mock_execute_checks.call_count == 2
+
+    skipped = context.progress.progress_by_step_id["1"].result
+    assert skipped is not None
+    assert skipped.is_skipped()
+    assert not skipped.is_passed(), "A skipped step is not a passed step"
+    assert skipped.skip_reason == "cannot revoke access in this environment"
+
+    assert_step_result(context.progress, "2", True), "Execution must continue past the skipped step"
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_execute_skip_is_failure_when_skips_disabled(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """The default (skips disabled) turns a skip request into a normal step failure that stops execution"""
+    mock_get_pm.return_value = _make_pm(SkippingPlugin())
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(_skip_step("1", ACTION_DONE, CHECK_PASS, primacy=0))
+    step_list.add(
+        StepExecution(
+            Step(id="2", action=Action(ACTION_DONE), checks=[Check(CHECK_PASS)]),
+            client_alias="client-test",
+            client_resources_alias="client-test",
+            primacy=1,
+            repeat_number=0,
+            not_before=None,
+            attempts=0,
+        )
+    )
+
+    context = _make_context_with_steps(step_list)  # allow_skips defaults to False
+
+    result = await execute_for_context(context)
+
+    assert result.completed
+    failed = context.progress.progress_by_step_id["1"].result
+    assert failed is not None
+    assert not failed.is_passed()
+    assert not failed.is_skipped()
+    assert failed.failure_result is not None
+    description = failed.failure_result.description or ""
+    assert "cannot revoke access in this environment" in description
+    assert "skips are not enabled" in description
+
+    assert_step_result(context.progress, "2", None), "Execution must stop on the failure"
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_execute_skipped_repeat_until_pass_does_not_requeue(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """A skipped repeat_until_pass step whose checks fail must NOT re-queue (it would loop forever)"""
+    mock_get_pm.return_value = _make_pm(SkippingPlugin())
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(_skip_step("1", ACTION_DONE, CHECK_FAIL, primacy=0, repeat_until_pass=True))
+
+    context = _make_context_with_steps(step_list, allow_skips=True)
+
+    result = await execute_for_context(context)
+
+    assert result.completed
+    assert mock_execute_action.call_count == 1, "The step must run exactly once - no repeat_until_pass re-queue"
+    assert len(context.steps) == 0
+
+    skipped = context.progress.progress_by_step_id["1"].result
+    assert skipped is not None and skipped.is_skipped()
+
+
+@mock.patch("cactus_client.execution.execute.execute_action")
+@mock.patch("cactus_client.execution.execute.execute_checks")
+@mock.patch("cactus_client.execution.execute.get_plugin_manager")
+@pytest.mark.asyncio
+async def test_execute_unhandled_instruction_continues(
+    mock_get_pm: mock.MagicMock,
+    mock_execute_checks: mock.MagicMock,
+    mock_execute_action: mock.MagicMock,
+) -> None:
+    """No plugin handling an instruction (the manual admin path) leaves execution unchanged"""
+    mock_get_pm.return_value = _make_pm()  # Only the default plugin - always returns None
+    mock_execute_action.side_effect = handle_mock_execute_action
+    mock_execute_checks.side_effect = handle_mock_execute_checks
+
+    step_list = StepExecutionList()
+    step_list.add(_skip_step("1", ACTION_DONE, CHECK_PASS, primacy=0))
+
+    context = _make_context_with_steps(step_list)
+
+    result = await execute_for_context(context)
+
+    assert result.completed
+    assert_step_result(context.progress, "1", True)
+
+
+def test_skip_step_reason_is_optional() -> None:
+    """A plugin can request a skip without supplying a reason"""
+    assert ActionResult.skip_step().skip_reason
+    assert ActionResult.skip_step("  ").skip_reason
+    assert ActionResult.skip_step("my reason").skip_reason == "my reason"

@@ -29,6 +29,7 @@ class RunOutputFile(StrEnum):
     ConsoleLogs = "cactus.log"  # Logs from the python logging API
     Report = "report.html"  # Dump of the console "results" in a portable format (eg HTML)
     Result = ".result"  # Contains "PASS" or "FAIL" depending on test outcome
+    Skips = ".skips"  # One line per skipped step (step id, reason). Absent if nothing was skipped
 
     #
     # Output subdirectories

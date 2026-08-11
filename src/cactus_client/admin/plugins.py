@@ -39,9 +39,16 @@ class AdminSpec:
     ) -> ActionResult | None:
         """Called once per admin instruction before the first attempt of a step.
 
-        Exceptions raised will abort test execution as a failure. Return None if this plugin
-        does not handle the given instruction type — the framework will log a warning if no
-        plugin handles it.
+        Exceptions raised will abort test execution as a failure.
+
+        There are three ways to respond:
+          ActionResult.done()          The instruction was handled - the step proceeds normally.
+          ActionResult.skip_step(why)  The step's action still runs (so downstream steps
+                                       keep their resources) but its pass/fail judgement is waived.
+                                       Honoured ONLY when the run enables skips (--allow-skips /
+                                       runner.allow_skips) - otherwise it is a normal step failure.
+
+        NOTE: Skipping a precondition step will still fail any steps that depend on the missing state.
 
         instruction: The admin instruction to handle (type + parameters)
         step: The step that owns this instruction
