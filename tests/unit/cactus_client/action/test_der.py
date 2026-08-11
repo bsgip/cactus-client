@@ -10,6 +10,7 @@ from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.sep2.der import (
     DER,
     ActivePower,
+    ApparentPower,
     ConnectStatusTypeValue,
     DERCapability,
     DERSettings,
@@ -17,6 +18,9 @@ from envoy_schema.server.schema.sep2.der import (
     DERType,
     OperationalModeStatusType,
     OperationalModeStatusTypeValue,
+    PowerFactor,
+    ReactivePower,
+    WattHour,
 )
 from freezegun import freeze_time
 
@@ -54,6 +58,15 @@ async def test_action_upsert_der_capability(
     expected_rtgMaxW = ActivePower(value=5000, multiplier=0)
     expected_modesSupported = to_hex_binary(1)
     expected_doeModesSupported = to_hex_binary(1)
+    expected_rtgMaxVA = ApparentPower(value=6000, multiplier=0)
+    expected_rtgMaxVar = ReactivePower(value=7000, multiplier=0)
+    expected_rtgMaxVarNeg = ReactivePower(value=8000, multiplier=0)
+    expected_rtgMinPFOverExcited = PowerFactor(displacement=90, multiplier=-2)
+    expected_rtgMinPFUnderExcited = PowerFactor(displacement=91, multiplier=-2)
+    expected_rtgMaxChargeRateW = ActivePower(value=9000, multiplier=0)
+    expected_rtgMaxDischargeRateW = ActivePower(value=9500, multiplier=0)
+    expected_rtgMaxWh = WattHour(value=10000, multiplier=0)
+    expected_vppModesSupported = to_hex_binary(1)
 
     inserted_dcaps = [
         generate_class_instance(
@@ -63,6 +76,15 @@ async def test_action_upsert_der_capability(
             rtgMaxW=expected_rtgMaxW,
             modesSupported=expected_modesSupported,
             doeModesSupported=expected_doeModesSupported,
+            rtgMaxVA=expected_rtgMaxVA,
+            rtgMaxVar=expected_rtgMaxVar,
+            rtgMaxVarNeg=expected_rtgMaxVarNeg,
+            rtgMinPFOverExcited=expected_rtgMinPFOverExcited,
+            rtgMinPFUnderExcited=expected_rtgMinPFUnderExcited,
+            rtgMaxChargeRateW=expected_rtgMaxChargeRateW,
+            rtgMaxDischargeRateW=expected_rtgMaxDischargeRateW,
+            rtgMaxWh=expected_rtgMaxWh,
+            vppModesSupported=expected_vppModesSupported,
         )
         for i in range(num_devices)
     ]
@@ -73,6 +95,15 @@ async def test_action_upsert_der_capability(
         "rtgMaxW": 5000,
         "modesSupported": 1,
         "doeModesSupported": 1,
+        "rtgMaxVA": 6000,
+        "rtgMaxVar": 7000,
+        "rtgMaxVarNeg": 8000,
+        "rtgMinPFOverExcited": 90,
+        "rtgMinPFUnderExcited": 91,
+        "rtgMaxChargeRateW": 9000,
+        "rtgMaxDischargeRateW": 9500,
+        "rtgMaxWh": 10000,
+        "vppModesSupported": 1,
     }
 
     # Act
@@ -92,6 +123,15 @@ async def test_action_upsert_der_capability(
     assert first_dcap.rtgMaxW == expected_rtgMaxW
     assert first_dcap.modesSupported == expected_modesSupported
     assert first_dcap.doeModesSupported == expected_doeModesSupported
+    assert first_dcap.rtgMaxVA == expected_rtgMaxVA
+    assert first_dcap.rtgMaxVar == expected_rtgMaxVar
+    assert first_dcap.rtgMaxVarNeg == expected_rtgMaxVarNeg
+    assert first_dcap.rtgMinPFOverExcited == expected_rtgMinPFOverExcited
+    assert first_dcap.rtgMinPFUnderExcited == expected_rtgMinPFUnderExcited
+    assert first_dcap.rtgMaxChargeRateW == expected_rtgMaxChargeRateW
+    assert first_dcap.rtgMaxDischargeRateW == expected_rtgMaxDischargeRateW
+    assert first_dcap.rtgMaxWh == expected_rtgMaxWh
+    assert first_dcap.vppModesSupported == expected_vppModesSupported
 
 
 @freeze_time("2025-11-13 12:00:00")
@@ -119,6 +159,16 @@ async def test_action_upsert_der_settings(
     expected_setGradW = 100
     expected_modesEnabled = to_hex_binary(1)
     expected_doeModesEnabled = to_hex_binary(1)
+    expected_setMaxVA = ApparentPower(value=6000, multiplier=0)
+    expected_setMaxVar = ReactivePower(value=7000, multiplier=0)
+    expected_setMaxVarNeg = ReactivePower(value=8000, multiplier=0)
+    expected_setMinPFOverExcited = PowerFactor(displacement=90, multiplier=-2)
+    expected_setMinPFUnderExcited = PowerFactor(displacement=91, multiplier=-2)
+    expected_setMaxChargeRateW = ActivePower(value=9000, multiplier=0)
+    expected_setMaxDischargeRateW = ActivePower(value=9500, multiplier=0)
+    expected_setMaxWh = WattHour(value=10000, multiplier=0)
+    expected_setMinWh = WattHour(value=0, multiplier=0)
+    expected_vppModesEnabled = to_hex_binary(1)
 
     inserted_settings = [
         generate_class_instance(
@@ -129,6 +179,16 @@ async def test_action_upsert_der_settings(
             setGradW=expected_setGradW,
             modesEnabled=expected_modesEnabled,
             doeModesEnabled=expected_doeModesEnabled,
+            setMaxVA=expected_setMaxVA,
+            setMaxVar=expected_setMaxVar,
+            setMaxVarNeg=expected_setMaxVarNeg,
+            setMinPFOverExcited=expected_setMinPFOverExcited,
+            setMinPFUnderExcited=expected_setMinPFUnderExcited,
+            setMaxChargeRateW=expected_setMaxChargeRateW,
+            setMaxDischargeRateW=expected_setMaxDischargeRateW,
+            setMaxWh=expected_setMaxWh,
+            setMinWh=expected_setMinWh,
+            vppModesEnabled=expected_vppModesEnabled,
         )
         for i in range(num_devices)
     ]
@@ -139,6 +199,16 @@ async def test_action_upsert_der_settings(
         "setGradW": expected_setGradW,
         "modesEnabled": expected_modesEnabled,
         "doeModesEnabled": expected_doeModesEnabled,
+        "setMaxVA": expected_setMaxVA.value,
+        "setMaxVar": expected_setMaxVar.value,
+        "setMaxVarNeg": expected_setMaxVarNeg.value,
+        "setMinPFOverExcited": expected_setMinPFOverExcited.displacement,
+        "setMinPFUnderExcited": expected_setMinPFUnderExcited.displacement,
+        "setMaxChargeRateW": expected_setMaxChargeRateW.value,
+        "setMaxDischargeRateW": expected_setMaxDischargeRateW.value,
+        "setMaxWh": expected_setMaxWh.value,
+        "setMinWh": expected_setMinWh.value,
+        "vppModesEnabled": 1,
     }
 
     # Act
@@ -159,6 +229,16 @@ async def test_action_upsert_der_settings(
     assert first_settings.setGradW == expected_setGradW
     assert first_settings.modesEnabled == expected_modesEnabled
     assert first_settings.doeModesEnabled == expected_doeModesEnabled
+    assert first_settings.setMaxVA == expected_setMaxVA
+    assert first_settings.setMaxVar == expected_setMaxVar
+    assert first_settings.setMaxVarNeg == expected_setMaxVarNeg
+    assert first_settings.setMinPFOverExcited == expected_setMinPFOverExcited
+    assert first_settings.setMinPFUnderExcited == expected_setMinPFUnderExcited
+    assert first_settings.setMaxChargeRateW == expected_setMaxChargeRateW
+    assert first_settings.setMaxDischargeRateW == expected_setMaxDischargeRateW
+    assert first_settings.setMaxWh == expected_setMaxWh
+    assert first_settings.setMinWh == expected_setMinWh
+    assert first_settings.vppModesEnabled == expected_vppModesEnabled
 
 
 @freeze_time("2025-11-13 12:00:00")
