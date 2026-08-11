@@ -4,11 +4,13 @@ from pathlib import Path
 
 from lxml import etree
 
-import cactus_client.schema.csipaus12 as csipaus12
+import cactus_client.schema.csipaus13 as active_csipaus_version
 
 logger = logging.getLogger(__name__)
 
-CSIP_AUS_12_DIR = Path(csipaus12.__file__).parent
+# Lets us distinguis v1.2 from 1.3 branches. sep.xsd is unversioned and shared across all csipaus1x dirs.
+SCHEMA_DIR = Path(active_csipaus_version.__file__).parent
+SEP_XSD = Path(__file__).parent / "sep.xsd"
 
 
 class LocalXsdResolver(etree.Resolver):
@@ -16,14 +18,14 @@ class LocalXsdResolver(etree.Resolver):
 
     def resolve(self, url, id, context):  # noqa: ANN001,ANN201 # type: ignore # lxml stubs are faulty
         if url == "sep.xsd":
-            return self.resolve_filename(str(CSIP_AUS_12_DIR / "sep.xsd"), context)  # type: ignore
+            return self.resolve_filename(str(SEP_XSD), context)  # type: ignore
         elif url == "csipaus-core.xsd":
             return self.resolve_filename(  # type: ignore # lxml stubs are faulty
-                str(CSIP_AUS_12_DIR / "csipaus-core.xsd"), context
+                str(SCHEMA_DIR / "csipaus-core.xsd"), context
             )
         elif url == "csipaus-ext.xsd":
             return self.resolve_filename(  # type: ignore # lxml stubs are faulty
-                str(CSIP_AUS_12_DIR / "csipaus-ext.xsd"), context
+                str(SCHEMA_DIR / "csipaus-ext.xsd"), context
             )
         return None
 
@@ -37,14 +39,14 @@ def csip_aus_schema() -> etree.XMLSchema:
     parser.resolvers.add(LocalXsdResolver())
 
     # Load schema
-    with open(CSIP_AUS_12_DIR / "csipaus-core.xsd") as fp:
+    with open(SCHEMA_DIR / "csipaus-core.xsd") as fp:
         xsd_content = fp.read()
     schema_root = etree.XML(xsd_content, parser)
     return etree.XMLSchema(schema_root)
 
 
 def validate_xml(xml: str) -> list[str]:
-    """Validates an xml document / snippet as a valid CSIP Aus 1.2 XML snippet. Returns a list of any human
+    """Validates an xml document / snippet as a valid CSIP Aus XML snippet. Returns a list of any human
     readable schema validation errors. Empty list means that xml is schema valid"""
 
     try:
