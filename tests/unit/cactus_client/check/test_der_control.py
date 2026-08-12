@@ -406,6 +406,7 @@ def test_check_default_der_control_with_derp_primacy(
                 "opModEnergize": True,
                 "opModConnect": False,
                 "opModFixedW": 2000.0,
+                "opModStorageTargetW": 1000.0,
                 "rampTms": 300,
                 "randomizeStart": 60,
                 "event_status": 1,
@@ -421,6 +422,7 @@ def test_check_default_der_control_with_derp_primacy(
                 "opModEnergize": True,
                 "opModConnect": False,
                 "opModFixedW": 2000.0,
+                "opModStorageTargetW": 1000.0,
                 "rampTms": 300,
                 "randomizeStart": 60,
                 "event_status": 1,
@@ -461,6 +463,7 @@ def test_check_der_control_all_parameters(
         opModEnergize=stored_values["opModEnergize"],
         opModConnect=stored_values["opModConnect"],
         opModFixedW=stored_values["opModFixedW"],
+        opModStorageTargetW=ActivePower(value=int(stored_values["opModStorageTargetW"]), multiplier=0),
         rampTms=stored_values["rampTms"],
     )
 

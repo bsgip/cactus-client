@@ -140,6 +140,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
     energize: bool | None = resolved_parameters.get("opModEnergize", None)
     connect: bool | None = resolved_parameters.get("opModConnect", None)
     fixed_w: float | None = resolved_parameters.get("opModFixedW", None)
+    storage_target_w: float | None = resolved_parameters.get("opModStorageTargetW", None)
     ramp_tms: int | None = resolved_parameters.get("rampTms", None)
     randomize_start: int | None = resolved_parameters.get("randomizeStart", None)
     event_status: int | None = resolved_parameters.get("event_status", None)
@@ -206,6 +207,14 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
                 f"{derc.href}: opModFixedW {derc.DERControlBase_.opModFixedW} != expected {fixed_w}"
             )
             continue
+
+        if storage_target_w is not None:
+            actual_storage_target = sep2_to_value(derc.DERControlBase_.opModStorageTargetW)
+            if storage_target_w != actual_storage_target:
+                rejection_details.append(
+                    f"{derc.href}: opModStorageTargetW {actual_storage_target} != expected {storage_target_w}"
+                )
+                continue
 
         if ramp_tms is not None and ramp_tms != derc.DERControlBase_.rampTms:
             rejection_details.append(f"{derc.href}: rampTms {derc.DERControlBase_.rampTms} != expected {ramp_tms}")
