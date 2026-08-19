@@ -21,6 +21,7 @@ from envoy_schema.server.schema.sep2.pricing import (
     RateComponentListResponse,
     TariffProfileListResponse,
     TimeTariffIntervalListResponse,
+    TimeTariffIntervalResponse,
 )
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 
@@ -123,6 +124,44 @@ def get_list_item_callback(
     return (get_list_items, list_item_type)
 
 
+async def _fetch_combined_time_tariff_interval_list(
+    fetched: Resource,
+    href: str,
+    step: StepExecution,
+    context: ExecutionContext,
+    list_limit: int | None,
+) -> CombinedTimeTariffIntervalListResponse:
+    """CombinedTimeTariffIntervalList is the only tree resource that's both list-shaped (paginated, with
+    'all'/'results') and reached via a direct Link rather than as a member of a parent list container - it has
+    no dedicated child resource whose discovery would otherwise paginate through it (contrast
+    RateComponent -> TimeTariffIntervalList -> TimeTariffInterval). A bare GET only returns the server's first
+    page, so paginate manually and merge all pages' items onto the stored resource."""
+    combined = cast(CombinedTimeTariffIntervalListResponse, fetched)
+    get_list_items, _ = get_list_item_callback(CSIPAusResource.CombinedTimeTariffIntervalList)
+    if list_limit is not None:
+        items, _ = await fetch_list_page(
+            RESOURCE_SEP2_TYPES[CSIPAusResource.CombinedTimeTariffIntervalList],
+            step,
+            context,
+            href,
+            0,
+            list_limit,
+            get_list_items,
+        )
+    else:
+        items = await paginate_list_resource_items(
+            RESOURCE_SEP2_TYPES[CSIPAusResource.CombinedTimeTariffIntervalList],
+            step,
+            context,
+            href,
+            DISCOVERY_LIST_PAGE_SIZE,
+            get_list_items,
+        )
+    combined.TimeTariffInterval = cast(list[TimeTariffIntervalResponse], items)
+    combined.results = len(items)
+    return combined
+
+
 async def discover_resource(
     resource: CSIPAusResource,
     step: StepExecution,
@@ -198,15 +237,15 @@ async def discover_resource(
         for parent_sr in resource_store.get_for_type(parent_resource):
             href = parent_sr.resource_link_hrefs.get(resource, None)
             if href:
+                fetched = await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href)
+
+                if resource == CSIPAusResource.CombinedTimeTariffIntervalList:
+                    fetched = await _fetch_combined_time_tariff_interval_list(fetched, href, step, context, list_limit)
+
                 resource_store.append_resource(
                     resource,
                     parent_sr.id,
-                    check_item_for_href(
-                        step,
-                        context,
-                        href,
-                        await get_resource_for_step(RESOURCE_SEP2_TYPES[resource], step, context, href),
-                    ),
+                    check_item_for_href(step, context, href, fetched),
                 )
 
 
