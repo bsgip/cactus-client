@@ -10,6 +10,7 @@ from cactus_client.check.discovered import check_discovered
 from cactus_client.check.end_device import check_end_device, check_end_device_list
 from cactus_client.check.function_set_assignment import check_function_set_assignment
 from cactus_client.check.mup import check_mirror_usage_point
+from cactus_client.check.pricing import check_rate_component, check_time_tariff_interval
 from cactus_client.check.time import check_poll_rate, check_time_synced
 from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
@@ -63,6 +64,10 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
                 last_result = check_poll_rate(resolved_params, step, context)
             case "der-control-responses":
                 last_result = check_der_control_responses(resolved_params, step, context)
+            case "rate-component":
+                last_result = check_rate_component(resolved_params, step, context)
+            case "time-tariff-interval":
+                last_result = check_time_tariff_interval(resolved_params, step, context)
             case _:
                 logger.error(f"Unrecognised check type {check.type} in step {step.source.id}")
                 raise CactusClientError(
