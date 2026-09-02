@@ -52,6 +52,15 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
         help="Permit admin plugins to waive individual steps that can't be set up in this environment.",
     )
     run_parser.add_argument(
+        "--refetch-delay-ms",
+        required=False,
+        metavar="MILLISECONDS",
+        help=(
+            "Optional delay on GET request after a POST or PUT (ms)."
+            " This will override any value provided to the server config."
+        ),
+    )
+    run_parser.add_argument(
         "id",
         help="The id of the test procedure to execute (To list ids run 'cactus tests')",
     )
@@ -71,6 +80,7 @@ def run_action(args: argparse.Namespace) -> None:
     timeout: int | None = args.timeout
     strict: bool = bool(args.strict)
     allow_skips: bool = bool(args.allow_skips)
+    refetch_delay_ms: int | None = args.refetch_delay_ms
 
     try:
         global_config, _ = load_config(config_file_override)
@@ -101,6 +111,7 @@ def run_action(args: argparse.Namespace) -> None:
         timeout=timeout,
         strict=strict,
         allow_skips=allow_skips,
+        refetch_delay_ms=refetch_delay_ms,
     )
 
     try:

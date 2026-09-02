@@ -81,6 +81,7 @@ class RunConfig:
     strict: bool = False  # If True, warnings are treated as failures
     allow_skips: bool = False  # If True, admin plugins may waive individual steps
     quiet: bool = False  # If True, suppress the result panel when the test passes
+    refetch_delay_ms: int | None = None  # Optional refetch delay in milliseconds
 
 
 @dataclass(frozen=True)

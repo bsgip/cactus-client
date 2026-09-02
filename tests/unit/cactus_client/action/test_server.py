@@ -92,32 +92,51 @@ async def create_test_session(aiohttp_client, routes: list[TestingAppRoute]) -> 
 
 
 @pytest.mark.parametrize(
-    "refetch_status, refetch_delay",
-    product([HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN], [0, 2000]),
+    "refetch_status, refetch_delay_run_config, refetch_delay_server_config",
+    product([HTTPStatus.NOT_FOUND, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN], [0, 2000, None], [0, 3000]),
 )
 @pytest.mark.asyncio
 async def test_delete_and_check_resource_for_step_success(
-    aiohttp_client, testing_contexts_factory, refetch_status: HTTPStatus, refetch_delay: int
+    aiohttp_client,
+    testing_contexts_factory,
+    refetch_status: HTTPStatus,
+    refetch_delay_run_config: int | None,
+    refetch_delay_server_config: int,
 ):
     """Does delete_and_check_resource_for_step handle a variety of "deleted" responses on refetch"""
     delete_route = TestingAppRoute(HTTPMethod.DELETE, "/foo/bar", [RouteBehaviour(HTTPStatus.OK, b"", {})])
     get_route = TestingAppRoute(HTTPMethod.GET, "/foo/bar", [RouteBehaviour(refetch_status, b"", {})])
     async with create_test_session(aiohttp_client, [delete_route, get_route]) as session:
         execution_context, step_execution = testing_contexts_factory(session)
-        execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
+        execution_context.run_config = replace(execution_context.run_config, refetch_delay_ms=refetch_delay_run_config)
+        execution_context.server_config = replace(
+            execution_context.server_config, refetch_delay_ms=refetch_delay_server_config
+        )
 
         start = datetime.now()
         await delete_and_check_resource_for_step(step_execution, execution_context, "/foo/bar")
         finish = datetime.now()
+        time_diff = finish - start
 
     assert len(delete_route.behaviour) == 0, "Request should've been made"
     assert len(get_route.behaviour) == 0, "Request should've been made"
 
-    # Assert use of the refetch delay
-    if refetch_delay == 0:
-        assert (finish - start).total_seconds() < 1, "There shouldn't have been any delay"
-    else:
-        assert (finish - start).total_seconds() >= (refetch_delay / 1000)
+    # Assert use of the refetch delay in all combinations
+    if refetch_delay_run_config == 0:
+        assert time_diff.total_seconds() < 1, "There shouldn't have been any delay"
+    if refetch_delay_run_config is None and refetch_delay_server_config == 0:
+        assert time_diff.total_seconds() < 1, "There shouldn't have been any delay"
+    if refetch_delay_run_config is None and refetch_delay_server_config:
+        assert time_diff.total_seconds() >= (refetch_delay_server_config / 1000), (
+            "Server config should have defined delay"
+        )
+    if refetch_delay_run_config:
+        assert time_diff.total_seconds() >= (refetch_delay_run_config / 1000), "Run config should have determined delay"
+    if refetch_delay_run_config is not None and (refetch_delay_server_config - refetch_delay_run_config) >= 1000:
+        assert time_diff.total_seconds() >= (refetch_delay_run_config / 1000), "Run config should have determined delay"
+        assert time_diff.total_seconds() < (refetch_delay_server_config / 1000), (
+            "Run config should have determined delay"
+        )
 
 
 @pytest.mark.parametrize(
@@ -249,13 +268,17 @@ async def test_get_resource_for_step_xml_failure(aiohttp_client, testing_context
         assert len(execution_context.responses.responses) == 1, "We still log errors"
 
 
-@pytest.mark.parametrize("has_property_changes, refetch_delay", product([True, False], [0, 2000]))
+@pytest.mark.parametrize(
+    "has_property_changes, refetch_delay_server_config, refetch_delay_run_config",
+    product([True, False], [0, 3000], [None, 0, 2000]),
+)
 @mock.patch("cactus_client.action.server.get_property_changes")
 @pytest.mark.asyncio
 async def test_submit_and_refetch_resource_for_step_success(
     mock_get_property_changes: mock.MagicMock,
     has_property_changes: bool,
-    refetch_delay: int,
+    refetch_delay_server_config: int,
+    refetch_delay_run_config: int | None,
     aiohttp_client,
     testing_contexts_factory,
 ):
@@ -280,7 +303,10 @@ async def test_submit_and_refetch_resource_for_step_success(
         ],
     ) as session:
         execution_context, step_execution = testing_contexts_factory(session)
-        execution_context.server_config = replace(execution_context.server_config, refetch_delay_ms=refetch_delay)
+        execution_context.server_config = replace(
+            execution_context.server_config, refetch_delay_ms=refetch_delay_server_config
+        )
+        execution_context.run_config = replace(execution_context.run_config, refetch_delay_ms=refetch_delay_run_config)
 
         start = datetime.now()
         result = await submit_and_refetch_resource_for_step(
@@ -292,6 +318,7 @@ async def test_submit_and_refetch_resource_for_step_success(
             generate_class_instance(DeviceCapabilityResponse),
         )
         finish = datetime.now()
+        time_diff = finish - start
 
     # Assert - contents of response
     assert isinstance(result, DeviceCapabilityResponse)
@@ -306,11 +333,22 @@ async def test_submit_and_refetch_resource_for_step_success(
         assert len(execution_context.warnings.warnings) == 0
     assert len(execution_context.responses.responses) == 2
 
-    # Assert use of the refetch delay
-    if refetch_delay == 0:
-        assert (finish - start).total_seconds() < 1, "There shouldn't have been any delay"
-    else:
-        assert (finish - start).total_seconds() >= (refetch_delay / 1000)
+    # Assert use of the refetch delay in all combinations
+    if refetch_delay_run_config == 0:
+        assert time_diff.total_seconds() < 1, "There shouldn't have been any delay"
+    if refetch_delay_run_config is None and refetch_delay_server_config == 0:
+        assert time_diff.total_seconds() < 1, "There shouldn't have been any delay"
+    if refetch_delay_run_config is None and refetch_delay_server_config:
+        assert time_diff.total_seconds() >= (refetch_delay_server_config / 1000), (
+            "Server config should have defined delay"
+        )
+    if refetch_delay_run_config:
+        assert time_diff.total_seconds() >= (refetch_delay_run_config / 1000), "Run config should have determined delay"
+    if refetch_delay_run_config is not None and (refetch_delay_server_config - refetch_delay_run_config) >= 1000:
+        assert time_diff.total_seconds() >= (refetch_delay_run_config / 1000), "Run config should have determined delay"
+        assert time_diff.total_seconds() < (refetch_delay_server_config / 1000), (
+            "Run config should have determined delay"
+        )
 
 
 @pytest.mark.parametrize("has_property_changes", [True, False])
