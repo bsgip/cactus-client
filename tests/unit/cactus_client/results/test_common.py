@@ -11,7 +11,7 @@ from cactus_test_definitions.server.test_procedures import (
 )
 from multidict import CIMultiDict
 
-from cactus_client.model.config import ServerConfig
+from cactus_client.model.config import ServerConfig, RunConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
@@ -89,6 +89,9 @@ def generate_empty_context(steps: list[Step]) -> ExecutionContext:
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=StepExecutionList(),
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     return context

@@ -39,7 +39,7 @@ from cactus_client.execution.execute import (
     setup_and_teardown,
     validate_all_resources,
 )
-from cactus_client.model.config import ClientConfig, ServerConfig
+from cactus_client.model.config import ClientConfig, ServerConfig, RunConfig
 from cactus_client.model.context import AdminContext, ClientContext, ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
@@ -209,6 +209,9 @@ async def test_execute_for_context_success_cases_with_repeats(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False)
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -314,6 +317,9 @@ async def test_execute_for_context_action_failed_with_repeat_until_pass(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False)
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -404,6 +410,9 @@ async def test_execute_for_context_action_failed_without_repeat_stops_early(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -496,6 +505,9 @@ async def test_execute_for_context_failure_stops_early(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -591,6 +603,9 @@ async def test_execute_for_context_action_exception(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False)
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -691,6 +706,9 @@ async def test_execute_for_context_check_exception(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False)
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -776,6 +794,9 @@ async def test_execute_for_context_success_cases_with_delays(
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False)
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -967,6 +988,9 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
             warnings=WarningTracker(),
             progress=ProgressTracker(),
             steps=StepExecutionList(),
+            # Allow skips set to false only for backwards compatibility.
+            # It is possible the test will still pass without it.
+            run_config=generate_class_instance(RunConfig, allow_skips=False)
         )
 
         validate_all_resources(context)
@@ -977,7 +1001,6 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
 def _make_context_with_steps(step_list: StepExecutionList, allow_skips: bool = False) -> ExecutionContext:
     tree = CSIPAusResourceTree()
     return ExecutionContext(
-        allow_skips=allow_skips,
         test_procedure_id=TestProcedureId.S_ALL_01,
         test_procedure=generate_class_instance(TestProcedure),
         test_procedures_version="vtest",
@@ -1000,6 +1023,7 @@ def _make_context_with_steps(step_list: StepExecutionList, allow_skips: bool = F
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
+        run_config=generate_class_instance(RunConfig, allow_skips=allow_skips)
     )
 
 

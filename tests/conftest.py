@@ -23,7 +23,7 @@ from cryptography.x509.oid import NameOID
 
 from cactus_client.model.config import (
     ClientConfig,
-    ServerConfig,
+    ServerConfig, RunConfig,
 )
 from cactus_client.model.context import (
     ClientContext,
@@ -95,18 +95,21 @@ def testing_contexts_factory(
         )
 
         execution_context = ExecutionContext(
-            TestProcedureId.S_ALL_01,
-            dummy_test_procedure,
-            "1.2.3.4.5",
-            Path("."),  # Just a dummy value
-            "/my/dcap/path",
-            generate_class_instance(ServerConfig),
-            {client_alias: client_context},
-            StepExecutionList(),
-            WarningTracker(),
-            ProgressTracker(),
-            ResponseTracker(),
-            tree,
+            test_procedure_id=TestProcedureId.S_ALL_01,
+            test_procedure=dummy_test_procedure,
+            test_procedures_version="1.2.3.4.5",
+            output_directory=Path("."),  # Just a dummy value
+            dcap_path="/my/dcap/path",
+            server_config=generate_class_instance(ServerConfig),
+            clients_by_alias={client_alias: client_context},
+            steps=StepExecutionList(),
+            warnings=WarningTracker(),
+            progress=ProgressTracker(),
+            responses=ResponseTracker(),
+            resource_tree=tree,
+            # Allow skips set to false only for backwards compatibility.
+            # It is possible the tests will still pass without it.
+            run_config=generate_class_instance(RunConfig, allow_skips=False)
         )
 
         # attempts: int  # How many times has this step been attempted

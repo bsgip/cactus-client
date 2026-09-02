@@ -12,7 +12,7 @@ from cactus_test_definitions.server.test_procedures import (
 )
 
 from cactus_client.error import NotificationError
-from cactus_client.model.config import ClientConfig, ServerConfig
+from cactus_client.model.config import ClientConfig, ServerConfig, RunConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.http import NotificationEndpoint
 from cactus_client.model.progress import (
@@ -162,11 +162,11 @@ class ExecutionContext:
     progress: ProgressTracker
     responses: ResponseTracker
     resource_tree: CSIPAusResourceTree
+    run_config: RunConfig
 
     repeat_delay: timedelta = timedelta(
         seconds=5
     )  # If during execution an action is to be run in a tight loop, use this delay
-    allow_skips: bool = False  # If True - admin plugins may waive a step's pass/fail judgement
     created_at: datetime = field(default_factory=utc_now, init=False)
 
     def to_admin_context(self) -> AdminContext:

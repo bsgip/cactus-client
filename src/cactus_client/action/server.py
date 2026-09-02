@@ -52,7 +52,7 @@ async def _single_request(
             await context.responses.clear_active_request()
             raise RequestError(f"Caught exception attempting to {method} {path}: {exc}") from exc
 
-        await context.responses.log_response_body(response, step.client_alias)
+        await context.responses.log_response_body(response, step.client_alias, strict=context.run_config.strict)
         await context.responses.clear_active_request()
         return response
 
