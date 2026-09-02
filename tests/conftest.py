@@ -23,7 +23,8 @@ from cryptography.x509.oid import NameOID
 
 from cactus_client.model.config import (
     ClientConfig,
-    ServerConfig, RunConfig,
+    RunConfig,
+    ServerConfig,
 )
 from cactus_client.model.context import (
     ClientContext,
@@ -109,7 +110,7 @@ def testing_contexts_factory(
             resource_tree=tree,
             # Allow skips set to false only for backwards compatibility.
             # It is possible the tests will still pass without it.
-            run_config=generate_class_instance(RunConfig, allow_skips=False)
+            run_config=generate_class_instance(RunConfig, allow_skips=False, refetch_delay_ms=None),
         )
 
         # attempts: int  # How many times has this step been attempted

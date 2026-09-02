@@ -39,7 +39,7 @@ from cactus_client.execution.execute import (
     setup_and_teardown,
     validate_all_resources,
 )
-from cactus_client.model.config import ClientConfig, ServerConfig, RunConfig
+from cactus_client.model.config import ClientConfig, RunConfig, ServerConfig
 from cactus_client.model.context import AdminContext, ClientContext, ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
@@ -211,7 +211,7 @@ async def test_execute_for_context_success_cases_with_repeats(
         steps=step_list,
         # Allow skips set to false only for backwards compatibility.
         # It is possible the test will still pass without it.
-        run_config=generate_class_instance(RunConfig, allow_skips=False)
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -319,7 +319,7 @@ async def test_execute_for_context_action_failed_with_repeat_until_pass(
         steps=step_list,
         # Allow skips set to false only for backwards compatibility.
         # It is possible the test will still pass without it.
-        run_config=generate_class_instance(RunConfig, allow_skips=False)
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -605,7 +605,7 @@ async def test_execute_for_context_action_exception(
         steps=step_list,
         # Allow skips set to false only for backwards compatibility.
         # It is possible the test will still pass without it.
-        run_config=generate_class_instance(RunConfig, allow_skips=False)
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -708,7 +708,7 @@ async def test_execute_for_context_check_exception(
         steps=step_list,
         # Allow skips set to false only for backwards compatibility.
         # It is possible the test will still pass without it.
-        run_config=generate_class_instance(RunConfig, allow_skips=False)
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -796,7 +796,7 @@ async def test_execute_for_context_success_cases_with_delays(
         steps=step_list,
         # Allow skips set to false only for backwards compatibility.
         # It is possible the test will still pass without it.
-        run_config=generate_class_instance(RunConfig, allow_skips=False)
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
     mock_execute_checks.side_effect = handle_mock_execute_checks
@@ -990,7 +990,7 @@ def test_validate_all_resources(resources: list[tuple[CSIPAusResource, Resource]
             steps=StepExecutionList(),
             # Allow skips set to false only for backwards compatibility.
             # It is possible the test will still pass without it.
-            run_config=generate_class_instance(RunConfig, allow_skips=False)
+            run_config=generate_class_instance(RunConfig, allow_skips=False),
         )
 
         validate_all_resources(context)
@@ -1023,7 +1023,7 @@ def _make_context_with_steps(step_list: StepExecutionList, allow_skips: bool = F
         warnings=WarningTracker(),
         progress=ProgressTracker(),
         steps=step_list,
-        run_config=generate_class_instance(RunConfig, allow_skips=allow_skips)
+        run_config=generate_class_instance(RunConfig, allow_skips=allow_skips),
     )
 
 

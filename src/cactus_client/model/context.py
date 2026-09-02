@@ -12,7 +12,7 @@ from cactus_test_definitions.server.test_procedures import (
 )
 
 from cactus_client.error import NotificationError
-from cactus_client.model.config import ClientConfig, ServerConfig, RunConfig
+from cactus_client.model.config import ClientConfig, RunConfig, ServerConfig
 from cactus_client.model.execution import StepExecution, StepExecutionList
 from cactus_client.model.http import NotificationEndpoint
 from cactus_client.model.progress import (

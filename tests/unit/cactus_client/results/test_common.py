@@ -11,7 +11,7 @@ from cactus_test_definitions.server.test_procedures import (
 )
 from multidict import CIMultiDict
 
-from cactus_client.model.config import ServerConfig, RunConfig
+from cactus_client.model.config import RunConfig, ServerConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,

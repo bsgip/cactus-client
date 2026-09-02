@@ -202,8 +202,13 @@ async def delete_and_check_resource_for_step(step: StepExecution, context: Execu
         raise RequestError(f"Received status {delete_response.status} requesting {delete_response.method} {href}.")
 
     # There might be a refetch delay
-    if context.server_config.refetch_delay_ms:
-        delay_seconds = context.server_config.refetch_delay_ms / 1000
+    refetch_delay_ms = (
+        context.run_config.refetch_delay_ms
+        if context.run_config.refetch_delay_ms is not None
+        else context.server_config.refetch_delay_ms
+    )
+    if refetch_delay_ms:
+        delay_seconds = refetch_delay_ms / 1000
         await context.progress.add_log(
             step,
             f"Delaying re-fetch for {delay_seconds}s (as per server configuration).",
@@ -256,8 +261,14 @@ async def submit_and_refetch_resource_for_step(
         refetch_href = response.location
 
     # There might be a refetch delay
-    if context.server_config.refetch_delay_ms:
-        delay_seconds = context.server_config.refetch_delay_ms / 1000
+    # There might be a refetch delay
+    refetch_delay_ms = (
+        context.run_config.refetch_delay_ms
+        if context.run_config.refetch_delay_ms is not None
+        else context.server_config.refetch_delay_ms
+    )
+    if refetch_delay_ms:
+        delay_seconds = refetch_delay_ms / 1000
         await context.progress.add_log(
             step,
             f"Delaying re-fetch for {delay_seconds}s (as per server configuration).",

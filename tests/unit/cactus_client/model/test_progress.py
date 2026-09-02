@@ -21,7 +21,7 @@ def _generate_test_server_response(*, xsd_errors: list[str] | None) -> ServerRes
         xsd_errors=xsd_errors,
         headers=CIMultiDict(),
         request=generate_class_instance(ServerRequest),
-        client_alias=""
+        client_alias="",
     )
 
 
@@ -74,5 +74,3 @@ async def test_response_tracker_log_response_body_not_strict_with_xsd_errors(xsd
         logged_message = mock_logger.warning.call_args.args[0]
         for err_text in xsd_errors:
             assert re.search(err_text, logged_message)
-
-
