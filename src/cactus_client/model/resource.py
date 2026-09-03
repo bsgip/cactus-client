@@ -29,6 +29,13 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 from envoy_schema.server.schema.sep2.identification import Link, Resource
+from envoy_schema.server.schema.sep2.metering import (
+    MeterReading,
+    MeterReadingListResponse,
+    ReadingType,
+    UsagePoint,
+    UsagePointListResponse,
+)
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePoint,
     MirrorUsagePointListResponse,
@@ -97,6 +104,11 @@ RESOURCE_SEP2_TYPES: dict[CSIPAusResource, type[Resource]] = {
     CSIPAusResource.TimeTariffInterval: TimeTariffIntervalResponse,
     CSIPAusResource.ConsumptionTariffIntervalList: ConsumptionTariffIntervalListResponse,
     CSIPAusResource.ConsumptionTariffInterval: ConsumptionTariffIntervalResponse,
+    CSIPAusResource.UsagePointList: UsagePointListResponse,
+    CSIPAusResource.UsagePoint: UsagePoint,
+    CSIPAusResource.MeterReadingList: MeterReadingListResponse,
+    CSIPAusResource.MeterReading: MeterReading,
+    CSIPAusResource.ReadingType: ReadingType,
 }
 
 
@@ -156,6 +168,17 @@ class CSIPAusResourceTree:
         self.tree.create_node(identifier=CSIPAusResource.DERCapability, parent=CSIPAusResource.DER)
         self.tree.create_node(identifier=CSIPAusResource.DERSettings, parent=CSIPAusResource.DER)
         self.tree.create_node(identifier=CSIPAusResource.DERStatus, parent=CSIPAusResource.DER)
+        self.tree.create_node(
+            identifier=CSIPAusResource.UsagePointList,
+            parent=CSIPAusResource.FunctionSetAssignments,
+        )
+        self.tree.create_node(identifier=CSIPAusResource.UsagePoint, parent=CSIPAusResource.UsagePointList)
+        self.tree.create_node(
+            identifier=CSIPAusResource.MeterReadingList,
+            parent=CSIPAusResource.UsagePoint,
+        )
+        self.tree.create_node(identifier=CSIPAusResource.MeterReading, parent=CSIPAusResource.MeterReadingList)
+        self.tree.create_node(identifier=CSIPAusResource.ReadingType, parent=CSIPAusResource.MeterReading)
         self.tree.create_node(
             identifier=CSIPAusResource.TariffProfileList,
             parent=CSIPAusResource.FunctionSetAssignments,
@@ -503,6 +526,21 @@ def generate_resource_link_hrefs(type: CSIPAusResource, resource: Resource) -> d
                 [
                     (CSIPAusResource.DERProgramList, fsa.DERProgramListLink),
                     (CSIPAusResource.TariffProfileList, fsa.TariffProfileListLink),
+                    (CSIPAusResource.UsagePointList, fsa.UsagePointListLink),
+                ]
+            )
+        case CSIPAusResource.UsagePoint:
+            up = cast(UsagePoint, resource)
+            return resource_link_hrefs_from_links(
+                [
+                    (CSIPAusResource.MeterReadingList, up.MeterReadingListLink),
+                ]
+            )
+        case CSIPAusResource.MeterReading:
+            mr = cast(MeterReading, resource)
+            return resource_link_hrefs_from_links(
+                [
+                    (CSIPAusResource.ReadingType, mr.ReadingTypeLink),
                 ]
             )
         case CSIPAusResource.DERProgram:
