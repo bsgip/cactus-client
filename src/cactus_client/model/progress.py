@@ -275,10 +275,21 @@ class ResponseTracker:
     async def clear_active_request(self) -> None:
         self.active_request = None
 
-    async def log_response_body(self, r: ServerResponse, client_alias: str) -> None:
+    async def log_response_body(self, r: ServerResponse, client_alias: str, *, strict: bool) -> None:
+        """Appends response and performs logging.
+
+        Args:
+            r: response to append
+            client_alias: of client the response was directed at
+            strict: whether strict mode is in effect
+        """
         r.client_alias = client_alias
         self.responses.append(r)
         logger.info(f"{r.method} {r.url} Yielded {r.status}: Received body of length {len(r.body)}.")
+        if strict and r.xsd_errors:
+            logger.error(f"XSD validation error(s) encountered: {r.xsd_errors}")
+        elif r.xsd_errors:
+            logger.warning(f"XSD validation error(s) encountered: {r.xsd_errors}")
 
     async def log_notification_body(self, r: NotificationRequest) -> None:
         self.responses.append(r)

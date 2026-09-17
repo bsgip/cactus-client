@@ -147,8 +147,11 @@ def print_server(console: Console, config: GlobalConfig) -> None:
     table.add_row(
         "refetch_delay",
         f"{refetch_delay_ms}ms" if refetch_delay_ms else "None",
-        "Delay (in milliseconds) that the client will apply between submitting a 'write' request and then fetching"
-        + " the updated value.",
+        (
+            "Delay (in milliseconds) that the client will apply between submitting a 'write' request and then fetching"
+            " the updated value. This value can be overwritten using the --refetch-delay-ms argument to"
+            " [b]cactus run[\b]"
+        ),
     )
     console.print(table)
 

@@ -12,7 +12,7 @@ from cactus_test_definitions.server.test_procedures import (
 from multidict import CIMultiDict
 from rich.console import Console
 
-from cactus_client.model.config import ServerConfig
+from cactus_client.model.config import RunConfig, ServerConfig
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import (
     ActionResult,
@@ -50,6 +50,9 @@ def _make_context(clients_by_alias: dict) -> ExecutionContext:
         progress=ProgressTracker(),
         responses=ResponseTracker(),
         resource_tree=tree,
+        # Allow skips set to false only for backwards compatibility.
+        # It is possible the test will still pass without it.
+        run_config=generate_class_instance(RunConfig, allow_skips=False),
     )
 
 
