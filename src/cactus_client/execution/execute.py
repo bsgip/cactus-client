@@ -179,7 +179,7 @@ async def _execute_steps(context: ExecutionContext) -> ExecutionResult:
             )
             context.steps.add(repeat_step)
         elif skip_reason is not None:
-            if context.allow_skips:
+            if context.run_config.allow_skips:
                 # The step ran but its pass/fail judgement is waived.
                 # It is deliberately never re-queued via repeat_until_pass - it would re-queue forever.
                 await context.progress.set_step_result(
