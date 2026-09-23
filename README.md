@@ -62,7 +62,12 @@ Setup the server connections details (dcap refers to your DeviceCapability URI)
 4. `cactus server notification https://cactus.cecs.anu.edu.au/client-notifications/`
     * Please note - this will utilise the shared, ANU hosted [client-notifications](https://github.com/bsgip/cactus-client-notifications) service
     * If you wish to self host - please see [client-notifications](https://github.com/bsgip/cactus-client-notifications)
-
+5. (Optional) `cactus server notification_admin https://localhost:6666/client-notifications/` This can be used in a self hosted context to
+    allow the cactus-client to access the results from the notification server via a different base api uri than the one advertised
+    in the `Subscription.notificationURI` to the utility server under test. 
+    * Useful in the context of `cactus-client` running on a host machine and the `cactus-client-notifications` server running within 
+        e.g. in a pod or docker compose context, on the same network namespace as the utility server under test. 
+    * If not supplied, this will revert to the value set using `cactus server notification`
 
 Setup your first client - You will be prompted to populate each field (like below)
 
@@ -132,7 +137,7 @@ cactus run S-ALL-01 myclient1
 | `--strict` | Treat warnings as failures. The test will be marked FAIL if any warnings were emitted, even if all steps passed. |
 | `--allow-skips` | Permit admin plugins to waive individual steps that can't be set up in this environment (see [Admin plugins](#admin-plugins)). A run that only passed because of a waived step is reported as `PASS*`, not a clean pass. |
 | `-c PATH` | Override the config file location (defaults to `./.cactus.yaml` then `~/.cactus.yaml`). |
-
+| `--refetch-delay-ms MILLISECONDS` | Optional delay on GET request after a POST or PUT (ms). This will override any value provided to the server config. |
 ### Running all tests automatically
 
 `cactus autorun` runs all (or a selected subset of) test procedures sequentially, assigning configured clients to each test automatically. It stops at the first failure.
