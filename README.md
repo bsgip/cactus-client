@@ -138,6 +138,7 @@ cactus run S-ALL-01 myclient1
 | `--allow-skips` | Permit admin plugins to waive individual steps that can't be set up in this environment (see [Admin plugins](#admin-plugins)). A run that only passed because of a waived step is reported as `PASS*`, not a clean pass. |
 | `-c PATH` | Override the config file location (defaults to `./.cactus.yaml` then `~/.cactus.yaml`). |
 | `--refetch-delay-ms MILLISECONDS` | Optional delay on GET request after a POST or PUT (ms). This will override any value provided to the server config. |
+
 ### Running all tests automatically
 
 `cactus autorun` runs all (or a selected subset of) test procedures sequentially, assigning configured clients to each test automatically. It stops at the first failure.
