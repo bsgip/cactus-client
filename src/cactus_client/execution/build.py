@@ -81,6 +81,7 @@ def build_clients_by_alias(
     verify_host_name: bool,
     serca_pem_path: str | None,
     notification_uri: str | None,
+    notification_admin_uri: str | None,
     run_client_ids: list[str],
     tp: TestProcedure,
 ) -> dict[str, ClientContext]:
@@ -112,9 +113,12 @@ def build_clients_by_alias(
         # with the utility server - it will NOT be using the TLS setup for that session. It's a traditional
         # web service that may or may not use HTTPS.
         notifications: NotificationsContext | None = None
-        if notification_uri:
+        notification_admin_uri = notification_admin_uri or notification_uri
+        if notification_admin_uri:
             notifications = NotificationsContext(
-                session=ClientSession(notification_uri if notification_uri.endswith("/") else notification_uri + "/"),
+                session=ClientSession(
+                    notification_admin_uri if notification_admin_uri.endswith("/") else notification_admin_uri + "/"
+                ),
                 endpoints_by_sub_alias={},
             )
 
@@ -226,6 +230,9 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
     logger.info(f"Device Capability: '{user_config.server.device_capability_uri}'")
     logger.info(f"Verify SSL: '{user_config.server.verify_ssl}'")
     logger.info(f"Notifications: '{user_config.server.notification_uri}'")
+    logger.info(
+        f"Notification Admin: '{user_config.server.notification_admin_uri or user_config.server.notification_uri}'"
+    )
 
     # Parse the supplied clients and map them to the real underlying config
     resource_tree = CSIPAusResourceTree()
@@ -237,6 +244,7 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
         user_config.server.verify_host_name,
         user_config.server.serca_pem_file,
         user_config.server.notification_uri,
+        user_config.server.notification_admin_uri,
         run_config.client_ids,
         tp,
     )

@@ -91,6 +91,7 @@ def render_console(  # noqa: C901
     server_table.add_row("verify host name", str(context.server_config.verify_host_name))
     server_table.add_row("serca pem file", str(context.server_config.serca_pem_file))
     server_table.add_row("notification uri", str(context.server_config.notification_uri))
+    server_table.add_row("notification admin uri", str(context.server_config.notification_admin_uri))
     server_table.add_row("pen", str(context.server_config.pen))
     server_table.add_row("refetch delay ms", str(context.server_config.refetch_delay_ms))
     panel_items.append(server_table)
