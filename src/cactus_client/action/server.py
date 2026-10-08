@@ -261,7 +261,6 @@ async def submit_and_refetch_resource_for_step(
         refetch_href = response.location
 
     # There might be a refetch delay
-    # There might be a refetch delay
     refetch_delay_ms = (
         context.run_config.refetch_delay_ms
         if context.run_config.refetch_delay_ms is not None
