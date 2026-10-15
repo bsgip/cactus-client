@@ -242,7 +242,7 @@ requires-dist = [
     { name = "assertical", marker = "extra == 'test'", specifier = ">=0.4.0" },
     { name = "bandit", marker = "extra == 'dev'" },
     { name = "cactus-schema", specifier = ">=1.3.2" },
-    { name = "cactus-test-definitions", specifier = ">=1.15.0,<1.16.0" },
+    { name = "cactus-test-definitions", specifier = ">=1.18.0,<2" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "cryptography" },
     { name = "cryptography", marker = "extra == 'test'" },
@@ -280,16 +280,16 @@ wheels = [
 
 [[package]]
 name = "cactus-test-definitions"
-version = "1.15.0"
+version = "1.18.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dataclass-wizard" },
     { name = "pyyaml" },
     { name = "pyyaml-include" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ca/3e/2761a13c8c20736eaaca13bd2e964f39ae64ee69302bb256f43645befa2b/cactus_test_definitions-1.15.0.tar.gz", hash = "sha256:b6f8783579c8d76184be9c9150e30dd8c57b248a6afe6344dcbb5beb64692d75", size = 178077, upload-time = "2026-07-21T01:52:26.593Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/15/e18205993fb3b8adc18039fca58b7e09290ce06d0f81c699068be2e74740/cactus_test_definitions-1.18.2.tar.gz", hash = "sha256:2affd938a56ac38f9931f1218424a6c80296c0fb61d6a06d0be856d106271dd4", size = 192477, upload-time = "2026-10-14T22:45:45.287Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/b9/cb06d1585ec4917e1cdd491e65f3e11763b6cddddaf058ba4171324c35e8/cactus_test_definitions-1.15.0-py3-none-any.whl", hash = "sha256:c4276362faa32a8049b8b720f7823eb4670d8f9116fbba532f3896df71b7ec32", size = 352224, upload-time = "2026-07-21T01:52:24.661Z" },
+    { url = "https://files.pythonhosted.org/packages/74/e0/8b7240783494c6f2ce6915ab2e2948e0206575f024dcbca7d397e5f5b845/cactus_test_definitions-1.18.2-py3-none-any.whl", hash = "sha256:8b68c9841c6932c76c6f72cf489dd21959feed6c519d8257c0c8204abd834afb", size = 374021, upload-time = "2026-10-14T22:45:42.919Z" },
 ]
 
 [[package]]
