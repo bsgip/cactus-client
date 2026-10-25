@@ -44,6 +44,9 @@ class ServerConfig:
     verify_host_name: bool = True  # All connections will validate the host name on the server's cert
     serca_pem_file: str | None = None  # The file path to the SERCA PEM that the server will be using as a trust anchor
     notification_uri: str | None = None  # The base URI of the cactus-client-notifications that will be used for pub/sub
+    notification_admin_uri: str | None = (
+        None  # The base uri for accessing the cactus-client-notifications admin endpoints by the client
+    )
     pen: int = 0  # The Private Enterprise Number that server will be expected to utilise
     refetch_delay_ms: int = (
         0  # When the client pushes a write request, wait this long (milliseconds) before fetching it to compare

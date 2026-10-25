@@ -76,7 +76,7 @@ def generate_mup_mrids(
     mup_mrid = (
         set_mup_mrid
         if set_mup_mrid is not None
-        else generate_hashed_mrid(str(location) + client.id + "|".join(sorted(reading_types)), client.pen)
+        else generate_hashed_mrid(client.lfdi + str(location) + client.id + "|".join(sorted(reading_types)), client.pen)
     )
 
     mmr_mrids_by_rt = generate_mmr_mrids(mup_mrid, reading_types, client.pen, mmr_mrids)

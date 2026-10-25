@@ -58,6 +58,7 @@ dev = [
     "types-PyYAML",
     "lxml-stubs",
     "types-reportlab",
+    "twine",
 ]
 test = ["assertical>=0.4.0", "pytest", "pytest-aiohttp", "freezegun", "cryptography"]
 

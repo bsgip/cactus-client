@@ -15,6 +15,13 @@ from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, RunConfig, load_
 COMMAND_NAME = "run"
 
 
+def parse_non_negative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("value must be greater than or equal to 0")
+    return parsed
+
+
 def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     """Adds the sub command options for the run module"""
 
@@ -54,6 +61,7 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
     run_parser.add_argument(
         "--refetch-delay-ms",
         required=False,
+        type=parse_non_negative_int,
         metavar="MILLISECONDS",
         help=(
             "Optional delay on GET request after a POST or PUT (ms)."
