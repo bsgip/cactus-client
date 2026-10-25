@@ -14,14 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Ensure ISSUE_COMMENT_PAT exists
-        if: env.ISSUE_COMMENT_PAT == ''
-        env:
-          ISSUE_COMMENT_PAT: ${{ secrets.ISSUE_COMMENT_PAT }}
-        run: |
-          echo "Secret ISSUE_COMMENT_PAT is not defined. Create it with permissions to write pull requests."
-          exit 1
-
       - name: Checkout
         uses: actions/checkout@v4
 

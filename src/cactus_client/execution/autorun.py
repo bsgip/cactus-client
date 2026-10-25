@@ -148,7 +148,7 @@ async def autorun_entrypoint(
 
         if ACTIVE_CSIP_AUS_VERSION not in tp.target_versions:
             reason = f"not applicable to CSIP-Aus {ACTIVE_CSIP_AUS_VERSION}"
-            logger.warning("Skipping %s: %s", test_id, reason)
+            logger.info("Skipping %s: %s", test_id, reason)
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.SKIPPED, note=reason))
             continue
 
