@@ -2,7 +2,6 @@ import unittest.mock as mock
 from datetime import UTC, datetime
 from http import HTTPMethod
 from itertools import product
-from typing import cast
 
 import pytest
 from assertical.asserts.generator import assert_class_instance_equality
@@ -35,6 +34,7 @@ from envoy_schema.server.schema.sep2.pub_sub import (
 )
 from envoy_schema.server.schema.sep2.types import SubscribableType
 
+from cactus_client.action.server import resource_to_sep2_xml
 from cactus_client.action.subscription import (
     RESOURCE_TYPE_BY_XSI,
     action_create_subscription,
@@ -357,7 +357,13 @@ async def test_handle_notification_cancellation(testing_contexts_factory, has_re
         assert len(context.warnings.warnings) == 0
 
 
-@pytest.mark.parametrize("is_cancel", [True, False])
+@pytest.mark.parametrize(
+    "is_cancel, xml_declaration",
+    product(
+        [True, False],
+        ["", '<?xml version="1.0"?>\n', '<?xml version="1.0" encoding="UTF-8"?>\n'],
+    ),
+)
 @mock.patch("cactus_client.action.subscription.handle_notification_resource")
 @mock.patch("cactus_client.action.subscription.handle_notification_cancellation")
 @pytest.mark.asyncio
@@ -365,6 +371,7 @@ async def test_collect_and_validate_notification(
     mock_handle_notification_cancellation: mock.MagicMock,
     mock_handle_notification_resource: mock.MagicMock,
     is_cancel: bool,
+    xml_declaration: str,
     testing_contexts_factory,
     assertical_all_hexbinary8,
 ):
@@ -404,7 +411,7 @@ async def test_collect_and_validate_notification(
         headers=[CollectedHeader("Content-Type", MIME_TYPE_SEP2)],
         received_at=datetime(2025, 1, 2, tzinfo=UTC),
         remote="127.0.0.1",
-        body=cast(str, notification.to_xml()),
+        body=xml_declaration + resource_to_sep2_xml(notification),
     )
 
     # Act
