@@ -93,7 +93,8 @@ async def request_for_step(
 def parse_type_response(t: type[AnyResourceType], response: ServerResponse) -> AnyResourceType:
     href = response.request.url
     try:
-        return t.from_xml(response.body)
+        # bytes, as lxml only accepts an <?xml encoding=...?> declaration on bytes input
+        return t.from_xml(response.body.encode())
     except Exception as exc:
         logger.error(
             f"Caught exception attempting to parse {len(response.body)} chars from {href}",
@@ -114,7 +115,8 @@ def parse_error_response(
         return None
 
     try:
-        return ErrorResponse.from_xml(response.body)
+        # bytes, as lxml only accepts an <?xml encoding=...?> declaration on bytes input
+        return ErrorResponse.from_xml(response.body.encode())
     except Exception as exc:
         context.warnings.log_step_warning(
             step,
