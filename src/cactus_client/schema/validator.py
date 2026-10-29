@@ -48,7 +48,8 @@ def validate_xml(xml: str) -> list[str]:
     readable schema validation errors. Empty list means that xml is schema valid"""
 
     try:
-        xml_doc = etree.fromstring(xml)
+        # bytes, as lxml only accepts an <?xml encoding=...?> declaration on bytes input
+        xml_doc = etree.fromstring(xml.encode())
     except Exception as exc:
         preview = xml[:32]
         logger.error(

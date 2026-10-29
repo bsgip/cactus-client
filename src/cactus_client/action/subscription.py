@@ -296,7 +296,8 @@ async def collect_and_validate_notification(
         )
 
     try:
-        sep2_notification = Notification.from_xml(notification.body)
+        # bytes, as lxml only accepts an <?xml encoding=...?> declaration on bytes input
+        sep2_notification = Notification.from_xml(notification.body.encode())
     except Exception as exc:
         logger.error("Error parsing sep2 Notification from notification body", exc_info=exc)
         raise CactusClientError(

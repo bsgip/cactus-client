@@ -193,16 +193,21 @@ async def test_delete_and_check_resource_for_step_delete_bad_response(
     assert len(get_route.behaviour) == 1, "The refetch shouldn't have been made"
 
 
+@pytest.mark.parametrize(
+    "xml_declaration", [b"", b'<?xml version="1.0"?>\n', b'<?xml version="1.0" encoding="UTF-8"?>\n']
+)
 @pytest.mark.asyncio
-async def test_get_resource_for_step_success(aiohttp_client, testing_contexts_factory):
+async def test_get_resource_for_step_success(aiohttp_client, testing_contexts_factory, xml_declaration: bytes):
     """Does get_resource_for_step handle parsing the XML and returning the correct data"""
+    behaviour = RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")
+    behaviour.body = xml_declaration + behaviour.body
     async with create_test_session(
         aiohttp_client,
         [
             TestingAppRoute(
                 HTTPMethod.GET,
                 "/foo/bar",
-                [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")],
+                [behaviour],
             )
         ],
     ) as session:
