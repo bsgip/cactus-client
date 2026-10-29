@@ -145,6 +145,13 @@ async def autorun_entrypoint(
 
     for test_id in test_ids:
         tp: TestProcedure = get_test_procedure(test_id)
+
+        if CSIPAusVersion.RELEASE_1_2 not in tp.target_versions:
+            reason = f"not applicable to CSIP-Aus {CSIPAusVersion.RELEASE_1_2}"
+            logger.info("Skipping %s: %s", test_id, reason)
+            records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.SKIPPED, note=reason))
+            continue
+
         client_ids = _assign_clients(tp.preconditions.required_clients, global_config.clients)
 
         if client_ids is None:

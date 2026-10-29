@@ -15,6 +15,10 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsListResponse,
 )
 from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering import (
+    MeterReadingListResponse,
+    UsagePointListResponse,
+)
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pricing import (
     ConsumptionTariffIntervalListResponse,
@@ -64,7 +68,7 @@ def check_item_for_href(step: StepExecution, context: ExecutionContext, href: st
     return item
 
 
-def get_list_item_callback(
+def get_list_item_callback(  # noqa: C901
     list_resource: CSIPAusResource,
 ) -> tuple[Callable[[Resource], list[Resource] | None], CSIPAusResource]:
     """Generates a callback that when executed (with a Resource) will generate the list of child items that belong
@@ -116,6 +120,12 @@ def get_list_item_callback(
         case CSIPAusResource.ConsumptionTariffIntervalList:
             get_list_items = lambda list_: cast(ConsumptionTariffIntervalListResponse, list_).ConsumptionTariffInterval  # type: ignore # noqa: E731
             list_item_type = CSIPAusResource.ConsumptionTariffInterval
+        case CSIPAusResource.UsagePointList:
+            get_list_items = lambda list_: cast(UsagePointListResponse, list_).UsagePoint_  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.UsagePoint
+        case CSIPAusResource.MeterReadingList:
+            get_list_items = lambda list_: cast(MeterReadingListResponse, list_).MeterReading_  # type: ignore # noqa: E731
+            list_item_type = CSIPAusResource.MeterReading
 
     if get_list_items is None or list_item_type is None:
         raise CactusClientError(f"resource {list_resource} has no registered get_list_items function.")

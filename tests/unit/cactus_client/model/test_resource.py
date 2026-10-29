@@ -18,6 +18,7 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsResponse,
 )
 from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering import MeterReading, UsagePoint
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePointListResponse,
 )
@@ -604,6 +605,8 @@ SEP2_TYPES_WITH_LINKS: list[tuple[CSIPAusResource, type]] = [
     (CSIPAusResource.TariffProfile, TariffProfileResponse),
     (CSIPAusResource.RateComponent, RateComponentResponse),
     (CSIPAusResource.TimeTariffInterval, TimeTariffIntervalResponse),
+    (CSIPAusResource.UsagePoint, UsagePoint),
+    (CSIPAusResource.MeterReading, MeterReading),
 ]
 
 
