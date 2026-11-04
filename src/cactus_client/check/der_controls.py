@@ -162,6 +162,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
     # Perform filtering
     total_matches = 0
     rejection_details: list[str] = []
+    match_details: list[str] = []
     for derc_sr in all_dercontrols:
         derc = cast(DERControlResponse, derc_sr.resource)
 
@@ -249,6 +250,7 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
             continue
 
         total_matches += 1
+        match_details.append(" > ".join(reversed(derc_sr.id.hrefs)))
 
     # Build metadata message
     total_found = len(all_dercontrols)
@@ -263,7 +265,9 @@ def check_der_control(  # noqa: C901 # This complexity is from the long line of 
         return CheckResult(False, f"{metadata}. Expected at least {minimum_count}.{rejection_info}")
 
     if maximum_count is not None and total_matches > maximum_count:
-        return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
+        return CheckResult(
+            False, f"{metadata}. Expected at most {maximum_count}. Matches (discovery path): {'; '.join(match_details)}"
+        )
 
     return CheckResult(True, metadata)
 
