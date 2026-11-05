@@ -3,18 +3,17 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
-from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import (
     ClientType,
     RequiredClient,
-    TestProcedure,
     TestProcedureId,
-    get_test_procedure,
 )
 
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION
 from cactus_client.error import ConfigError
 from cactus_client.execution.run import run_entrypoint
 from cactus_client.model.config import ClientConfig, GlobalConfig, RunConfig
+from cactus_client.procedures import get_test_procedure_for_version
 
 logger = logging.getLogger(__name__)
 
@@ -144,11 +143,10 @@ async def autorun_entrypoint(
     records: list[AutorunRecord] = []
 
     for test_id in test_ids:
-        tp: TestProcedure = get_test_procedure(test_id)
-
-        if CSIPAusVersion.RELEASE_1_2 not in tp.target_versions:
-            reason = f"not applicable to CSIP-Aus {CSIPAusVersion.RELEASE_1_2}"
-            logger.info("Skipping %s: %s", test_id, reason)
+        tp = get_test_procedure_for_version(ACTIVE_CSIP_AUS_VERSION, test_id)
+        if tp is None:
+            reason = f"not applicable to CSIP-Aus {ACTIVE_CSIP_AUS_VERSION}"
+            logger.warning("Skipping %s: %s", test_id, reason)
             records.append(AutorunRecord(test_id=test_id, status=AutorunStatus.SKIPPED, note=reason))
             continue
 
@@ -163,7 +161,7 @@ async def autorun_entrypoint(
         run_config = RunConfig(
             test_procedure_id=test_id,
             client_ids=client_ids,
-            csip_aus_version=CSIPAusVersion.RELEASE_1_2,
+            csip_aus_version=ACTIVE_CSIP_AUS_VERSION,
             headless=headless,
             timeout=timeout,
             strict=strict,

@@ -2,12 +2,12 @@ import argparse
 import asyncio
 import sys
 
-from cactus_test_definitions.csipaus import CSIPAusVersion
 from cactus_test_definitions.server.test_procedures import (
     TestProcedureId,
 )
 from rich.console import Console
 
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION
 from cactus_client.error import ConfigError
 from cactus_client.execution.run import run_entrypoint
 from cactus_client.model.config import CONFIG_CWD, CONFIG_HOME, RunConfig, load_config
@@ -114,7 +114,7 @@ def run_action(args: argparse.Namespace) -> None:
     run_config = RunConfig(
         test_procedure_id=TestProcedureId(test_id),
         client_ids=client_ids,
-        csip_aus_version=CSIPAusVersion.RELEASE_1_2,
+        csip_aus_version=ACTIVE_CSIP_AUS_VERSION,
         headless=headless,
         timeout=timeout,
         strict=strict,
