@@ -199,13 +199,12 @@ class CSIPAusResourceTree:
             identifier=CSIPAusResource.CombinedTimeTariffIntervalList,
             parent=CSIPAusResource.TariffProfile,
         )
-        self.tree.create_node(
-            identifier=CSIPAusResource.TimeTariffIntervalList,
-            parent=CSIPAusResource.RateComponent,
-        )
+        # All of the tests access TTI's via the CombinedTimeTariffIntervalList
+        # technically they can appear under RC->TTIList too but that isn't on the radar for compliance
+        # and introduces multiple discovery routes which is challenging. We're going to focus on the CTTIList pathway.
         self.tree.create_node(
             identifier=CSIPAusResource.TimeTariffInterval,
-            parent=CSIPAusResource.TimeTariffIntervalList,
+            parent=CSIPAusResource.CombinedTimeTariffIntervalList,
         )
         self.tree.create_node(
             identifier=CSIPAusResource.ConsumptionTariffIntervalList,

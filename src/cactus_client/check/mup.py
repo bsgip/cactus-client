@@ -143,7 +143,7 @@ def generate_reading_type_values(  # noqa: C901
         case CSIPAusReadingType.VoltageSinglePhaseMinimum:
             return (UomType.VOLTAGE, KindType.POWER, DataQualifierType.MINIMUM)
 
-        case CSIPAusReadingType.StoredEnergy:
+        case CSIPAusReadingType.StoredEnergyInstantaneous:
             # CSIP-Aus v1.3 Table A.1: dataQualifier is excluded (not to be provided) for Stored Energy
             return (UomType.REAL_ENERGY_WATT_HOURS, KindType.ENERGY, DataQualifierType.NOT_APPLICABLE)
 
@@ -157,7 +157,7 @@ def generate_reading_type_extra_fields(
     """Generates the (accumulationBehaviour, commodity) ReadingType fields required for specific reading types.
 
     None for every reading type except StoredEnergy, where CSIP-Aus v1.3 Table A.1 requires both to be set."""
-    if rt == CSIPAusReadingType.StoredEnergy:
+    if rt == CSIPAusReadingType.StoredEnergyInstantaneous:
         return (AccumulationBehaviourType.INSTANTANEOUS, CommodityType.ELECTRICITY_SECONDARY_METERED_VALUE)
     return (None, None)
 

@@ -55,6 +55,8 @@ def test_get_resource_tree_all_resources_encoded():
     for resource in CSIPAusResource:
         if resource == CSIPAusResource.Notification:
             assert resource not in tree.tree, "Notification's aren't part of the tree hierarchy"
+        elif resource == CSIPAusResource.TimeTariffIntervalList:
+            assert resource not in tree.tree, "TTILists shouldn't be referenced directly - use CombinedTTI instead"
         else:
             assert resource in tree.tree
 

@@ -290,6 +290,7 @@ async def test_discover_resource_singular_resources(
         ),
         (CSIPAusResource.SubscriptionList, CSIPAusResource.Subscription, 1, [1]),
         (CSIPAusResource.SubscriptionList, CSIPAusResource.Subscription, 2, [3, 1]),
+        (CSIPAusResource.CombinedTimeTariffIntervalList, CSIPAusResource.TimeTariffInterval, 2, [2, 2]),
     ],
 )
 @mock.patch("cactus_client.action.discovery.get_resource_for_step")
@@ -400,69 +401,6 @@ def test_calculate_wait_next_polling_window(
     wait = calculate_wait_next_polling_window(now, resource_store)
 
     assert wait == expected_wait
-
-
-@mock.patch("cactus_client.action.discovery.paginate_list_resource_items")
-@mock.patch("cactus_client.action.discovery.get_resource_for_step")
-@pytest.mark.asyncio
-async def test_discover_resource_combined_time_tariff_interval_list_merges_all_pages(
-    mock_get_resource_for_step: mock.MagicMock,
-    mock_paginate_list_resource_items: mock.MagicMock,
-    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
-):
-    """CombinedTimeTariffIntervalList is reached via a direct Link (its parent, TariffProfile, isn't itself a list)
-    but is still list-shaped/paginated server-side. discover_resource must paginate separately and merge all pages'
-    TimeTariffInterval items onto the stored resource rather than keeping only what the initial GET returned."""
-    context, step = testing_contexts_factory(mock.Mock())
-    resource_store = context.discovered_resources(step)
-
-    parent_sr = resource_store.append_resource(
-        CSIPAusResource.TariffProfile,
-        None,
-        generate_class_instance(
-            RESOURCE_SEP2_TYPES[CSIPAusResource.TariffProfile],
-            seed=1,
-            href="/tp/1",
-            generate_relationships=True,
-            CombinedTimeTariffIntervalListLink=Link(href="/tp/1/ctti"),
-        ),
-    )
-
-    # Bare GET (first page) only returns 1 of 3 items - discover_resource must paginate for the rest.
-    first_page_items = [
-        generate_class_instance(RESOURCE_SEP2_TYPES[CSIPAusResource.TimeTariffInterval], seed=1, href="/tti/1")
-    ]
-    bare_fetch = generate_class_instance(
-        CombinedTimeTariffIntervalListResponse,
-        seed=99,
-        href="/tp/1/ctti",
-        TimeTariffInterval=first_page_items,
-        results=1,
-        all_=3,
-    )
-    mock_get_resource_for_step.return_value = bare_fetch
-
-    all_items = [
-        generate_class_instance(RESOURCE_SEP2_TYPES[CSIPAusResource.TimeTariffInterval], seed=idx, href=f"/tti/{idx}")
-        for idx in range(3)
-    ]
-    mock_paginate_list_resource_items.return_value = all_items
-
-    # Act
-    await discover_resource(CSIPAusResource.CombinedTimeTariffIntervalList, step, context, None)
-
-    # Assert
-    mock_paginate_list_resource_items.assert_called_once()
-    call_args = mock_paginate_list_resource_items.call_args
-    assert call_args[0][3] == "/tp/1/ctti"
-    assert call_args[0][4] == DISCOVERY_LIST_PAGE_SIZE
-
-    stored = resource_store.get_for_type(CSIPAusResource.CombinedTimeTariffIntervalList)
-    assert len(stored) == 1
-    assert stored[0].id.parent_id() == parent_sr.id
-    combined = cast(CombinedTimeTariffIntervalListResponse, stored[0].resource)
-    assert combined.TimeTariffInterval == all_items
-    assert combined.results == 3
 
 
 @mock.patch("cactus_client.action.discovery.calculate_wait_next_polling_window")
