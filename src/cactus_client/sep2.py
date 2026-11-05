@@ -72,15 +72,15 @@ def hex_binary_equal(a: int | str | None, b: int | str | None) -> bool:
 AnyResource = TypeVar("AnyResource", bound=Resource)
 
 
-def get_property_changes(source: AnyResource, returned: AnyResource) -> str | None:
+def get_property_changes(source: AnyResource, returned: AnyResource) -> set[str]:
     """Compares source to returned, all properties in source MUST exist in returned and MUST be the same value.
 
     A change from None to any other non None value will NOT be considered. Extra values in returned will NOT be
     considered.
 
-    Returns a string with the human readable differences or None if they match.
+    Returns the set of property names that differ (empty if they match).
     """
-    differences: list[str] = []
+    differences: set[str] = set()
 
     for key, source_val in source.__dict__.items():
         returned_val = getattr(returned, key, None)
@@ -110,9 +110,6 @@ def get_property_changes(source: AnyResource, returned: AnyResource) -> str | No
                 if abs(source_val - returned_val) <= MAX_TIME_DRIFT_SECONDS:
                     continue
 
-            differences.append(f"{key} had {source_val} changed to {returned_val}")
+            differences.add(key)
 
-    if differences:
-        return ", ".join(differences)
-    else:
-        return None
+    return differences
