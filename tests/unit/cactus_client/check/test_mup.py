@@ -4,6 +4,7 @@ import pytest
 from aiohttp import ClientSession
 from assertical.asserts.type import assert_dict_type
 from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions import CSIPAusVersion
 from cactus_test_definitions.csipaus import (
     CSIPAusReadingLocation,
     CSIPAusReadingType,
@@ -31,6 +32,7 @@ from cactus_client.check.mup import (
     generate_reading_type_values,
     generate_role_flags,
 )
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION
 from cactus_client.error import CactusClientError
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
@@ -135,6 +137,11 @@ def test_generate_reading_type_values_bad_value():
 def test_generate_reading_type_values():
     all_values: list[tuple] = []
     for rt in CSIPAusReadingType:
+        # Certain reading types are only applicable to certain CSIP-AUS versions
+        if ACTIVE_CSIP_AUS_VERSION == CSIPAusVersion.RELEASE_1_2:
+            if rt in {CSIPAusReadingType.StoredEnergyInstantaneous}:
+                continue
+
         all_values.append(generate_reading_type_values(rt))
 
     assert len(all_values) == len(set(all_values)), "For catching copy paste errors"
