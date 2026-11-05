@@ -9,7 +9,7 @@ from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource, SubscribableList
 
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestError
+from cactus_client.error import CactusClientError, RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.http import ServerResponse
@@ -235,12 +235,16 @@ async def submit_and_refetch_resource_for_step(
     href: str,
     submitted_resource: AnyResourceType,
     no_location_header: bool = False,
+    strict_fields: set[str] | None = None,
 ) -> AnyResourceType:
     """Makes a method request to a particular href, submitting submitted_resource and expecting a success response. Then
     parse the resulting response for a Location header and then GET that URI, returning the resulting resource.
 
     if no_location_header is set - the initial response will not be checked for a Location header and instead href
-    will be used as the GET (use this for when updating a resource insitu, not creating a new resource)"""
+    will be used as the GET (use this for when updating a resource insitu, not creating a new resource)
+
+    Any differences between submitted and returned resource will be logged as warnings, unless they are listed in
+    strict_fields, in which case a CactusClientError will be raised."""
 
     # Make the submit request
     response = await request_for_step(
@@ -279,10 +283,23 @@ async def submit_and_refetch_resource_for_step(
     # Check the returned resource matches the submitted resource
     returned_resource = await get_resource_for_step(t, step, context, refetch_href)
     changes = get_property_changes(submitted_resource, returned_resource)
-    if changes:
+    strict_changes = changes & strict_fields if strict_fields else set()
+    lenient_changes = changes - strict_changes
+
+    def describe(keys: set[str]) -> str:
+        return ", ".join(
+            f"{k} had {getattr(submitted_resource, k)} changed to {getattr(returned_resource, k, None)}"
+            for k in sorted(keys)
+        )
+
+    if lenient_changes:
         context.warnings.log_step_warning(
             step,
-            f"GET {refetch_href} didn't match the values submitted to {method} {href}: {changes}",
+            f"GET {refetch_href} didn't match the values submitted to {method} {href}: {describe(lenient_changes)}",
+        )
+    if strict_changes:
+        raise CactusClientError(
+            f"GET {refetch_href} didn't match the values submitted to {method} {href}: {describe(strict_changes)}"
         )
 
     return returned_resource
