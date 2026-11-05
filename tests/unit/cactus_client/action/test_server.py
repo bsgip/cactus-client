@@ -34,7 +34,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.constants import MIME_TYPE_SEP2
-from cactus_client.error import RequestError
+from cactus_client.error import CactusClientError, RequestError
 
 
 @dataclass
@@ -289,9 +289,9 @@ async def test_submit_and_refetch_resource_for_step_success(
 ):
     """Does submit_and_refetch_resource_for_step handle parsing the XML and returning the correct data"""
     if has_property_changes:
-        mock_get_property_changes.return_value = "Some form of property error"
+        mock_get_property_changes.return_value = {"href"}
     else:
-        mock_get_property_changes.return_value = None
+        mock_get_property_changes.return_value = set()
     async with create_test_session(
         aiohttp_client,
         [
@@ -367,9 +367,9 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
 ):
     """Does submit_and_refetch_resource_for_step handle parsing the XML and returning the correct data"""
     if has_property_changes:
-        mock_get_property_changes.return_value = "Some form of property error"
+        mock_get_property_changes.return_value = {"href"}
     else:
-        mock_get_property_changes.return_value = None
+        mock_get_property_changes.return_value = set()
 
     async with create_test_session(
         aiohttp_client,
@@ -405,6 +405,61 @@ async def test_submit_and_refetch_resource_for_step_success_no_location_header(
     else:
         assert len(execution_context.warnings.warnings) == 0
     assert len(execution_context.responses.responses) == 2
+
+
+@pytest.mark.parametrize(
+    "changes, strict_fields, expect_warning, expect_error",
+    [
+        ({"href"}, {"pollRate"}, True, False),
+        ({"pollRate"}, {"pollRate"}, False, True),
+        ({"href", "pollRate"}, {"pollRate"}, True, True),
+        ({"href", "pollRate"}, None, True, False),
+        (set(), {"pollRate"}, False, False),
+    ],
+)
+@mock.patch("cactus_client.action.server.get_property_changes")
+@pytest.mark.asyncio
+async def test_submit_and_refetch_resource_for_step_strict_fields(
+    mock_get_property_changes: mock.Mock,
+    changes: set[str],
+    strict_fields: set[str] | None,
+    expect_warning: bool,
+    expect_error: bool,
+    aiohttp_client,
+    testing_contexts_factory,
+):
+    """Do changes to strict_fields raise an error, while other changes only log a warning"""
+    mock_get_property_changes.return_value = changes
+
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.PUT,
+                "/foo",
+                [RouteBehaviour(HTTPStatus.NO_CONTENT, b"", {})],
+            ),
+            TestingAppRoute(HTTPMethod.GET, "/foo", [RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml")]),
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        coro = submit_and_refetch_resource_for_step(
+            DeviceCapabilityResponse,
+            step_execution,
+            execution_context,
+            HTTPMethod.PUT,
+            "/foo",
+            generate_class_instance(DeviceCapabilityResponse),
+            no_location_header=True,
+            strict_fields=strict_fields,
+        )
+        if expect_error:
+            with pytest.raises(CactusClientError, match="pollRate"):
+                await coro
+        else:
+            assert isinstance(await coro, DeviceCapabilityResponse)
+
+    assert len(execution_context.warnings.warnings) == (1 if expect_warning else 0)
 
 
 @pytest.mark.asyncio
