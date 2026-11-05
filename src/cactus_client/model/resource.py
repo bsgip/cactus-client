@@ -220,6 +220,11 @@ class CSIPAusResourceTree:
         """Given a list of resource targets - calculate the ordered sequence of requests required
         to "walk" the tree such that all target_resources are hit (and nothing is double fetched)"""
 
+        # Some servers don't expose MirrorMeterReadings via GET /mup - silently walk the equivalent UsagePoint tree
+        # (/upt) so that checks can fall back to it. Servers without a UsagePointListLink are skipped harmlessly.
+        if CSIPAusResource.MirrorUsagePoint in target_resources:
+            target_resources = [*target_resources, CSIPAusResource.ReadingType]
+
         visit_order: list[CSIPAusResource] = []
         visited_nodes: set[CSIPAusResource] = set()
         for target in target_resources:
