@@ -8,13 +8,10 @@ from pathlib import Path
 from ssl import SSLContext
 
 from aiohttp import ClientSession, TCPConnector
-from cactus_test_definitions.server.test_procedures import (
-    TestProcedure,
-    get_test_procedure,
-)
+from cactus_test_definitions.server.test_procedures import TestProcedure
 
 from cactus_client.action.notifications import safely_delete_all_notification_webhooks
-from cactus_client.constants import CACTUS_TEST_DEFINITIONS_VERSION
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION, CACTUS_TEST_DEFINITIONS_VERSION
 from cactus_client.error import ConfigError
 from cactus_client.model.config import (
     ClientConfig,
@@ -34,6 +31,7 @@ from cactus_client.model.progress import (
     WarningTracker,
 )
 from cactus_client.model.resource import CSIPAusResourceTree, ResourceStore
+from cactus_client.procedures import get_test_procedure_for_version
 
 logger = logging.getLogger(__name__)
 
@@ -197,16 +195,14 @@ async def build_execution_context(user_config: GlobalConfig, run_config: RunConf
 
     tp_id = run_config.test_procedure_id
 
-    try:
-        tp = get_test_procedure(tp_id)
-    except Exception as exc:
+    tp = get_test_procedure_for_version(ACTIVE_CSIP_AUS_VERSION, tp_id)
+    if tp is None:
         logger.error(
             f"Unable to load Test Procedure ID '{tp_id}' with test definitions {CACTUS_TEST_DEFINITIONS_VERSION}",
-            exc_info=exc,
         )
         raise ConfigError(
             f"Test Procedure ID '{tp_id}' isn't recognised for version {CACTUS_TEST_DEFINITIONS_VERSION}."
-        ) from exc
+        )
 
     if run_config.csip_aus_version not in tp.target_versions:
         raise ConfigError(f"The requested version {run_config.csip_aus_version} is not supported by {tp_id}")

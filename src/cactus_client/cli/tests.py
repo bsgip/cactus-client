@@ -1,13 +1,12 @@
 import argparse
 import sys
 
-from cactus_test_definitions.server import (
-    TestProcedureId,
-    get_all_test_procedures,
-    get_test_procedure,
-)
+from cactus_test_definitions.server import TestProcedureId
 from rich.console import Console
 from rich.table import Table
+
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION
+from cactus_client.procedures import get_test_procedure_for_version, get_test_procedures_for_version
 
 COMMAND_NAME = "tests"
 
@@ -21,15 +20,13 @@ def add_sub_commands(subparsers: argparse._SubParsersAction) -> None:
 
 def print_tests(console: Console) -> None:
 
-    test_procedures = get_all_test_procedures()
-
     table = Table(title="Available Test Procedures")
     table.add_column("Id", style="red")
     table.add_column("Category")
     table.add_column("Description")
     table.add_column("Required Clients")
 
-    for tp_id, tp in sorted(test_procedures.items(), key=lambda item: item[0]):
+    for tp_id, tp in get_test_procedures_for_version(ACTIVE_CSIP_AUS_VERSION):
         client_types: list[str] = [f"[b]{c.client_type or 'any'}[/b]" for c in tp.preconditions.required_clients]
         table.add_row(
             tp_id,
@@ -44,7 +41,7 @@ def print_tests(console: Console) -> None:
 def print_test(console: Console, tp_id: str) -> None:
 
     try:
-        tp = get_test_procedure(TestProcedureId(tp_id))
+        tp = get_test_procedure_for_version(ACTIVE_CSIP_AUS_VERSION, TestProcedureId(tp_id))
     except Exception:
         tp = None
 
