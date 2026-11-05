@@ -7,6 +7,7 @@ from cactus_test_definitions.csipaus import (
     CSIPAusReadingType,
     CSIPAusResource,
 )
+from envoy_schema.server.schema.sep2.metering import MeterReading, ReadingType, UsagePoint
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorUsagePoint,
 )
@@ -158,6 +159,28 @@ def generate_role_flags(location: CSIPAusReadingLocation) -> RoleFlagsType:
             )
 
 
+def find_mup_readings(store: ResourceStore, mup: MirrorUsagePoint) -> list[tuple[str, ReadingType | None]]:
+    """Returns the (mRID, ReadingType) pairs for mup's MirrorMeterReadings. If the server doesn't expose them via /mup,
+    falls back to the MeterReadings under the UsagePoint (discovered via /upt) with the same mRID as mup."""
+    if mup.mirrorMeterReadings:
+        return [(mmr.mRID, mmr.readingType) for mmr in mup.mirrorMeterReadings]
+
+    up_sr = next(
+        (sr for sr in store.get_for_type(CSIPAusResource.UsagePoint) if cast(UsagePoint, sr.resource).mRID == mup.mRID),
+        None,
+    )
+    if up_sr is None:
+        return []
+
+    readings: list[tuple[str, ReadingType | None]] = []
+    for mr_sr in store.get_descendents_of(CSIPAusResource.MeterReading, up_sr.id):
+        rt_srs = store.get_descendents_of(CSIPAusResource.ReadingType, mr_sr.id)
+        readings.append(
+            (cast(MeterReading, mr_sr.resource).mRID, cast(ReadingType, rt_srs[0].resource) if rt_srs else None)
+        )
+    return readings
+
+
 def find_mrids_matching(
     store: ResourceStore,
     role_flags: RoleFlagsType | None,
@@ -173,6 +196,7 @@ def find_mrids_matching(
     for mup in all_mups:
         resource = cast(MirrorUsagePoint, mup.resource)
         mup_id = resource.mRID or resource.href or "unknown"
+        readings = find_mup_readings(store, resource)
 
         # Look to disqualify mups as matches by checking things one by one
         if post_rate_seconds is not None and resource.postRate is not None and post_rate_seconds != resource.postRate:
@@ -190,7 +214,7 @@ def find_mrids_matching(
                 continue
 
             # Check mmr's across all MirrorMeterReadings (they should match perfectly)
-            mmr_mrids = [mmr.mRID for mmr in resource.mirrorMeterReadings] if resource.mirrorMeterReadings else []
+            mmr_mrids = [mrid for mrid, _ in readings]
             if set(mmr_mrids) != set(mrids.mmr_mrids.values()):
                 rejection_details.append(
                     f"{mup_id}: mmr_mrids {mmr_mrids} != expected {list(mrids.mmr_mrids.values())}"
@@ -200,14 +224,14 @@ def find_mrids_matching(
         # Check the readingType values for each MirrorMeterReading - we want an exact match
         if reading_type_vals is not None:
             comparison_reading_type_value: list[tuple[UomType, KindType, DataQualifierType]] = []
-            for mmr in resource.mirrorMeterReadings or []:
-                if mmr.readingType is None:
-                    raise CactusClientError(f"MirrorMeterReading {mmr.href} {mmr.mRID} has no readingType")
+            for mrid, reading_type in readings:
+                if reading_type is None:
+                    raise CactusClientError(f"MirrorMeterReading {mrid} for {mup_id} has no readingType")
                 comparison_reading_type_value.append(
                     (
-                        mmr.readingType.uom or UomType.NOT_APPLICABLE,
-                        mmr.readingType.kind or KindType.NOT_APPLICABLE,
-                        mmr.readingType.dataQualifier or DataQualifierType.NOT_APPLICABLE,
+                        reading_type.uom or UomType.NOT_APPLICABLE,
+                        reading_type.kind or KindType.NOT_APPLICABLE,
+                        reading_type.dataQualifier or DataQualifierType.NOT_APPLICABLE,
                     )
                 )
             if set(comparison_reading_type_value) != set(reading_type_vals):
