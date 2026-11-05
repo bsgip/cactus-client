@@ -193,6 +193,7 @@ def test_check_default_der_control_no_controls_in_store(
     # Assert
     assert isinstance(result, CheckResult)
     assert result.passed is False
+    assert result.description is not None
 
 
 def test_check_default_der_control_multiple_controls(
@@ -536,3 +537,29 @@ def test_check_der_control_responses(
 
     # Assert
     assert_check_result(result, expected_pass)
+
+
+def test_check_der_control_max_count_reports_discovery_paths(
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """The same DERControl reached via two DERPrograms counts twice - the failure should show both discovery paths"""
+
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+
+    derp1 = resource_store.upsert_resource(
+        CSIPAusResource.DERProgram, None, generate_class_instance(DERProgramResponse, seed=1, href="/derp/1")
+    )
+    derp2 = resource_store.upsert_resource(
+        CSIPAusResource.DERProgram, None, generate_class_instance(DERProgramResponse, seed=2, href="/derp/2")
+    )
+    derc = generate_class_instance(DERControlResponse, seed=3, href="/derc/1")
+    resource_store.upsert_resource(CSIPAusResource.DERControl, derp1.id, derc)
+    resource_store.upsert_resource(CSIPAusResource.DERControl, derp2.id, derc)
+
+    result = check_der_control({"maximum_count": 1}, step, context)
+
+    assert result.passed is False
+    assert result.description is not None
+    assert "/derp/1 > /derc/1" in result.description
+    assert "/derp/2 > /derc/1" in result.description

@@ -224,8 +224,9 @@ def test_hex_binary_equal(a, b, expected):
 def test_get_property_changes(source, returned, expected_match: bool):
 
     result = get_property_changes(source, returned)
+    assert isinstance(result, set)
     if expected_match:
-        assert result is None
+        assert result == set()
     else:
-        assert isinstance(result, str)
         assert len(result) > 0
+        assert all(isinstance(k, str) and hasattr(source, k) for k in result)

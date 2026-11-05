@@ -32,27 +32,6 @@ from cactus_client.time import utc_now
 logger = logging.getLogger(__name__)
 
 
-def _validate_fields(expected: object, actual: object, fields: list[str]) -> None:
-    """Validate that specified fields match between expected and actual objects.
-
-    Args:
-        expected: Object with expected values (e.g. the request)
-        actual: Object with actual values (e.g. the response)
-        fields: List of field names to validate
-    """
-    mismatches = []
-
-    for field_name in fields:
-        expected_value = getattr(expected, field_name)
-        actual_value = getattr(actual, field_name)
-
-        if expected_value != actual_value:
-            mismatches.append(f"{field_name}: expected {expected_value}, got {actual_value}")
-
-    if mismatches:
-        raise CactusClientError(f"{actual.__class__.__name__} validation failed: " + "; ".join(mismatches))
-
-
 async def action_upsert_der_capability(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
@@ -92,16 +71,10 @@ async def action_upsert_der_capability(
             dercap_link.href,
             dercap_request,
             no_location_header=True,
+            strict_fields={"type_", "rtgMaxW", "modesSupported", "doeModesSupported"},
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERCapability, der.id.parent_id(), inserted_dercap)
-
-        # Validate the inserted resource keeps the values we set
-        _validate_fields(
-            dercap_request,
-            inserted_dercap,
-            ["type_", "rtgMaxW", "modesSupported", "doeModesSupported"],
-        )
 
     return ActionResult.done()
 
@@ -147,16 +120,10 @@ async def action_upsert_der_settings(
             der_sett_link.href,
             der_settings_request,
             no_location_header=True,
+            strict_fields={"updatedTime", "setMaxW", "setGradW", "modesEnabled", "doeModesEnabled"},
         )
 
         resource_store.upsert_resource(CSIPAusResource.DERSettings, der.id.parent_id(), inserted_der_settings)
-
-        # Validate the inserted resource keeps the values we set
-        _validate_fields(
-            der_settings_request,
-            inserted_der_settings,
-            ["updatedTime", "setMaxW", "setGradW", "modesEnabled", "doeModesEnabled"],
-        )
 
     return ActionResult.done()
 
@@ -226,21 +193,10 @@ async def action_upsert_der_status(
                 der_status_link.href,
                 der_status_request,
                 no_location_header=True,
+                strict_fields={"readingTime", "genConnectStatus", "operationalModeStatus", "alarmStatus"},
             )
 
             resource_store.upsert_resource(CSIPAusResource.DERStatus, der.id.parent_id(), inserted_der_status)
-
-            # Validate the inserted resource keeps the values we set
-            _validate_fields(
-                der_status_request,
-                inserted_der_status,
-                [
-                    "readingTime",
-                    "genConnectStatus",
-                    "operationalModeStatus",
-                    "alarmStatus",
-                ],
-            )
 
     return ActionResult.done()
 
