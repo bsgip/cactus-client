@@ -1,8 +1,11 @@
+import json
 import logging
 from functools import lru_cache
 from pathlib import Path
 
 from cactus_test_definitions import CSIPAusVersion
+from jsonschema.protocols import Validator
+from jsonschema.validators import validator_for
 from lxml import etree
 
 import cactus_client.schema.csipaus12 as v12
@@ -83,6 +86,32 @@ def validate_xml(xml: str, version: CSIPAusVersion = ACTIVE_CSIP_AUS_VERSION) ->
         return []
     else:
         return [f"{e.line}: {e.message}" for e in schema.error_log]
+
+
+@lru_cache
+def _wellknown_validator() -> Validator:
+    wellknown_json_xsd = Path(__file__).parent / "wellknown.schema.json"
+    with open(wellknown_json_xsd, "rb") as fp:
+        schema = json.load(fp)
+
+    validator_cls = validator_for(schema)
+    validator_cls.check_schema(schema)  # fail loudly if the schema itself is broken
+    return validator_cls(schema)
+
+
+def validate_well_known_json(json_body: str | bytes) -> list[str]:
+    """Validate a well-known JSON document.
+
+    Returns a list of human-readable error strings; an empty list means valid.
+    """
+    try:
+        instance = json.loads(json_body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return [f"Invalid JSON: {e}"]
+
+    validator = _wellknown_validator()
+    errors = sorted(validator.iter_errors(instance), key=lambda e: list(e.path))
+    return [f"{e.json_path}: {e.message}" for e in errors]
 
 
 def to_hex_binary(v: int) -> str:

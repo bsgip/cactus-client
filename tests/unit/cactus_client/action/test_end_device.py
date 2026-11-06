@@ -260,6 +260,7 @@ async def test_action_insert_end_device_cross_client_uses_context_lfdi(
         test_procedure_alias=client_b_alias,
         client_config=client_b_config,
         discovered_resources=ResourceStore(context.resource_tree),
+        discovered_well_known=None,
         session=mock.Mock(),
         annotations={},
         notifications=None,

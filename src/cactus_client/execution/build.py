@@ -127,6 +127,7 @@ def build_clients_by_alias(
             test_procedure_alias=tp_client_precondition.id,
             client_config=client_config,
             discovered_resources=ResourceStore(resource_tree),
+            discovered_well_known=None,
             session=ClientSession(base_url=base_uri, connector=TCPConnector(ssl=ssl_context)),
             annotations={},
             notifications=notifications,

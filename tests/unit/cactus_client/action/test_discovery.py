@@ -15,13 +15,18 @@ from envoy_schema.server.schema.sep2.end_device import (
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
     action_discovery,
+    action_well_known_discovery,
     calculate_wait_next_polling_window,
     discover_resource,
 )
-from cactus_client.error import CactusClientError
+from cactus_client.constants import CSIPAUS_WELL_KNOWN_PATH
+from cactus_client.error import CactusClientError, RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
 from cactus_client.model.resource import RESOURCE_SEP2_TYPES
+from cactus_client.model.wellknown import WellKnown, WellKnownSchemaVersion
+
+STALE_WELL_KNOWN = WellKnown(supported_schema_versions={"stale": WellKnownSchemaVersion(dcap=["/stale/dcap"])})
 
 
 def setup_discovery_test(testing_contexts_factory, resource: CSIPAusResource, matched_parents: int):
@@ -481,3 +486,132 @@ async def test_discover_resource_with_list_limit(
     stored_children = resource_store.get_for_type(CSIPAusResource.EndDevice)
     assert len(stored_children) == list_limit
     assert all(sr.resource_type == CSIPAusResource.EndDevice for sr in stored_children)
+
+
+@pytest.mark.parametrize("existing_well_known", [None, STALE_WELL_KNOWN])
+@mock.patch("cactus_client.action.discovery.request_well_known_for_step")
+@pytest.mark.asyncio
+async def test_action_well_known_discovery(
+    mock_request_well_known_for_step: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    existing_well_known: WellKnown | None,
+):
+    """A schema valid document is parsed and stored on the client context (replacing any earlier value)"""
+
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    context.client_context(step).discovered_well_known = existing_well_known
+    mock_request_well_known_for_step.return_value = """
+{
+    "supportedSchemaVersions": {
+        "https://csipaus.org/ns/v1.2": {"dcap": ["/dcap"]},
+        "https://csipaus.org/ns/v1.3": {"dcap": ["/v13/dcap", "https://example.com/dcap"]}
+    }
+}"""
+
+    # Act
+    result = await action_well_known_discovery({}, step, context)
+
+    # Assert
+    assert result.completed
+    assert result.description is None
+    mock_request_well_known_for_step.assert_called_once_with(step, context)
+    assert context.discovered_well_known(step) == WellKnown(
+        supported_schema_versions={
+            "https://csipaus.org/ns/v1.2": WellKnownSchemaVersion(dcap=["/dcap"]),
+            "https://csipaus.org/ns/v1.3": WellKnownSchemaVersion(dcap=["/v13/dcap", "https://example.com/dcap"]),
+        }
+    )
+    assert len(context.warnings.warnings) == 0
+
+
+@pytest.mark.parametrize(
+    "json_body, expected_errors",
+    [
+        ("", 1),  # Not JSON
+        ("<DeviceCapability />", 1),  # Not JSON
+        ("[]", 1),  # Not an object
+        ("{}", 1),  # Missing supportedSchemaVersions
+        ('{"supportedSchemaVersions": {}}', 1),  # Must have at least one schema version
+        ('{"supportedSchemaVersions": {"v1": {}}}', 1),  # Missing dcap
+        ('{"supportedSchemaVersions": {"v1": {"dcap": "/dcap"}}}', 1),  # dcap isn't a list
+        ('{"supportedSchemaVersions": {"v1": {"dcap": [1, 2]}}}', 2),  # dcap items aren't strings
+        ('{"supportedSchemaVersions": {"v1": {"dcap": ["/dcap"]}}, "extra": 1}', 1),  # No additional properties
+        ('{"supportedSchemaVersions": {"v1": {"dcap": 1}, "v2": {}}}', 2),  # Each version is checked
+    ],
+)
+@mock.patch("cactus_client.action.discovery.request_well_known_for_step")
+@pytest.mark.asyncio
+async def test_action_well_known_discovery_schema_errors(
+    mock_request_well_known_for_step: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+    json_body: str,
+    expected_errors: int,
+):
+    """Schema invalid documents fail the action (retriable), log each error as a warning and aren't stored"""
+
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    context.client_context(step).discovered_well_known = STALE_WELL_KNOWN
+    mock_request_well_known_for_step.return_value = json_body
+
+    # Act
+    result = await action_well_known_discovery({}, step, context)
+
+    # Assert
+    assert not result.completed
+    assert not result.repeat
+    assert CSIPAUS_WELL_KNOWN_PATH in (result.description or "")
+    assert f"{expected_errors} schema errors" in (result.description or "")
+    assert context.discovered_well_known(step) is None, "The earlier value should've been cleared"
+    assert len(context.warnings.warnings) == expected_errors
+    assert all(w.step_execution is step for w in context.warnings.warnings)
+
+
+@mock.patch("cactus_client.action.discovery.request_well_known_for_step")
+@pytest.mark.asyncio
+async def test_action_well_known_discovery_request_error(
+    mock_request_well_known_for_step: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """Request errors are propagated - any earlier value should still be cleared"""
+
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    context.client_context(step).discovered_well_known = STALE_WELL_KNOWN
+    mock_request_well_known_for_step.side_effect = RequestError("mock error")
+
+    # Act
+    with pytest.raises(RequestError):
+        await action_well_known_discovery({}, step, context)
+
+    # Assert
+    assert context.discovered_well_known(step) is None
+    assert len(context.warnings.warnings) == 0
+
+
+@mock.patch("cactus_client.action.discovery.validate_well_known_json")
+@mock.patch("cactus_client.action.discovery.request_well_known_for_step")
+@pytest.mark.asyncio
+async def test_action_well_known_discovery_parse_error(
+    mock_request_well_known_for_step: mock.MagicMock,
+    mock_validate_well_known_json: mock.MagicMock,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """A document that passes validation but can't be parsed is raised as a CactusClientError"""
+
+    # Arrange
+    context, step = testing_contexts_factory(mock.Mock())
+    context.client_context(step).discovered_well_known = STALE_WELL_KNOWN
+    mock_request_well_known_for_step.return_value = "not valid json"
+    mock_validate_well_known_json.return_value = []
+
+    # Act
+    with pytest.raises(CactusClientError) as exc_info:
+        await action_well_known_discovery({}, step, context)
+
+    # Assert
+    assert exc_info.value.__cause__ is not None
+    mock_validate_well_known_json.assert_called_once_with("not valid json")
+    assert context.discovered_well_known(step) is None
+    assert len(context.warnings.warnings) == 0

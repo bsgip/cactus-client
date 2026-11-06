@@ -25,6 +25,7 @@ from cactus_client.model.resource import (
     ResourceStore,
     StoredResourceId,
 )
+from cactus_client.model.wellknown import WellKnown
 from cactus_client.time import utc_now
 
 
@@ -119,6 +120,7 @@ class ClientContext:
     test_procedure_alias: str  # What will the test procedure YAML be referring to this context as?
     client_config: ClientConfig
     discovered_resources: ResourceStore
+    discovered_well_known: WellKnown | None
     annotations: dict[StoredResourceId, StoredResourceAnnotations]
     session: ClientSession  # Used for making HTTP requests - will have base_url, timeouts, ssl_context set
     notifications: (
@@ -179,6 +181,10 @@ class ExecutionContext:
             client_configs={alias: ctx.client_config for alias, ctx in self.clients_by_alias.items()},
         )
 
+    def client_context(self, step: StepExecution) -> ClientContext:
+        """Convenience function for accessing the ClientContext for a specific step (based on client alias)"""
+        return self.clients_by_alias[step.client_alias]
+
     def client_config(self, step: StepExecution) -> ClientConfig:
         """Convenience function for accessing the ClientConfig for a specific step (based on client alias)"""
         return self.clients_by_alias[step.client_alias].client_config
@@ -190,6 +196,10 @@ class ExecutionContext:
     def discovered_resources(self, step: StepExecution) -> ResourceStore:
         """Convenience function for accessing the ResourceStore for a specific step (based on client alias)"""
         return self.clients_by_alias[step.client_resources_alias].discovered_resources
+
+    def discovered_well_known(self, step: StepExecution) -> WellKnown | None:
+        """Convenience function for accessing the WellKnown for a specific step (based on client alias)"""
+        return self.clients_by_alias[step.client_resources_alias].discovered_well_known
 
     def resource_annotations(self, step: StepExecution, stored_resource: StoredResourceId) -> StoredResourceAnnotations:
         """Convenience function for accessing the StoredResourceAnnotation for a specific step's resource. If no

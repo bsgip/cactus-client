@@ -45,6 +45,7 @@ dependencies = [
     "pydantic_xml[lxml]>=2.11.7,<3",
     "reportlab>=4.4.1,<5",
     "apluggy>=1.1.2,<2",
+    "jsonschema",
     "cryptography",
     "tzdata; platform_system == 'Windows'",
 ]
@@ -63,7 +64,7 @@ dev = [
 test = ["assertical>=0.4.0", "pytest", "pytest-aiohttp", "freezegun", "cryptography"]
 
 [tool.setuptools.package-data]
-"cactus_client" = ["py.typed", "**/*.xsd"]
+"cactus_client" = ["py.typed", "**/*.xsd", "**/*.schema.json"]
 
 [tool.setuptools.dynamic]
 version = { attr = "cactus_client.__version__" }

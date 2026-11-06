@@ -69,7 +69,7 @@ class ServerResponse:
 
     @staticmethod
     async def from_response(
-        response: ClientResponse, request: ServerRequest, xml_validation_version: CSIPAusVersion
+        response: ClientResponse, request: ServerRequest, xml_validation_version: CSIPAusVersion | None
     ) -> "ServerResponse":
         body_bytes = await response.read()
         location = response.headers.get("Location", None)
@@ -80,7 +80,7 @@ class ServerResponse:
         # so XSD validation is skipped for them. Exception: the ConnectionPoint rejection step will
         # add explicit XSD validation for that specific case when it is implemented.
         xsd_errors = None
-        if body_xml and response.status < 400:
+        if body_xml and response.status < 400 and xml_validation_version is not None:
             xsd_errors = validate_xml(body_xml, xml_validation_version)
 
         return ServerResponse(

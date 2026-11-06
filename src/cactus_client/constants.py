@@ -7,6 +7,9 @@ CACTUS_TEST_DEFINITIONS_VERSION = version("cactus-test-definitions")
 ENVOY_SCHEMA_VERSION = version("envoy-schema")
 
 MIME_TYPE_SEP2 = "application/sep+xml"
+MIME_TYPE_JSON = "application/json"
+
+CSIPAUS_WELL_KNOWN_PATH = "/.well-known/csipaus"
 
 
 # We will accept a "desync" in time up to this value

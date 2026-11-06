@@ -32,7 +32,9 @@ from cactus_client.action.server import (
     fetch_list_page,
     get_resource_for_step,
     paginate_list_resource_items,
+    request_well_known_for_step,
 )
+from cactus_client.constants import CSIPAUS_WELL_KNOWN_PATH
 from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
@@ -41,6 +43,8 @@ from cactus_client.model.resource import (
     CombinedTimeTariffIntervalListResponse,
     ResourceStore,
 )
+from cactus_client.model.wellknown import WellKnown
+from cactus_client.schema.validator import validate_well_known_json
 from cactus_client.time import utc_now
 
 DISCOVERY_LIST_PAGE_SIZE = 3  # We want something suitably small (to ensure pagination is tested)
@@ -238,5 +242,32 @@ async def action_discovery(
     # Start making requests for resources
     for resource in context.resource_tree.discover_resource_plan([CSIPAusResource(r) for r in resources]):
         await discover_resource(resource, step, context, list_limit)
+
+    return ActionResult.done()
+
+
+async def action_well_known_discovery(
+    resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+) -> ActionResult:
+
+    # Clear first
+    context.client_context(step).discovered_well_known = None
+
+    # Request raw data
+    json_string = await request_well_known_for_step(step, context)
+
+    # Schema validate it
+    well_known_schema_errors = validate_well_known_json(json_string)
+    if well_known_schema_errors:
+        for error in well_known_schema_errors:
+            context.warnings.log_step_warning(step, error)
+
+        return ActionResult.failed(f"{CSIPAUS_WELL_KNOWN_PATH} has {len(well_known_schema_errors)} JSON schema errors.")
+
+    # Try and parse it
+    try:
+        context.client_context(step).discovered_well_known = WellKnown.from_json(json_string)
+    except Exception as exc:
+        raise CactusClientError("Unable to parse WellKnown from JSON") from exc
 
     return ActionResult.done()

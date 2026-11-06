@@ -10,7 +10,7 @@ from cactus_test_definitions import CSIPAusVersion
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource, SubscribableList
 
-from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION, MIME_TYPE_SEP2
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION, CSIPAUS_WELL_KNOWN_PATH, MIME_TYPE_JSON, MIME_TYPE_SEP2
 from cactus_client.error import CactusClientError, RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
@@ -64,7 +64,7 @@ async def _single_request(
     method: HTTPMethod,
     headers: dict,
     sep2_xml_body: str | None,
-    xml_validation_version: CSIPAusVersion,
+    xml_validation_version: CSIPAusVersion | None,
 ) -> ServerResponse:
     """Makes a single request and returns the response."""
     session = context.session(step)
@@ -166,6 +166,30 @@ def parse_error_response(
             "Skipping error body validation.",
         )
         return None
+
+
+async def request_well_known_for_step(
+    step: StepExecution,
+    context: ExecutionContext,
+) -> str:
+    """Accesses the CSIP-AUS .well-known file for the server - returns the raw JSON string response"""
+    response = await _single_request(
+        step,
+        context,
+        CSIPAUS_WELL_KNOWN_PATH,
+        HTTPMethod.GET,
+        {"Accept": MIME_TYPE_JSON},
+        sep2_xml_body=None,
+        xml_validation_version=None,
+    )
+
+    if not response.is_success():
+        raise RequestError(
+            f"Received status {response.status} but expected 2XX requesting"
+            + f" {response.method} {CSIPAUS_WELL_KNOWN_PATH}."
+        )
+
+    return response.body
 
 
 async def client_error_request_for_step(
