@@ -6,6 +6,7 @@ from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from typing import TypeVar
 
+from cactus_test_definitions import CSIPAusVersion
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource, SubscribableList
 
@@ -63,13 +64,16 @@ async def _single_request(
     method: HTTPMethod,
     headers: dict,
     sep2_xml_body: str | None,
+    xml_validation_version: CSIPAusVersion,
 ) -> ServerResponse:
     """Makes a single request and returns the response."""
     session = context.session(step)
     server_request = await context.responses.set_active_request(method, path, body=sep2_xml_body, headers=headers)
     async with session.request(method=method, url=path, data=sep2_xml_body, headers=headers) as raw_response:
         try:
-            response = await ServerResponse.from_response(raw_response, request=server_request)
+            response = await ServerResponse.from_response(
+                raw_response, request=server_request, xml_validation_version=xml_validation_version
+            )
         except Exception as exc:
             logger.error(f"Caught exception attempting to {method} {path}", exc_info=exc)
             await context.responses.clear_active_request()
@@ -87,6 +91,7 @@ async def request_for_step(
     method: HTTPMethod,
     sep2_xml_body: str | None = None,
     accept_versions: list[AcceptVersion] | None = None,
+    xml_validation_version: CSIPAusVersion = ACTIVE_CSIP_AUS_VERSION,
 ) -> ServerResponse:
     """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
     logs the actions in the various context trackers. Raises a RequestError on connection failure.
@@ -111,14 +116,18 @@ async def request_for_step(
     if user_agent:
         headers["User-Agent"] = user_agent
 
-    response = await _single_request(step, context, path, method, headers, sep2_xml_body)
+    response = await _single_request(
+        step, context, path, method, headers, sep2_xml_body, xml_validation_version=xml_validation_version
+    )
 
     for delay in RATE_LIMIT_RETRY_DELAYS:
         if response.status != HTTPStatus.TOO_MANY_REQUESTS:
             break
         await context.progress.add_log(step, f"Rate limited (429), retrying in {delay}s")
         await asyncio.sleep(delay)
-        response = await _single_request(step, context, path, method, headers, sep2_xml_body)
+        response = await _single_request(
+            step, context, path, method, headers, sep2_xml_body, xml_validation_version=xml_validation_version
+        )
 
     return response
 
@@ -165,11 +174,12 @@ async def client_error_request_for_step(
     path: str,
     method: HTTPMethod,
     sep2_xml_body: str | None = None,
+    accept_versions: list[AcceptVersion] | None = None,
 ) -> ErrorResponse | None:
     """Similar to request_for_step but is only successful if the resulting response is a 4xx.
 
     Returns None if the response body could not be parsed as a valid ErrorResponse XML."""
-    response = await request_for_step(step, context, path, method, sep2_xml_body)
+    response = await request_for_step(step, context, path, method, sep2_xml_body, accept_versions=accept_versions)
 
     if not response.is_client_error():
         raise RequestError(f"Received status {response.status} but expected 4XX requesting {response.method} {path}.")
@@ -184,6 +194,7 @@ async def client_error_or_empty_list_request_for_step(
     path: str,
     method: HTTPMethod,
     sep2_xml_body: str | None = None,
+    accept_versions: list[AcceptVersion] | None = None,
 ) -> ErrorResponse | AnyListType | None:
     """Similar to client_error_request_for_step but also allows a successful response if it's an empty sep2 List.
 
@@ -191,7 +202,7 @@ async def client_error_or_empty_list_request_for_step(
     Returns None if the error response body could not be parsed as a valid ErrorResponse XML."""
 
     # Fire off the request and if it fails, handle the error response.
-    response = await request_for_step(step, context, path, method, sep2_xml_body)
+    response = await request_for_step(step, context, path, method, sep2_xml_body, accept_versions=accept_versions)
     if response.is_client_error():
         return parse_error_response(step, context, response)
 
@@ -214,12 +225,16 @@ async def client_error_or_empty_list_request_for_step(
 
 
 async def get_resource_for_step(
-    t: type[AnyResourceType], step: StepExecution, context: ExecutionContext, href: str
+    t: type[AnyResourceType],
+    step: StepExecution,
+    context: ExecutionContext,
+    href: str,
+    accept_versions: list[AcceptVersion] | None = None,
 ) -> AnyResourceType:
     """Makes a GET request for a particular href and parses the resulting XML into an expected type (t). Raises a
     RequestError if the connection fails, returns an error or fails to parse to t"""
     # Make the raw request
-    response = await request_for_step(step, context, href, HTTPMethod.GET)
+    response = await request_for_step(step, context, href, HTTPMethod.GET, accept_versions=accept_versions)
 
     if not response.is_success():
         raise RequestError(f"Received status {response.status} requesting {response.method} {href}.")

@@ -3,6 +3,7 @@ from datetime import datetime
 
 from aiohttp import ClientResponse
 from cactus_schema.notification import CollectedNotification, CreateEndpointResponse
+from cactus_test_definitions import CSIPAusVersion
 from cactus_test_definitions.csipaus import CSIPAusResource
 from multidict import CIMultiDict
 
@@ -67,7 +68,9 @@ class ServerResponse:
         return self.status >= 400 and self.status < 500
 
     @staticmethod
-    async def from_response(response: ClientResponse, request: ServerRequest) -> "ServerResponse":
+    async def from_response(
+        response: ClientResponse, request: ServerRequest, xml_validation_version: CSIPAusVersion
+    ) -> "ServerResponse":
         body_bytes = await response.read()
         location = response.headers.get("Location", None)
         content_type = response.headers.get("Content-Type", None)
@@ -78,7 +81,7 @@ class ServerResponse:
         # add explicit XSD validation for that specific case when it is implemented.
         xsd_errors = None
         if body_xml and response.status < 400:
-            xsd_errors = validate_xml(body_xml)
+            xsd_errors = validate_xml(body_xml, xml_validation_version)
 
         return ServerResponse(
             url=str(response.request_info.url),
