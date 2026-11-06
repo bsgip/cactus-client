@@ -1,6 +1,11 @@
 from typing import Any
+from urllib.parse import urljoin
 
-from cactus_test_definitions.csipaus import CSIPAusResource, is_list_resource
+from cactus_test_definitions.csipaus import (
+    CSIPAusResource,
+    CSIPAusVersion,
+    is_list_resource,
+)
 
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import CheckResult, StepExecution
@@ -78,3 +83,50 @@ def check_discovered(
         return failed_check
 
     return CheckResult(True, None)
+
+
+def well_known_schema_version(version: CSIPAusVersion) -> str:
+    """Generates the supportedSchemaVersions key that a .well-known/csipaus document will use for version"""
+    if version == CSIPAusVersion.RELEASE_1_2:
+        return "https://csipaus.org/ns"  # v1.2 predates versioned namespaces
+    return f"https://csipaus.org/ns/{version}"
+
+
+def check_well_known_discovered(
+    resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
+) -> CheckResult:
+    """Filters/counts the supportedSchemaVersions entries from the most recent .well-known/csipaus discovery"""
+    minimum_count: int | None = resolved_parameters.get("minimum_count", None)
+    maximum_count: int | None = resolved_parameters.get("maximum_count", None)
+    versions: list[CSIPAusVersion] | None = resolved_parameters.get("versions", None)
+    matches_dcap: bool = resolved_parameters.get("matches_dcap", False)
+
+    well_known = context.discovered_well_known(step)
+    entries = well_known.supported_schema_versions if well_known else {}
+    configured_dcap_uri = context.server_config.device_capability_uri
+    schema_versions = None if versions is None else {well_known_schema_version(v) for v in versions}
+
+    total_matches = 0
+    rejection_details: list[str] = []
+    for schema_version, entry in entries.items():
+        if schema_versions is not None and schema_version not in schema_versions:
+            rejection_details.append(f"{schema_version}: not a requested version")
+            continue
+
+        # dcap URIs may be relative to the server or absolute - resolving them both allows a direct comparison
+        if matches_dcap and not any(urljoin(configured_dcap_uri, dcap) == configured_dcap_uri for dcap in entry.dcap):
+            rejection_details.append(f"{schema_version}: dcap {entry.dcap} doesn't include {configured_dcap_uri}")
+            continue
+
+        total_matches += 1
+
+    metadata = f"Found {len(entries)} .well-known entries, {total_matches} matched criteria"
+    rejection_info = f" Rejections: {'; '.join(rejection_details)}" if rejection_details else ""
+
+    if minimum_count is not None and total_matches < minimum_count:
+        return CheckResult(False, f"{metadata}. Expected at least {minimum_count}.{rejection_info}")
+
+    if maximum_count is not None and total_matches > maximum_count:
+        return CheckResult(False, f"{metadata}. Expected at most {maximum_count}")
+
+    return CheckResult(True, metadata)

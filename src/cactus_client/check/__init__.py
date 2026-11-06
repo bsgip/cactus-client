@@ -6,7 +6,7 @@ from cactus_client.check.der_controls import (
     check_der_control,
     check_der_control_responses,
 )
-from cactus_client.check.discovered import check_discovered
+from cactus_client.check.discovered import check_discovered, check_well_known_discovered
 from cactus_client.check.end_device import check_end_device, check_end_device_list
 from cactus_client.check.function_set_assignment import check_function_set_assignment
 from cactus_client.check.mup import check_mirror_usage_point
@@ -49,6 +49,8 @@ async def execute_checks(step: StepExecution, context: ExecutionContext) -> Chec
         match check.type:
             case "discovered":
                 last_result = check_discovered(resolved_params, step, context)
+            case "well-known-discovered":
+                last_result = check_well_known_discovered(resolved_params, step, context)
             case "time-synced":
                 last_result = check_time_synced(step, context)
             case "end-device":
