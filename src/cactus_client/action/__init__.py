@@ -10,7 +10,7 @@ from cactus_client.action.der_controls import (
     action_respond_der_controls,
     action_send_malformed_response,
 )
-from cactus_client.action.discovery import action_discovery
+from cactus_client.action.discovery import action_discovery, action_well_known_discovery
 from cactus_client.action.end_device import (
     action_insert_end_device,
     action_upsert_connection_point,
@@ -58,6 +58,8 @@ async def execute_action(step: StepExecution, context: ExecutionContext) -> Acti
             return await action_noop()
         case "discovery":
             return await action_discovery(resolved_params, step, context)
+        case "well-known-discovery":
+            return await action_well_known_discovery(resolved_params, step, context)
         case "forget":
             return await action_forget(resolved_params, step, context)
         case "notifications":

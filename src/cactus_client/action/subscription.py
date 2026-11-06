@@ -20,6 +20,11 @@ from envoy_schema.server.schema.sep2.function_set_assignments import (
 from envoy_schema.server.schema.sep2.identification import List as Sep2List
 from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.metering import ReadingListResponse
+from envoy_schema.server.schema.sep2.pricing import (
+    RateComponentListResponse,
+    TariffProfileListResponse,
+    TimeTariffIntervalListResponse,
+)
 from envoy_schema.server.schema.sep2.pub_sub import (
     XSI_TYPE_DEFAULT_DER_CONTROL,
     XSI_TYPE_DER_AVAILABILITY,
@@ -30,7 +35,10 @@ from envoy_schema.server.schema.sep2.pub_sub import (
     XSI_TYPE_DER_STATUS,
     XSI_TYPE_END_DEVICE_LIST,
     XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+    XSI_TYPE_RATE_COMPONENT_LIST,
     XSI_TYPE_READING_LIST,
+    XSI_TYPE_TARIFF_PROFILE_LIST,
+    XSI_TYPE_TIME_TARIFF_INTERVAL_LIST,
     Notification,
     NotificationResourceCombined,
     NotificationStatus,
@@ -78,7 +86,10 @@ RESOURCE_TYPE_BY_XSI: dict[str, type[Resource]] = {
     XSI_TYPE_DER_STATUS: DERStatus,
     XSI_TYPE_END_DEVICE_LIST: EndDeviceListResponse,
     XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST: FunctionSetAssignmentsListResponse,
+    XSI_TYPE_RATE_COMPONENT_LIST: RateComponentListResponse,
     XSI_TYPE_READING_LIST: ReadingListResponse,
+    XSI_TYPE_TARIFF_PROFILE_LIST: TariffProfileListResponse,
+    XSI_TYPE_TIME_TARIFF_INTERVAL_LIST: TimeTariffIntervalListResponse,
 }
 VALID_XSI_TYPES: set[str] = set(RESOURCE_TYPE_BY_XSI.keys())
 

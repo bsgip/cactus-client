@@ -2,6 +2,7 @@ import unittest.mock as mock
 from datetime import UTC, datetime
 from http import HTTPMethod
 from itertools import product
+from typing import Any
 
 import pytest
 from assertical.asserts.generator import assert_class_instance_equality
@@ -22,10 +23,18 @@ from envoy_schema.server.schema.sep2.end_device import EndDeviceListResponse
 from envoy_schema.server.schema.sep2.function_set_assignments import (
     FunctionSetAssignmentsListResponse,
 )
+from envoy_schema.server.schema.sep2.pricing import (
+    RateComponentResponse,
+    TariffProfileResponse,
+    TimeTariffIntervalResponse,
+)
 from envoy_schema.server.schema.sep2.pub_sub import (
     XSI_TYPE_DER_CONTROL_LIST,
     XSI_TYPE_DER_PROGRAM_LIST,
     XSI_TYPE_FUNCTION_SET_ASSIGNMENTS_LIST,
+    XSI_TYPE_RATE_COMPONENT_LIST,
+    XSI_TYPE_TARIFF_PROFILE_LIST,
+    XSI_TYPE_TIME_TARIFF_INTERVAL_LIST,
     Notification,
     NotificationResourceCombined,
     NotificationStatus,
@@ -45,6 +54,11 @@ from cactus_client.action.subscription import (
     handle_notification_resource,
     parse_combined_resource,
 )
+from cactus_client.check.pricing import (
+    check_rate_component,
+    check_tariff_profile,
+    check_time_tariff_interval,
+)
 from cactus_client.constants import MIME_TYPE_SEP2
 from cactus_client.error import CactusClientError
 from cactus_client.model.context import (
@@ -53,6 +67,7 @@ from cactus_client.model.context import (
 )
 from cactus_client.model.execution import ActionResult, StepExecution
 from cactus_client.model.http import NotificationEndpoint, SubscriptionNotification
+from cactus_client.model.resource import RESOURCE_SEP2_TYPES
 
 
 @pytest.fixture
@@ -335,6 +350,68 @@ async def test_handle_notification_resource(mock_parse_combined_resource: mock.M
     mock_parse_combined_resource.assert_called_once_with(notification.resource.type, notification.resource)
 
     assert len(context.warnings.warnings) == 0
+
+
+@pytest.mark.parametrize(
+    "subscribed_resource, xsi_type, item_field, item_type, check_function",
+    [
+        (
+            CSIPAusResource.TariffProfileList,
+            XSI_TYPE_TARIFF_PROFILE_LIST,
+            "TariffProfile",
+            TariffProfileResponse,
+            check_tariff_profile,
+        ),
+        (
+            CSIPAusResource.RateComponentList,
+            XSI_TYPE_RATE_COMPONENT_LIST,
+            "RateComponent",
+            RateComponentResponse,
+            check_rate_component,
+        ),
+        (
+            CSIPAusResource.CombinedTimeTariffIntervalList,
+            XSI_TYPE_TIME_TARIFF_INTERVAL_LIST,
+            "TimeTariffInterval",
+            TimeTariffIntervalResponse,
+            check_time_tariff_interval,
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_handle_notification_resource_pricing_list_visible_to_sub_id_checks(
+    subscribed_resource, xsi_type, item_field, item_type, check_function, testing_contexts_factory
+):
+    """Runs a pricing Notification (unmocked) through to the check that filters on the same sub_id"""
+    context: ExecutionContext
+    step: StepExecution
+    context, step = testing_contexts_factory(mock.Mock())
+    store = context.discovered_resources(step)
+    sub_id = "pricing-sub"
+
+    list_sr = store.append_resource(
+        subscribed_resource, None, generate_class_instance(RESOURCE_SEP2_TYPES[subscribed_resource], href="/list")
+    )
+    source = NotificationEndpoint(
+        CreateEndpointResponse(endpoint_id="abc", fully_qualified_endpoint="https://fake.webhook/abc"),
+        subscribed_resource,
+        list_sr.id,
+    )
+
+    items = [
+        generate_class_instance(item_type, seed=idx, href=f"/item{idx}", generate_relationships=True)
+        for idx in range(2)
+    ]
+    notification = generate_class_instance(Notification, seed=1)
+    item_kwargs: dict[str, Any] = {item_field: items}
+    notification.resource = NotificationResourceCombined(type=xsi_type, href="/list", all_=2, results=2, **item_kwargs)
+
+    await handle_notification_resource(step, context, notification, sub_id, source)
+
+    assert len(context.warnings.warnings) == 0
+    matches_both = {"sub_id": sub_id, "minimum_count": 2, "maximum_count": 2}
+    assert check_function(matches_both, step, context).passed
+    assert check_function({"sub_id": "other-sub", "maximum_count": 0}, step, context).passed
 
 
 @pytest.mark.parametrize("has_resource", [True, False])

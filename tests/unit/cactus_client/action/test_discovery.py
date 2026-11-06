@@ -562,7 +562,7 @@ async def test_action_well_known_discovery_schema_errors(
     assert not result.completed
     assert not result.repeat
     assert CSIPAUS_WELL_KNOWN_PATH in (result.description or "")
-    assert f"{expected_errors} schema errors" in (result.description or "")
+    assert f"{expected_errors} JSON schema errors" in (result.description or "")
     assert context.discovered_well_known(step) is None, "The earlier value should've been cleared"
     assert len(context.warnings.warnings) == expected_errors
     assert all(w.step_execution is step for w in context.warnings.warnings)
