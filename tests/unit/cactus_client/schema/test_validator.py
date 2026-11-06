@@ -2,6 +2,7 @@ from random import randint
 
 import pytest
 from assertical.asserts.type import assert_list_type
+from cactus_test_definitions import CSIPAusVersion
 
 from cactus_client.schema.validator import to_hex_binary, validate_xml
 
@@ -61,9 +62,14 @@ from cactus_client.schema.validator import to_hex_binary, validate_xml
 )
 def test_validate_xml_valid_xml(xml):
     """Tests validate_xml against various valid CSIP-Aus XML snippets"""
-    result = validate_xml(xml)
+    result = validate_xml(xml, version=CSIPAusVersion.RELEASE_1_3)
     assert isinstance(result, list)
     assert len(result) == 0, "\n".join(result)
+
+    # If we change the version it should no longer be valid
+    result = validate_xml(xml, version=CSIPAusVersion.RELEASE_1_2)
+    assert isinstance(result, list)
+    assert len(result) > 0, "\n".join(result)
 
 
 @pytest.mark.parametrize(

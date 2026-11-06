@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPMethod, HTTPStatus
 from typing import TypeVar
@@ -8,7 +9,7 @@ from typing import TypeVar
 from envoy_schema.server.schema.sep2.error import ErrorResponse
 from envoy_schema.server.schema.sep2.identification import List, Resource, SubscribableList
 
-from cactus_client.constants import MIME_TYPE_SEP2
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION, MIME_TYPE_SEP2
 from cactus_client.error import CactusClientError, RequestError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
@@ -24,6 +25,23 @@ AnyListType = TypeVar("AnyListType", bound=List | SubscribableList)
 AnyType = TypeVar("AnyType")
 
 
+@dataclass(frozen=True, slots=True)
+class AcceptVersion:
+    csip_aus_version: str  # eg v1.3 (not a full CSIP-AUS version XMLNS)
+    quality_factor: float | None
+
+    def to_accept_header(self) -> str:
+        if self.quality_factor is None:
+            return f"{MIME_TYPE_SEP2};csipaus={self.csip_aus_version}"
+        else:
+            return f"{MIME_TYPE_SEP2};csipaus={self.csip_aus_version};q={self.quality_factor:.3f}".rstrip("0").rstrip(
+                "."
+            )
+
+
+DEFAULT_ACCEPT_VERSIONS = [AcceptVersion(csip_aus_version=str(ACTIVE_CSIP_AUS_VERSION), quality_factor=None)]
+
+
 def resource_to_sep2_xml(resource: Resource) -> str:
     xml = resource.to_xml(skip_empty=False, exclude_none=True, exclude_unset=True)
     if xml is None:
@@ -31,6 +49,11 @@ def resource_to_sep2_xml(resource: Resource) -> str:
     if isinstance(xml, bytes):
         return xml.decode()
     return xml
+
+
+def accept_versions_to_accept_header(versions: list[AcceptVersion]) -> str:
+    """Given a list of AcceptVersion - turn it into a representative Accept: header value"""
+    return ", ".join(v.to_accept_header() for v in versions)
 
 
 async def _single_request(
@@ -63,6 +86,7 @@ async def request_for_step(
     path: str,
     method: HTTPMethod,
     sep2_xml_body: str | None = None,
+    accept_versions: list[AcceptVersion] | None = None,
 ) -> ServerResponse:
     """Makes a request to the CSIP-Aus server (for the current context) and endpoint - returns a raw parsed response and
     logs the actions in the various context trackers. Raises a RequestError on connection failure.
@@ -70,7 +94,16 @@ async def request_for_step(
     Retries up to 3 times on 429 responses with delays of 5, 15, 30 seconds."""
     await context.progress.add_log(step, f"Requesting {method} {path}")
 
-    headers = {"Accept": MIME_TYPE_SEP2}
+    # The Accept header is dynamic but never empty
+    if accept_versions is None:
+        accept_header_value = accept_versions_to_accept_header(DEFAULT_ACCEPT_VERSIONS)
+    elif len(accept_versions) == 0:
+        accept_header_value = MIME_TYPE_SEP2
+    else:
+        accept_header_value = accept_versions_to_accept_header(accept_versions)
+
+    # Start assembling request headers
+    headers = {"Accept": accept_header_value}
     if sep2_xml_body is not None:
         headers["Content-Type"] = MIME_TYPE_SEP2
 

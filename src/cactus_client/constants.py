@@ -14,4 +14,4 @@ MIME_TYPE_SEP2 = "application/sep+xml"
 MAX_TIME_DRIFT_SECONDS = 5
 
 # What is the CSIP-AUS version that this build is targetting
-ACTIVE_CSIP_AUS_VERSION = CSIPAusVersion.RELEASE_1_2
+ACTIVE_CSIP_AUS_VERSION = CSIPAusVersion.RELEASE_1_3

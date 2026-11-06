@@ -1,9 +1,10 @@
-from http import HTTPMethod
+from http import HTTPMethod, HTTPStatus
 from unittest import mock
 
 import pytest
 from assertical.asserts.time import assert_nowish
 from assertical.fake.generator import generate_class_instance
+from cactus_test_definitions import CSIPAusVersion
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.csip_aus.connection_point import (
     ConnectionPointRequest,
@@ -14,18 +15,43 @@ from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceRequest,
     EndDeviceResponse,
 )
-from envoy_schema.server.schema.sep2.identification import Link
+from envoy_schema.server.schema.sep2.identification import Link, Resource
 from envoy_schema.server.schema.sep2.types import DeviceCategory
 
 from cactus_client.action.end_device import (
     action_insert_end_device,
     action_upsert_connection_point,
+    rewrite_legacy_csipaus_xmlns,
 )
+from cactus_client.action.server import resource_to_sep2_xml
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION
+from cactus_client.error import CactusClientError
 from cactus_client.model.config import ClientConfig
 from cactus_client.model.context import ClientContext, ExecutionContext
 from cactus_client.model.execution import ActionResult, StepExecution
+from cactus_client.model.http import ServerResponse
 from cactus_client.model.resource import ResourceStore
+from cactus_client.schema.validator import validate_xml
 from cactus_client.time import utc_now
+
+
+@pytest.mark.parametrize(
+    "resource",
+    [
+        generate_class_instance(ConnectionPointRequest, id_v11=None, type=None),
+    ],
+)
+def test_rewrite_legacy_csipaus_xmlns(resource: Resource):
+    current_xml = resource_to_sep2_xml(resource)
+    v12_xml = rewrite_legacy_csipaus_xmlns(resource)
+
+    # Check that the current XML is schema valid under the current CSIP Version
+    assert len(validate_xml(current_xml, version=ACTIVE_CSIP_AUS_VERSION)) == 0
+    assert len(validate_xml(v12_xml, version=ACTIVE_CSIP_AUS_VERSION)) > 0
+
+    # Now do the reverse check for the rewritten "legacy" version
+    assert len(validate_xml(current_xml, version=CSIPAusVersion.RELEASE_1_2)) > 0
+    assert len(validate_xml(v12_xml, version=CSIPAusVersion.RELEASE_1_2)) == 0
 
 
 @pytest.mark.asyncio
@@ -74,6 +100,51 @@ async def test_action_upsert_connection_point(testing_contexts_factory):
         assert stored_cps[0].resource.id == inserted_cp.id
         assert stored_cps[0].resource.href == inserted_cp.href  # Should be the new href from server
         assert stored_cps[0].resource.href == "/edev/1/cp/test-cp-1"
+
+
+@pytest.mark.parametrize(
+    "returned_status, expect_success",
+    [
+        (HTTPStatus.BAD_REQUEST, True),
+        (HTTPStatus.OK, False),
+        (HTTPStatus.NO_CONTENT, False),
+        (HTTPStatus.FORBIDDEN, False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_action_upsert_connection_point_legacy_xmlns(
+    testing_contexts_factory, returned_status: HTTPStatus, expect_success: bool
+):
+    """Test that action_upsert_connection_point inspects the returned status code"""
+
+    # Arrange
+    context: ExecutionContext
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    client_config = context.client_config(step)
+
+    cp_link = Link(href="/edev/1/cp")
+    end_device = generate_class_instance(EndDeviceResponse, lFDI=client_config.lfdi, ConnectionPointLink=cp_link)
+    resource_store.upsert_resource(CSIPAusResource.EndDevice, None, end_device)
+
+    with mock.patch("cactus_client.action.end_device.request_for_step") as mock_request_for_step:
+        cp_id = "test-cp-1"
+        server_response = generate_class_instance(ServerResponse, status=returned_status, xsd_errors=None, headers=None)
+        mock_request_for_step.return_value = server_response
+
+        resolved_params = {"connectionPointId": cp_id, "legacy_xmlns": True}
+
+        # Act/Assert
+        if expect_success:
+            result = await action_upsert_connection_point(resolved_params, step, context)
+            assert isinstance(result, ActionResult)
+            assert result.repeat is False
+            assert result.completed is True
+        else:
+            with pytest.raises(CactusClientError):
+                await action_upsert_connection_point(resolved_params, step, context)
+
+        mock_request_for_step.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -129,6 +200,47 @@ async def test_action_insert_end_device(testing_contexts_factory):
         assert len(stored_edevs) == 1
         assert stored_edevs[0].resource.lFDI == inserted_edev.lFDI
         assert stored_edevs[0].resource.href == inserted_edev.href
+
+
+@pytest.mark.parametrize(
+    "returned_status, expect_success",
+    [
+        (HTTPStatus.NOT_ACCEPTABLE, True),
+        (HTTPStatus.BAD_REQUEST, False),
+        (HTTPStatus.OK, False),
+        (HTTPStatus.NO_CONTENT, False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_action_insert_end_device_invalid_version_header(
+    testing_contexts_factory, returned_status: HTTPStatus, expect_success: bool
+):
+    """Test that action_insert_end_device correctly handles sending an invalid version Accept header"""
+
+    # Arrange
+    context: ExecutionContext
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+
+    edev_list = generate_class_instance(EndDeviceListResponse, href="/edev")
+    resource_store.append_resource(CSIPAusResource.EndDeviceList, None, edev_list)
+
+    with mock.patch("cactus_client.action.end_device.request_for_step") as mock_request_for_step:
+        server_response = generate_class_instance(ServerResponse, status=returned_status, xsd_errors=None, headers=None)
+        mock_request_for_step.return_value = server_response
+        resolved_params = {"invalid_version_header": True}
+
+        # Act/Assert
+        if expect_success:
+            result = await action_insert_end_device(resolved_params, step, context)
+            assert isinstance(result, ActionResult)
+            assert result.repeat is False
+            assert result.completed is True
+        else:
+            with pytest.raises(CactusClientError):
+                await action_insert_end_device(resolved_params, step, context)
+
+        mock_request_for_step.assert_called_once()
 
 
 @pytest.mark.asyncio

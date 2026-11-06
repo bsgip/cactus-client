@@ -1,17 +1,21 @@
 import logging
-from http import HTTPMethod
+from http import HTTPMethod, HTTPStatus
 from typing import Any, cast
 
+import envoy_schema.server.schema.sep2.base as envoy_schema_base
 from cactus_test_definitions.csipaus import CSIPAusResource
 from envoy_schema.server.schema.csip_aus.connection_point import ConnectionPointRequest
 from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceRequest,
     EndDeviceResponse,
 )
+from envoy_schema.server.schema.sep2.identification import Resource
 from envoy_schema.server.schema.sep2.types import DeviceCategory, ReasonCodeType
 
 from cactus_client.action.server import (
+    AcceptVersion,
     client_error_request_for_step,
+    request_for_step,
     resource_to_sep2_xml,
     submit_and_refetch_resource_for_step,
 )
@@ -42,6 +46,12 @@ def generate_end_device_request(
     )
 
 
+def rewrite_legacy_csipaus_xmlns(resource: Resource) -> str:
+    raw_xml = resource_to_sep2_xml(resource)
+    current_ns = f'"{envoy_schema_base.nsmap["csipaus"]}"'
+    return raw_xml.replace(current_ns, '"https://csipaus.org/ns"')  # Legacy v1.2 namespace
+
+
 async def action_insert_end_device(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
@@ -49,6 +59,7 @@ async def action_insert_end_device(
 
     force_lfdi: str | None = resolved_parameters.get("force_lfdi", None)
     expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
+    invalid_version_header: bool = resolved_parameters.get("invalid_version_header", False)
 
     resource_store = context.discovered_resources(step)
     edev_list_resources = resource_store.get_for_type(CSIPAusResource.EndDeviceList)
@@ -62,7 +73,23 @@ async def action_insert_end_device(
     list_href = cast(str, list_edevs[0].resource.href)  # This will be set due to the earlier filter
     edev_request = generate_end_device_request(step, context, force_lfdi)
 
-    if expect_rejection:
+    if invalid_version_header:
+        # As per CSIP-AUS v1.3 - A server encountering a request for a bad CSIP-AUS version
+        # (even when the payload is correctly versioned) should result in a HTTP 406
+        server_response = await request_for_step(
+            step,
+            context,
+            list_href,
+            HTTPMethod.POST,
+            resource_to_sep2_xml(edev_request),
+            accept_versions=[AcceptVersion("v99_beta", quality_factor=None)],
+        )
+        if server_response.status != HTTPStatus.NOT_ACCEPTABLE:
+            raise CactusClientError(
+                f"Received HTTP status {server_response.status} but expected 406 with POST {list_href}"
+                + " with a version Accept: header requesting CSIP-AUS v99_beta."
+            )
+    elif expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
         await client_error_request_for_step(
             step,
@@ -87,6 +114,7 @@ async def action_upsert_connection_point(
     """Adds a ConnectionPoint to a client's EndDevice"""
     cp_id: str = resolved_parameters["connectionPointId"]  # mandatory param
     expect_rejection: bool = resolved_parameters.get("expect_rejection", False)
+    legacy_xmlns: bool = resolved_parameters.get("legacy_xmlns", False)
 
     resource_store = context.discovered_resources(step)
     client_config = context.client_config(step)
@@ -102,7 +130,18 @@ async def action_upsert_connection_point(
 
     href = cp_link.href
     cp_request = ConnectionPointRequest(id=cp_id)
-    if expect_rejection:
+    if legacy_xmlns:
+        # As per CSIP-AUS v1.3 - A server encountering a legacy XMLNS when the client is asserting another version
+        # via headers should result in a HTTP 400
+        server_response = await request_for_step(
+            step, context, href, HTTPMethod.PUT, rewrite_legacy_csipaus_xmlns(cp_request)
+        )
+        if server_response.status != HTTPStatus.BAD_REQUEST:
+            raise CactusClientError(
+                f"Received HTTP status {server_response.status} but expected 400 when requesting PUT {href}"
+                + " with a legacy v1.2 XML namespace."
+            )
+    elif expect_rejection:
         # If we're expecting rejection - make the request and check for a client error
         error = await client_error_request_for_step(
             step, context, href, HTTPMethod.PUT, resource_to_sep2_xml(cp_request)

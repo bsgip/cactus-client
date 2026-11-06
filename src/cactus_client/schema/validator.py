@@ -2,54 +2,65 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 
-from cactus_test_definitions.csipaus import CSIPAusVersion
+from cactus_test_definitions import CSIPAusVersion
 from lxml import etree
 
-import cactus_client.schema.csipaus13 as active_csipaus_version
+import cactus_client.schema.csipaus12 as v12
+import cactus_client.schema.csipaus13 as v13
+from cactus_client.constants import ACTIVE_CSIP_AUS_VERSION
 
 logger = logging.getLogger(__name__)
-
-# Lets us distinguish v1.2 from v1.3 branches - keep in sync with the schema import above.
-ACTIVE_CSIP_AUS_VERSION = CSIPAusVersion.RELEASE_1_3
-
-# sep.xsd is unversioned and shared across all csipaus1x dirs.
-SCHEMA_DIR = Path(active_csipaus_version.__file__).parent
-SEP_XSD = Path(__file__).parent / "sep.xsd"
 
 
 class LocalXsdResolver(etree.Resolver):
     """Finds specific XSD files in our local schema directory"""
 
+    sep_xsd: Path
+    schema_dir: Path
+
+    def __init__(self, sep_xsd: Path, schema_dir: Path) -> None:
+        self.sep_xsd = sep_xsd
+        self.schema_dir = schema_dir
+
     def resolve(self, url, id, context):  # noqa: ANN001,ANN201 # type: ignore # lxml stubs are faulty
         if url == "sep.xsd":
-            return self.resolve_filename(str(SEP_XSD), context)  # type: ignore
+            return self.resolve_filename(str(self.sep_xsd), context)  # type: ignore
         elif url == "csipaus-core.xsd":
             return self.resolve_filename(  # type: ignore # lxml stubs are faulty
-                str(SCHEMA_DIR / "csipaus-core.xsd"), context
+                str(self.schema_dir / "csipaus-core.xsd"), context
             )
         elif url == "csipaus-ext.xsd":
             return self.resolve_filename(  # type: ignore # lxml stubs are faulty
-                str(SCHEMA_DIR / "csipaus-ext.xsd"), context
+                str(self.schema_dir / "csipaus-ext.xsd"), context
             )
         return None
 
 
 @lru_cache
-def csip_aus_schema() -> etree.XMLSchema:
+def csip_aus_schema(version: CSIPAusVersion) -> etree.XMLSchema:
     """Generates a etree.XMLSchema that's loaded with the CSIP Aus XSD document (which incorporates sep2)"""
+
+    sep_xsd = Path(__file__).parent / "sep.xsd"  # sep.xsd is unversioned and shared across all csipaus1x dirs
+    match version:
+        case CSIPAusVersion.RELEASE_1_2:
+            schema_dir = Path(v12.__file__).parent
+        case CSIPAusVersion.RELEASE_1_3:
+            schema_dir = Path(v13.__file__).parent
+        case _:
+            raise ValueError(f"No XSD for {version}")
 
     # Register the custom resolver
     parser = etree.XMLParser(load_dtd=True, no_network=True)
-    parser.resolvers.add(LocalXsdResolver())
+    parser.resolvers.add(LocalXsdResolver(sep_xsd=sep_xsd, schema_dir=schema_dir))
 
     # Load schema
-    with open(SCHEMA_DIR / "csipaus-core.xsd") as fp:
+    with open(schema_dir / "csipaus-core.xsd") as fp:
         xsd_content = fp.read()
     schema_root = etree.XML(xsd_content, parser)
     return etree.XMLSchema(schema_root)
 
 
-def validate_xml(xml: str) -> list[str]:
+def validate_xml(xml: str, version: CSIPAusVersion = ACTIVE_CSIP_AUS_VERSION) -> list[str]:
     """Validates an xml document / snippet as a valid CSIP Aus XML snippet. Returns a list of any human
     readable schema validation errors. Empty list means that xml is schema valid"""
 
@@ -64,7 +75,7 @@ def validate_xml(xml: str) -> list[str]:
         )
         return [f"The provided body '{preview}'... does NOT parse as XML"]
 
-    schema = csip_aus_schema()
+    schema = csip_aus_schema(version)
 
     # Validate
     is_valid = schema.validate(xml_doc)

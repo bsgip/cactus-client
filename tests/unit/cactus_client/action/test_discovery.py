@@ -1,7 +1,6 @@
 import unittest.mock as mock
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import cast
 
 import pytest
 from aiohttp import ClientSession
@@ -12,7 +11,6 @@ from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
     EndDeviceResponse,
 )
-from envoy_schema.server.schema.sep2.identification import Link
 
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
@@ -23,7 +21,7 @@ from cactus_client.action.discovery import (
 from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import StepExecution
-from cactus_client.model.resource import RESOURCE_SEP2_TYPES, CombinedTimeTariffIntervalListResponse
+from cactus_client.model.resource import RESOURCE_SEP2_TYPES
 
 
 def setup_discovery_test(testing_contexts_factory, resource: CSIPAusResource, matched_parents: int):

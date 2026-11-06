@@ -23,6 +23,7 @@ from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointList
 
 from cactus_client.action.server import (
     RATE_LIMIT_RETRY_DELAYS,
+    AcceptVersion,
     client_error_or_empty_list_request_for_step,
     client_error_request_for_step,
     delete_and_check_resource_for_step,
@@ -828,6 +829,53 @@ async def test_fetch_list_page(aiohttp_client, testing_contexts_factory):
     assert len(execution_context.responses.responses) == 1, "should only request 1 page"
     requested_url = execution_context.responses.responses[0].url
     assert f"?s={start}&l={limit}" in requested_url, f"Expected params s={start}&l={limit} in URL"
+
+
+@pytest.mark.parametrize(
+    "accept_versions, expected_header",
+    [
+        ([], MIME_TYPE_SEP2),
+        (None, f"{MIME_TYPE_SEP2};csipaus=v1.3"),
+        (
+            [AcceptVersion("v1.3", 1)],
+            f"{MIME_TYPE_SEP2};csipaus=v1.3;q=1",
+        ),
+        (
+            [AcceptVersion("1.3", 0.2)],
+            f"{MIME_TYPE_SEP2};csipaus=1.3;q=0.2",
+        ),
+        (
+            [AcceptVersion("v99_beta", None), AcceptVersion("v1.2.3", 0.12345)],
+            f"{MIME_TYPE_SEP2};csipaus=v99_beta, {MIME_TYPE_SEP2};csipaus=v1.2.3;q=0.123",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_request_for_step_version_accept_headers(
+    aiohttp_client,
+    testing_contexts_factory,
+    accept_versions: list[AcceptVersion] | None,
+    expected_header: str,
+):
+    async with create_test_session(
+        aiohttp_client,
+        [
+            TestingAppRoute(
+                HTTPMethod.GET,
+                "/foo/bar",
+                [
+                    RouteBehaviour.xml(HTTPStatus.OK, "dcap.xml"),
+                ],
+            )
+        ],
+    ) as session:
+        execution_context, step_execution = testing_contexts_factory(session)
+        response = await request_for_step(
+            step_execution, execution_context, "/foo/bar", HTTPMethod.GET, accept_versions=accept_versions
+        )
+
+    assert response.status == HTTPStatus.OK
+    assert response.request.headers["Accept"] == expected_header
 
 
 @mock.patch("cactus_client.action.server.asyncio.sleep")
