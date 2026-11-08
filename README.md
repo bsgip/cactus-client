@@ -5,6 +5,16 @@ This is a set of tools for evaluating CSIP-Aus server test procedures defined at
 <img width="1841" height="1003" alt="image" src="https://github.com/user-attachments/assets/0ee5b02e-cb21-476a-a6f2-975f23ecc5ae" />
 
 
+## CSIP-AUS Versions
+
+Each build of of this tool targets a single version of [CSIP-AUS](https://csipaus.org/).
+
+To see the version you have installed `cactus -v`
+
+| **CSIP-AUS Version** | **Branch** | **Release Range** |
+| `v1.1a` `v1.2` | `main` | `v1.*` |
+| `v1.3` | `csipaus.org/ns/v1.3` | `v2.*` |
+
 ## Development
 
 `pip install -e .[dev,test]`

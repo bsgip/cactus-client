@@ -8,8 +8,26 @@ import cactus_client.cli.run as run
 import cactus_client.cli.server as server
 import cactus_client.cli.setup as setup
 import cactus_client.cli.tests as tests
+from cactus_client.constants import (
+    ACTIVE_CSIP_AUS_VERSION,
+    CACTUS_CLIENT_VERSION,
+    CACTUS_TEST_DEFINITIONS_VERSION,
+    ENVOY_SCHEMA_VERSION,
+)
 
-root_parser = argparse.ArgumentParser(prog="cactus", description="CSIP-Aus server test harness implementation.")
+VERSION_TEXT = (
+    f"cactus-client {CACTUS_CLIENT_VERSION}\n"
+    f"CSIP-AUS {ACTIVE_CSIP_AUS_VERSION.value}\n"
+    f"cactus-test-definitions {CACTUS_TEST_DEFINITIONS_VERSION}\n"
+    f"envoy-schema {ENVOY_SCHEMA_VERSION}"
+)
+
+root_parser = argparse.ArgumentParser(
+    prog="cactus",
+    description="CSIP-Aus server test harness implementation.",
+    formatter_class=argparse.RawDescriptionHelpFormatter,  # Preserves newlines in VERSION_TEXT
+)
+root_parser.add_argument("-v", "--version", action="version", version=VERSION_TEXT)
 root_subparsers = root_parser.add_subparsers(dest="command")
 
 setup.add_sub_commands(root_subparsers)
