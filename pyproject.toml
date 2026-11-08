@@ -61,7 +61,7 @@ dev = [
     "types-reportlab",
     "twine",
 ]
-test = ["assertical>=0.4.0", "pytest", "pytest-aiohttp", "freezegun", "cryptography"]
+test = ["assertical>=0.4.0", "pytest", "pytest-xdist", "pytest-aiohttp", "freezegun", "cryptography"]
 
 [tool.setuptools.package-data]
 "cactus_client" = ["py.typed", "**/*.xsd", "**/*.schema.json"]
