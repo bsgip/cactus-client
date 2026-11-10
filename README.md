@@ -12,6 +12,7 @@ Each build of of this tool targets a single version of [CSIP-AUS](https://csipau
 To see the version you have installed `cactus -v`
 
 | **CSIP-AUS Version** | **Branch** | **Release Range** |
+| -------------------- | ---------- | ----------------- |
 | `v1.1a` `v1.2` | `main` | `v1.*` |
 | `v1.3` | `csipaus.org/ns/v1.3` | `v2.*` |
 
