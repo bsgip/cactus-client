@@ -41,6 +41,7 @@ class AcceptVersion:
 
 
 DEFAULT_ACCEPT_VERSIONS = [AcceptVersion(csip_aus_version=str(ACTIVE_CSIP_AUS_VERSION), quality_factor=None)]
+CONTENT_TYPE = AcceptVersion(ACTIVE_CSIP_AUS_VERSION, quality_factor=None).to_accept_header()
 
 
 def resource_to_sep2_xml(resource: Resource) -> str:
@@ -110,7 +111,7 @@ async def request_for_step(
     # Start assembling request headers
     headers = {"Accept": accept_header_value}
     if sep2_xml_body is not None:
-        headers["Content-Type"] = MIME_TYPE_SEP2
+        headers["Content-Type"] = CONTENT_TYPE
 
     user_agent = context.client_config(step).user_agent
     if user_agent:
