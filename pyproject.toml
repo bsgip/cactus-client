@@ -34,7 +34,7 @@ dynamic = ["version", "readme"]
 description = "Tools for evaluating a CSIP Aus server implementation via a virtual client"
 requires-python = ">= 3.12"
 dependencies = [
-    "cactus-test-definitions>=1.19.1",
+    "cactus-test-definitions>=1.19.2",
     "cactus-schema>=1.3.2",
     "envoy-schema>=2.5.0,<3",
     "rich>=14.1.0,<15",
@@ -69,7 +69,6 @@ test = ["assertical>=0.4.0", "pytest", "pytest-xdist", "pytest-aiohttp", "freeze
 [tool.setuptools.dynamic]
 version = { attr = "cactus_client.__version__" }
 readme = { file = ["README.md"], content-type = "text/markdown" }
-
 
 [project.scripts]
 cactus = "cactus_client.cli.main:cli_entrypoint"
