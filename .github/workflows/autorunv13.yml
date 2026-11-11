@@ -2,7 +2,7 @@ name: Autorun (short tests via cactus-client-envoy)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [csipaus.org/ns/v1.3]
   workflow_dispatch:
     inputs:
       cactus_client_envoy_ref:
@@ -20,9 +20,9 @@ concurrency:
 
 env:
   # Bump as needed - see https://github.com/bsgip/cactus-client-envoy/releases
-  CACTUS_CLIENT_ENVOY_PIN: v1.1.0
+  CACTUS_CLIENT_ENVOY_PIN: v2.0.0
   # Keep in sync with the envoy dependency pinned in cactus-client-envoy pyproject.toml
-  ENVOY_PIN: 9120d0d6ef7994d20ddc000f8a42f05c7a7c70c3
+  ENVOY_PIN: v2.5.3
 
 jobs:
   autorun:
