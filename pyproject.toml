@@ -70,6 +70,5 @@ test = ["assertical>=0.4.0", "pytest", "pytest-xdist", "pytest-aiohttp", "freeze
 version = { attr = "cactus_client.__version__" }
 readme = { file = ["README.md"], content-type = "text/markdown" }
 
-
 [project.scripts]
 cactus = "cactus_client.cli.main:cli_entrypoint"
