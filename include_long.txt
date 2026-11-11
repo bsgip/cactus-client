@@ -12,3 +12,6 @@ S-ALL-41
 
 # Explicit wait
 S-ALL-46
+
+# Waits on readings
+S-STO-1
