@@ -169,7 +169,7 @@ cython_debug/
 # PyCharm
 .idea
 
-.cactus.yaml
+.cactus.yaml*
 workingdir/
 cactus-wd/
 .runid
