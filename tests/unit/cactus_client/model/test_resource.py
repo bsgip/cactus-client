@@ -115,6 +115,27 @@ def test_get_resource_tree_all_resources_encoded():
                 CSIPAusResource.DERCapability,
             ],
         ),
+        (
+            [CSIPAusResource.MirrorUsagePoint],  # Silently includes the UsagePoint tree as a fallback
+            [
+                CSIPAusResource.DeviceCapability,
+                CSIPAusResource.MirrorUsagePointList,
+                CSIPAusResource.MirrorUsagePoint,
+                CSIPAusResource.EndDeviceList,
+                CSIPAusResource.EndDevice,
+                CSIPAusResource.FunctionSetAssignmentsList,
+                CSIPAusResource.FunctionSetAssignments,
+                CSIPAusResource.UsagePointList,
+                CSIPAusResource.UsagePoint,
+                CSIPAusResource.MeterReadingList,
+                CSIPAusResource.MeterReading,
+                CSIPAusResource.ReadingType,
+            ],
+        ),
+        (
+            [CSIPAusResource.MirrorUsagePointList],
+            [CSIPAusResource.DeviceCapability, CSIPAusResource.MirrorUsagePointList],
+        ),
     ],
 )
 def test_discover_resource_plan(targets, expected):
