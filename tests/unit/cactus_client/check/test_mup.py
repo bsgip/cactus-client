@@ -9,6 +9,11 @@ from cactus_test_definitions.csipaus import (
     CSIPAusReadingType,
     CSIPAusResource,
 )
+from envoy_schema.server.schema.sep2.metering import (
+    MeterReading,
+    MeterReadingListResponse,
+    UsagePoint,
+)
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorMeterReading,
     MirrorUsagePoint,
@@ -25,6 +30,7 @@ from cactus_client.check.mup import (
     MirrorUsagePointMrids,
     check_mirror_usage_point,
     find_mrids_matching,
+    find_mup_readings,
     generate_hashed_mrid,
     generate_mmr_mrids,
     generate_mup_mrids,
@@ -423,3 +429,121 @@ async def test_find_mrids_matching_filters(testing_contexts_factory):
     assert result.matches[0].resource is not None and isinstance(result.matches[0].resource, MirrorUsagePoint)
     assert result.matches[0].resource.mRID == device_mup.mRID
     assert len(result.rejection_details) == 1  # site_mup rejected
+
+
+def create_discovered_usage_point(
+    store: ResourceStore,
+    mrid: str,
+    readings: list[tuple[CSIPAusReadingType | None, str]],  # [(reading_type, meter_reading_mrid), ...]
+):
+    """Helper to populate a ResourceStore with a UsagePoint discovered via /upt, walking the full
+    UsagePoint -> MeterReadingList -> MeterReading -> ReadingType chain. A None reading_type omits the ReadingType"""
+    href = f"/upt/{mrid}"
+    up = generate_class_instance(UsagePoint, href=href, mRID=mrid)
+    sr_up = store.append_resource(CSIPAusResource.UsagePoint, None, up)
+
+    mrl = generate_class_instance(MeterReadingListResponse, href=f"{href}/mr")
+    sr_mrl = store.append_resource(CSIPAusResource.MeterReadingList, sr_up.id, mrl)
+
+    for i, (rt, mr_mrid) in enumerate(readings):
+        mr = generate_class_instance(MeterReading, seed=i, href=f"{href}/mr/{i}", mRID=mr_mrid)
+        sr_mr = store.append_resource(CSIPAusResource.MeterReading, sr_mrl.id, mr)
+        if rt is not None:
+            uom, kind, data_qualifier = generate_reading_type_values(rt)
+            store.append_resource(
+                CSIPAusResource.ReadingType,
+                sr_mr.id,
+                ReadingType(href=f"{href}/mr/{i}/rt", uom=uom, kind=kind, dataQualifier=data_qualifier),
+            )
+
+
+APA = CSIPAusReadingType.ActivePowerAverage
+APM = CSIPAusReadingType.ActivePowerMaximum
+FA = CSIPAusReadingType.FrequencyAverage
+VA = CSIPAusReadingType.VoltageSinglePhaseAverage
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "up_same_mrid, up_readings, expected_pass",
+    [
+        (True, [(APA, APA), (FA, FA)], True),  # exact match by mRID
+        (True, [(FA, FA), (APA, APA)], True),  # order doesn't matter
+        (True, [(APA, APA)], False),  # missing reading type
+        (True, [(APA, APA), (FA, FA), (VA, VA)], False),  # extra reading type
+        (True, [(APA, APM), (FA, FA)], False),  # MeterReading mRID matches but ReadingType is mismatched
+        (True, [(APA, APA), (VA, FA)], False),  # ReadingType matches but MeterReading mRID is mismatched
+        (False, [(APA, APA), (FA, FA)], False),  # UsagePoint has a different mRID to the MUP
+        (False, None, False),  # No UsagePoints discovered
+    ],
+)
+async def test_check_mirror_usage_point_usage_point_fallback(
+    up_same_mrid: bool,
+    up_readings: list[tuple[CSIPAusReadingType, CSIPAusReadingType]] | None,
+    expected_pass: bool,
+    testing_contexts_factory,
+):
+    """When the server doesn't expose MirrorMeterReadings under the MUP, the check should fall back to the
+    UsagePoint (discovered via /upt) with the same mRID. up_readings is [(rt_for_mrid, rt_for_values), ...]"""
+
+    client_config = generate_class_instance(ClientConfig, id="test-client", pen=99887766)
+    location = CSIPAusReadingLocation.Device
+    reading_types = [APA, FA]
+    generated_mrids = generate_mup_mrids(location, reading_types, None, client_config)
+
+    mup = create_mirror_usage_point(
+        mrid=generated_mrids.mup_mrid, role_flags=generate_role_flags(location), reading_types=[]
+    )
+    mup.mirrorMeterReadings = None  # Server didn't expose them
+
+    resource_store = ResourceStore(CSIPAusResourceTree())
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
+    if up_readings is not None:
+        up_mrid = generated_mrids.mup_mrid if up_same_mrid else generate_hashed_mrid("other", client_config.pen)
+        create_discovered_usage_point(
+            resource_store,
+            up_mrid,
+            [
+                (rt_values, generate_mmr_mrids(generated_mrids.mup_mrid, [rt_mrid], client_config.pen)[rt_mrid])
+                for rt_mrid, rt_values in up_readings
+            ],
+        )
+
+    async with ClientSession() as session:
+        context, step = testing_contexts_factory(session)
+        context.clients_by_alias[step.client_alias].client_config = client_config
+        context.clients_by_alias[step.client_alias].discovered_resources = resource_store
+
+        result = check_mirror_usage_point(
+            resolved_parameters={"matches": True, "location": location, "reading_types": reading_types},
+            step=step,
+            context=context,
+        )
+
+        assert result.passed == expected_pass, result.description
+
+
+def test_find_mup_readings():
+    """MMRs on the MUP take priority over any UsagePoint. Otherwise only the UsagePoint with the same mRID is used"""
+
+    role_flags = generate_role_flags(CSIPAusReadingLocation.Device)
+    mup_with_mmrs = create_mirror_usage_point(mrid="MUP1", role_flags=role_flags, reading_types=[(FA, "MMR1")])
+    mup_no_mmrs = create_mirror_usage_point(mrid="MUP2", role_flags=role_flags, reading_types=[])
+    mup_no_mmrs.mirrorMeterReadings = None
+    mup_no_up = create_mirror_usage_point(mrid="MUP3", role_flags=role_flags, reading_types=[])
+
+    resource_store = ResourceStore(CSIPAusResourceTree())
+    create_discovered_usage_point(resource_store, "MUP1", [(VA, "MR1")])
+    create_discovered_usage_point(resource_store, "OTHER", [(APA, "MR2")])
+    create_discovered_usage_point(resource_store, "MUP2", [(APA, "MR3"), (None, "MR4")])
+
+    result = find_mup_readings(resource_store, mup_with_mmrs)
+    assert [(mrid, rt.uom if rt else None) for mrid, rt in result] == [("MMR1", UomType.FREQUENCY_HZ)]
+
+    result = find_mup_readings(resource_store, mup_no_mmrs)
+    assert [(mrid, rt.uom if rt else None) for mrid, rt in result] == [
+        ("MR3", UomType.REAL_POWER_WATT),
+        ("MR4", None),
+    ]
+
+    assert find_mup_readings(resource_store, mup_no_up) == []
