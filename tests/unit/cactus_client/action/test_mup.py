@@ -32,6 +32,7 @@ from cactus_client.check.mup import (
     generate_reading_type_values,
     generate_role_flags,
 )
+from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
 from cactus_client.model.execution import ActionResult
 from tests.unit.cactus_client.action.test_server import (
@@ -39,6 +40,7 @@ from tests.unit.cactus_client.action.test_server import (
     TestingAppRoute,
     create_test_session,
 )
+from tests.unit.cactus_client.check.test_mup import create_discovered_usage_point
 
 
 def assert_mrid(mrid: str, pen: int):
@@ -360,3 +362,69 @@ async def test_action_insert_readings_minimum_wait_respects_server_post_rate(
     # With frozen time: next_reading_time = frozen_now + post_rate = minimum_wait
     expected_not_before = frozen_now + timedelta(seconds=post_rate)
     assert result.not_before == expected_not_before
+
+
+@pytest.mark.parametrize(
+    "has_mmrs, has_upt, pow10, has_reading_type, expected_value",
+    [
+        (True, False, -1, True, 123),
+        (True, False, None, True, 12),  # Missing powerOfTenMultiplier defaults to 0
+        (True, False, -1, False, 12),  # Missing ReadingType defaults to 0
+        (False, True, -1, True, 123),  # Server doesn't expose MMRs - falls back to /upt
+        (False, True, -1, False, 12),
+        (False, False, -1, True, None),  # Neither /mup nor /upt - error
+    ],
+)
+@pytest.mark.asyncio
+async def test_action_insert_readings_pow10_source(
+    has_mmrs: bool,
+    has_upt: bool,
+    pow10: int | None,
+    has_reading_type: bool,
+    expected_value: int | None,
+    testing_contexts_factory,
+):
+    """pow10 comes from the server reported ReadingType, found via /mup or /upt"""
+
+    context: ExecutionContext
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    client_config = context.client_config(step)
+
+    mup_mrid = "ABC123456789012345678901TESTPEN1"
+    mmr_mrid = generate_mmr_mrids(mup_mrid, [CSIPAusReadingType.ActivePowerAverage], client_config.pen)[
+        CSIPAusReadingType.ActivePowerAverage
+    ]
+    reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=pow10) if has_reading_type else None
+    mmrs = [generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)] if has_mmrs else None
+    mup = generate_class_instance(
+        MirrorUsagePoint, mRID=mup_mrid, href=f"/mup/{mup_mrid}", postRate=60, mirrorMeterReadings=mmrs
+    )
+    sr = resource_store.upsert_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
+    context.resource_annotations(step, sr.id).alias = "test-mup"
+    if has_upt:
+        create_discovered_usage_point(
+            resource_store, mup_mrid, [(CSIPAusReadingType.ActivePowerAverage if has_reading_type else None, mmr_mrid)]
+        )
+        for rt_sr in resource_store.get_for_type(CSIPAusResource.ReadingType):
+            rt_sr.resource.powerOfTenMultiplier = pow10
+
+    resolved_params = {"mup_id": "test-mup", "values": {CSIPAusReadingType.ActivePowerAverage: 12.3}}
+    with mock.patch("cactus_client.action.mup.request_for_step") as mock_request:
+        mock_response = mock.Mock()
+        mock_response.is_success.return_value = True
+        mock_request.return_value = mock_response
+
+        if expected_value is None:
+            with pytest.raises(CactusClientError, match="hasn't got any MirrorMeterReadings"):
+                await action_insert_readings(resolved_params, step, context)
+            mock_request.assert_not_called()
+            return
+
+        await action_insert_readings(resolved_params, step, context)
+
+    sent_request = MirrorMeterReadingListRequest.from_xml(mock_request.call_args[0][4])
+    assert sent_request.mirrorMeterReadings is not None
+    assert [(m.mRID, m.reading.value if m.reading else None) for m in sent_request.mirrorMeterReadings] == [
+        (mmr_mrid, expected_value)
+    ]
