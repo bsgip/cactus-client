@@ -35,29 +35,16 @@ async def action_simulate_client(
     now = utc_now()
 
     #
-    # Do discovery. If this is the first run, get MirrorUsagePoint, else
-    # skip to avoid clearing resource store, which contains MirrorMeterReadings
+    # Do discovery
     #
-    if step.repeat_number == 0:
-        for resource in context.resource_tree.discover_resource_plan(
-            [
-                CSIPAusResource.EndDevice,
-                CSIPAusResource.MirrorUsagePoint,
-                CSIPAusResource.DERControl,
-            ]
-        ):
-            await discover_resource(resource, step, context, DISCOVERY_LIST_PAGE_SIZE)
-    else:
-        #
-        # Skip MirrorUsagePoint to avoid clearing store
-        #
-        for resource in context.resource_tree.discover_resource_plan(
-            [
-                CSIPAusResource.EndDevice,
-                CSIPAusResource.DERControl,
-            ]
-        ):
-            await discover_resource(resource, step, context, DISCOVERY_LIST_PAGE_SIZE)
+    for resource in context.resource_tree.discover_resource_plan(
+        [
+            CSIPAusResource.EndDevice,
+            CSIPAusResource.MirrorUsagePoint,
+            CSIPAusResource.DERControl,
+        ]
+    ):
+        await discover_resource(resource, step, context, DISCOVERY_LIST_PAGE_SIZE)
 
     #
     # Check for DERControl responses
