@@ -28,6 +28,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.check.mup import (
+    find_mup_readings,
     generate_mmr_mrids,
     generate_mup_mrids,
     generate_reading_type_values,
@@ -175,22 +176,15 @@ async def action_insert_readings(
     mup_sr = mups_with_id[0]
     mup = cast(MirrorUsagePoint, mup_sr.resource)
     mup_href = cast(str, mup.href)  # We know this is set from an earlier filter
-    if not mup.mirrorMeterReadings:
+    readings = find_mup_readings(resource_store, mup)
+    if not readings:
         raise CactusClientError(
-            f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any logged MirrorMeterReadings."
+            f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any MirrorMeterReadings (via /mup) "
+            "or MeterReadings (via /upt)."
         )
 
-    pow10_by_mrid: dict[str, int] = {}
-    for mmr in mup.mirrorMeterReadings:
-        if mmr.readingType is None:
-            raise CactusClientError(
-                f"MirrorUsagePoint {mup_href} {mup.mRID} has MirrorMeterReading {mmr.mRID} with no logged ReadingType"
-            )
-        if mmr.readingType.powerOfTenMultiplier is None:
-            raise CactusClientError(
-                f"MirrorUsagePoint {mup_href} {mup.mRID} has MirrorMeterReading {mmr.mRID} with no powerOfTenMultiplier"
-            )
-        pow10_by_mrid[mmr.mRID] = mmr.readingType.powerOfTenMultiplier
+    # Encode with the server's reported pow10 (defaulting to 0 as per 2030.5) so values decode as intended
+    pow10_by_mrid = {mrid: (rt.powerOfTenMultiplier or 0) if rt else 0 for mrid, rt in readings}
 
     # Now we are ready to submit readings
     post_rate_seconds = mup.postRate or 60
