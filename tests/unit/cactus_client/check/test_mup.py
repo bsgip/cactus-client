@@ -547,3 +547,31 @@ def test_find_mup_readings():
     ]
 
     assert find_mup_readings(resource_store, mup_no_up) == []
+
+
+@pytest.mark.parametrize(
+    "has_mmrs, up_mrid, expected_suffix",
+    [
+        (True, None, "]"),  # MMRs exposed - no source mentioned
+        (False, None, " (no MirrorMeterReadings)"),  # Server not hosting /upt - UsagePoints never mentioned
+        (False, "OTHER", " (no MirrorMeterReadings or UsagePoint with mRID MUP1)"),
+        (False, "MUP1", " (from UsagePoint)"),
+    ],
+)
+def test_find_mrids_matching_rejection_source(has_mmrs: bool, up_mrid: str | None, expected_suffix: str):
+    """Rejections describe where readings came from, only mentioning UsagePoints when the server hosts them"""
+    role_flags = generate_role_flags(CSIPAusReadingLocation.Device)
+    mup = create_mirror_usage_point(mrid="MUP1", role_flags=role_flags, reading_types=[(FA, "MMR1")])
+    if not has_mmrs:
+        mup.mirrorMeterReadings = None
+
+    resource_store = ResourceStore(CSIPAusResourceTree())
+    resource_store.append_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
+    if up_mrid is not None:
+        create_discovered_usage_point(resource_store, up_mrid, [(FA, "MR1")])
+
+    result = find_mrids_matching(resource_store, None, MirrorUsagePointMrids("MUP1", {APA: "MMR2"}), None, None)
+
+    assert result.matches == []
+    assert len(result.rejection_details) == 1
+    assert result.rejection_details[0].endswith(expected_suffix), result.rejection_details[0]
