@@ -8,6 +8,7 @@ from envoy_schema.server.schema.sep2.der import DERControlBase, DERControlRespon
 from envoy_schema.server.schema.sep2.der_control_types import ActivePower, ReactivePower
 from envoy_schema.server.schema.sep2.end_device import EndDeviceResponse
 from envoy_schema.server.schema.sep2.identification import Resource
+from envoy_schema.server.schema.sep2.metering import MeterReading, UsagePoint
 from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint
 from envoy_schema.server.schema.sep2.pub_sub import SubscriptionListResponse
 from envoy_schema.server.schema.sep2.time import TimeResponse
@@ -252,6 +253,20 @@ def test_is_invalid_subscription_list():
                 ),
             ),
             True,
+        ),
+        (
+            sr(
+                CSIPAusResource.UsagePoint,
+                generate_class_instance(UsagePoint, mRID=f"ABC123{VALID_SERVER_PEN + 1}"),
+            ),
+            True,  # Mirrors the client's MUP mrid (client PEN)
+        ),
+        (
+            sr(
+                CSIPAusResource.MeterReading,
+                generate_class_instance(MeterReading, mRID=f"ABC123{VALID_SERVER_PEN + 1}"),
+            ),
+            True,  # Mirrors the client's MMR mrid (client PEN)
         ),
         (
             sr(

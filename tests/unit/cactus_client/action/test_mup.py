@@ -382,65 +382,88 @@ async def test_action_insert_readings_minimum_wait_respects_server_post_rate(
 @pytest.mark.parametrize(
     "has_mmrs, has_upt, server_pow10, has_reading_type, expect_warning",
     [
-        (True, False, -1, True, False),  # Server agrees with our requested pow10
-        (True, False, 1, True, True),  # Server disagrees - warn but still send with our requested pow10
-        (True, False, None, True, True),  # Missing powerOfTenMultiplier is 0 as per 2030.5 - disagrees
-        (True, False, 1, False, False),  # No ReadingType reported - nothing to compare against
-        (False, True, -1, True, False),  # Server doesn't expose MMRs - compares against /upt
-        (False, True, 1, True, True),
-        (False, False, 1, True, False),  # Neither /mup nor /upt - nothing to compare against
+        (True, False, -1, True, None),  # Server agrees with our requested pow10
+        (True, False, 1, True, "MirrorMeterReading"),  # Server disagrees - warn but still send with requested pow10
+        (True, False, None, True, "MirrorMeterReading"),  # Missing powerOfTenMultiplier is 0 as per 2030.5 - disagrees
+        (True, False, 1, False, None),  # No ReadingType reported - nothing to compare against
+        (False, True, -1, True, None),  # Server doesn't expose MMRs - compares against /upt
+        (False, True, 1, True, "rescaling"),  # /upt disagreement may be legitimate rescaling
+        (False, False, 1, True, None),  # Neither /mup nor /upt - nothing to compare against
     ],
 )
 @pytest.mark.asyncio
-async def test_action_insert_readings_requested_pow10(
+async def test_action_upsert_mup_requested_pow10(
     has_mmrs: bool,
     has_upt: bool,
     server_pow10: int | None,
     has_reading_type: bool,
-    expect_warning: bool,
+    expect_warning: str | None,
     testing_contexts_factory,
 ):
-    """Readings are always encoded with the pow10 requested at upsert-mup. A different server reported pow10 (via /mup
-    or /upt) only raises a warning"""
+    """A different server reported pow10 (via /mup or /upt) is warned about once at upsert-mup. Readings are always
+    encoded with the requested pow10 - insert-readings never re-warns"""
 
     context: ExecutionContext
     context, step = testing_contexts_factory(mock.Mock())
     resource_store = context.discovered_resources(step)
-    client_config = context.client_config(step)
-
-    mup_mrid = "ABC123456789012345678901TESTPEN1"
-    mmr_mrid = generate_mmr_mrids(mup_mrid, [CSIPAusReadingType.ActivePowerAverage], client_config.pen)[
-        CSIPAusReadingType.ActivePowerAverage
-    ]
-    reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=server_pow10) if has_reading_type else None
-    mmrs = [generate_class_instance(MirrorMeterReading, mRID=mmr_mrid, readingType=reading_type)] if has_mmrs else None
-    mup = generate_class_instance(
-        MirrorUsagePoint, mRID=mup_mrid, href=f"/mup/{mup_mrid}", postRate=60, mirrorMeterReadings=mmrs
+    resource_store.append_resource(
+        CSIPAusResource.MirrorUsagePointList, None, generate_class_instance(MirrorUsagePointListResponse, href="/mup")
     )
-    sr = resource_store.upsert_resource(CSIPAusResource.MirrorUsagePoint, None, mup)
-    context.resource_annotations(step, sr.id).alias = "test-mup"
-    context.resource_annotations(step, sr.id).pow10_by_mrid = {mmr_mrid: -1}
-    if has_upt:
-        create_discovered_usage_point(
-            resource_store, mup_mrid, [(CSIPAusReadingType.ActivePowerAverage if has_reading_type else None, mmr_mrid)]
+    mup_mrid = "AAAAAAAAAAAAAAAAAAAAAAA000000001"
+    apa = CSIPAusReadingType.ActivePowerAverage
+    reading_type = generate_class_instance(ReadingType, powerOfTenMultiplier=server_pow10) if has_reading_type else None
+
+    async def submit(type_, step, context, method, href, request: MirrorUsagePointRequest):
+        assert request.mirrorMeterReadings is not None
+        mmrs = [
+            generate_class_instance(MirrorMeterReading, mRID=mmr.mRID, readingType=reading_type)
+            for mmr in request.mirrorMeterReadings
+        ]
+        return generate_class_instance(
+            MirrorUsagePoint,
+            mRID=request.mRID,
+            href=f"/mup/{request.mRID}",
+            postRate=60,
+            mirrorMeterReadings=mmrs if has_mmrs else None,
         )
+
+    async def walk_upt(step, context):
+        if not has_upt:
+            return
+        mmr_mrid = generate_mmr_mrids(mup_mrid, [apa], context.client_config(step).pen)[apa]
+        create_discovered_usage_point(resource_store, mup_mrid, [(apa if has_reading_type else None, mmr_mrid)])
         for rt_sr in resource_store.get_for_type(CSIPAusResource.ReadingType):
             rt_sr.resource.powerOfTenMultiplier = server_pow10
 
-    resolved_params = {"mup_id": "test-mup", "values": {CSIPAusReadingType.ActivePowerAverage: 12.3}}
-    with mock.patch("cactus_client.action.mup.request_for_step") as mock_request:
+    with (
+        mock.patch("cactus_client.action.mup.submit_and_refetch_resource_for_step", side_effect=submit),
+        mock.patch("cactus_client.action.mup.discover_upt_fallback", side_effect=walk_upt),
+        mock.patch("cactus_client.action.mup.request_for_step") as mock_request,
+    ):
         mock_response = mock.Mock()
         mock_response.is_success.return_value = True
         mock_request.return_value = mock_response
+        upsert_params = {
+            "mup_id": "test-mup",
+            "location": CSIPAusReadingLocation.Site,
+            "reading_types": [apa],
+            "set_mup_mrid": mup_mrid,
+            "pow10_multiplier": -1,
+        }
+        await action_upsert_mup(upsert_params, step, context)
 
-        await action_insert_readings(resolved_params, step, context)
+        if expect_warning is None:
+            assert context.warnings.warnings == []
+        else:
+            assert len(context.warnings.warnings) == 1
+            assert expect_warning in context.warnings.warnings[0].message
+
+        await action_insert_readings({"mup_id": "test-mup", "values": {apa: 12.3}}, step, context)
 
     sent_request = MirrorMeterReadingListRequest.from_xml(mock_request.call_args[0][4])
     assert sent_request.mirrorMeterReadings is not None
-    assert [(m.mRID, m.reading.value if m.reading else None) for m in sent_request.mirrorMeterReadings] == [
-        (mmr_mrid, 123)
-    ]
-    assert len(context.warnings.warnings) == (1 if expect_warning else 0)
+    assert [m.reading.value if m.reading else None for m in sent_request.mirrorMeterReadings] == [123]
+    assert len(context.warnings.warnings) == (0 if expect_warning is None else 1)  # insert-readings doesn't warn
 
 
 @pytest.mark.asyncio
