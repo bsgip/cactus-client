@@ -10,6 +10,14 @@ from cactus_test_definitions.csipaus import (
     CSIPAusReadingType,
     CSIPAusResource,
 )
+from envoy_schema.server.schema.sep2.function_set_assignments import FunctionSetAssignmentsResponse
+from envoy_schema.server.schema.sep2.identification import Link
+from envoy_schema.server.schema.sep2.metering import (
+    MeterReading,
+    MeterReadingListResponse,
+    UsagePoint,
+    UsagePointListResponse,
+)
 from envoy_schema.server.schema.sep2.metering_mirror import (
     MirrorMeterReading,
     MirrorMeterReadingListRequest,
@@ -28,6 +36,7 @@ from cactus_client.action.mup import (
     value_to_sep2,
 )
 from cactus_client.check.mup import (
+    check_mirror_usage_point,
     generate_mmr_mrids,
     generate_reading_type_values,
     generate_role_flags,
@@ -205,6 +214,7 @@ async def test_action_upsert_mup(testing_contexts_factory):
             if context.resource_annotations(step, sr.id).alias == "test-mup-1"
         ]
         assert len(stored_mups) == 1
+        assert stored_mups[0].resource.mirrorMeterReadings == [mmr1, mmr2]  # From the server, not our request
         assert stored_mups[0].resource.mRID == inserted_mup.mRID
         assert stored_mups[0].resource.href == inserted_mup.href
 
@@ -428,3 +438,126 @@ async def test_action_insert_readings_pow10_source(
     assert [(m.mRID, m.reading.value if m.reading else None) for m in sent_request.mirrorMeterReadings] == [
         (mmr_mrid, expected_value)
     ]
+
+
+class FakeUptServer:
+    """Simulates a server that doesn't expose MirrorMeterReadings via GET /mup. If serve_upt, the readings of each
+    upserted MUP are instead exposed under a UsagePoint (/upt) with the same mRIDs."""
+
+    def __init__(self, serve_upt: bool):
+        self.serve_upt = serve_upt
+        self.mups: dict[str, MirrorUsagePointRequest] = {}  # Keyed by mRID
+
+    async def submit(self, type_, step, context, method, href, request: MirrorUsagePointRequest):
+        self.mups[request.mRID] = request
+        return generate_class_instance(
+            MirrorUsagePoint,
+            href=f"/mup/{request.mRID}",
+            mRID=request.mRID,
+            roleFlags=request.roleFlags,
+            postRate=None,
+            mirrorMeterReadings=None,
+        )
+
+    def _upt_resources(self) -> tuple[dict, dict]:
+        """Returns (resources_by_href, list_items_by_href) for the current server state"""
+        resources: dict = {"/upt": generate_class_instance(UsagePointListResponse, href="/upt")}
+        items: dict = {"/upt": []}
+        for i, mup in enumerate(self.mups.values()):
+            up_href = f"/upt/{i}"
+            items["/upt"].append(
+                generate_class_instance(
+                    UsagePoint, href=up_href, mRID=mup.mRID, MeterReadingListLink=Link(href=f"{up_href}/mr")
+                )
+            )
+            resources[f"{up_href}/mr"] = generate_class_instance(MeterReadingListResponse, href=f"{up_href}/mr")
+            items[f"{up_href}/mr"] = []
+            for j, mmr in enumerate(mup.mirrorMeterReadings or []):
+                mr_href = f"{up_href}/mr/{j}"
+                items[f"{up_href}/mr"].append(
+                    generate_class_instance(
+                        MeterReading, href=mr_href, mRID=mmr.mRID, ReadingTypeLink=Link(href=f"{mr_href}/rt")
+                    )
+                )
+                assert mmr.readingType is not None
+                resources[f"{mr_href}/rt"] = mmr.readingType.model_copy(update={"href": f"{mr_href}/rt"})
+        return resources, items
+
+    async def get(self, type_, step, context, href):
+        return self._upt_resources()[0][href]
+
+    async def paginate(self, type_, step, context, list_href, page_size, item_callback):
+        return self._upt_resources()[1][list_href]
+
+
+@pytest.mark.parametrize("serve_upt", [True, False])
+@pytest.mark.asyncio
+async def test_action_upsert_mup_upt_walk(serve_upt: bool, testing_contexts_factory):
+    """upsert-mup refreshes the UsagePoint tree so that the following check validates the server's state. A re-walk
+    replaces (rather than appends to) the previous UsagePoint tree. Servers with neither MMRs nor /upt fail the check"""
+
+    context: ExecutionContext
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    mup_list_sr = resource_store.append_resource(
+        CSIPAusResource.MirrorUsagePointList, None, generate_class_instance(MirrorUsagePointListResponse, href="/mup")
+    )
+    fsa = generate_class_instance(
+        FunctionSetAssignmentsResponse,
+        href="/fsa/1",
+        UsagePointListLink=Link(href="/upt") if serve_upt else None,
+    )
+    resource_store.append_resource(CSIPAusResource.FunctionSetAssignments, mup_list_sr.id, fsa)
+
+    server = FakeUptServer(serve_upt)
+    mup_mrid = "AAAAAAAAAAAAAAAAAAAAAAA000000001"
+
+    def upsert_and_check(reading_types: list[CSIPAusReadingType], check_reading_types: list[CSIPAusReadingType]):
+        async def run():
+            await action_upsert_mup(
+                {
+                    "mup_id": "mup",
+                    "location": CSIPAusReadingLocation.Site,
+                    "set_mup_mrid": mup_mrid,
+                    "reading_types": reading_types,
+                },
+                step,
+                context,
+            )
+            return check_mirror_usage_point(
+                {
+                    "matches": True,
+                    "location": CSIPAusReadingLocation.Site,
+                    "check_mup_mrid": mup_mrid,
+                    "reading_types": check_reading_types,
+                },
+                step,
+                context,
+            )
+
+        return run()
+
+    with (
+        mock.patch("cactus_client.action.mup.submit_and_refetch_resource_for_step", side_effect=server.submit),
+        mock.patch("cactus_client.action.discovery.get_resource_for_step", side_effect=server.get),
+        mock.patch("cactus_client.action.discovery.paginate_list_resource_items", side_effect=server.paginate),
+    ):
+        apa = CSIPAusReadingType.ActivePowerAverage
+        va = CSIPAusReadingType.VoltageSinglePhaseAverage
+
+        result = await upsert_and_check([apa], [apa])
+        assert result.passed is serve_upt, result.description
+
+        # Update the MUP with a different reading type - only the new type should be stored / matched
+        result = await upsert_and_check([va], [apa])
+        assert result.passed is False, result.description
+        result = await upsert_and_check([va], [va])
+        assert result.passed is serve_upt, result.description
+
+    if serve_upt:
+        assert len(resource_store.get_for_type(CSIPAusResource.UsagePoint)) == 1
+        assert len(resource_store.get_for_type(CSIPAusResource.MeterReading)) == 1
+        assert len(resource_store.get_for_type(CSIPAusResource.ReadingType)) == 1
+    else:
+        assert resource_store.get_for_type(CSIPAusResource.UsagePoint) == []
+        assert "(no MirrorMeterReadings)" in result.description
