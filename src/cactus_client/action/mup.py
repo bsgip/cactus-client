@@ -21,6 +21,7 @@ from envoy_schema.server.schema.sep2.types import (
     ServiceKind,
 )
 
+from cactus_client.action.discovery import discover_resource
 from cactus_client.action.server import (
     client_error_request_for_step,
     request_for_step,
@@ -179,8 +180,7 @@ async def action_insert_readings(
     readings = find_mup_readings(resource_store, mup)
     if not readings:
         raise CactusClientError(
-            f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any MirrorMeterReadings (via /mup) "
-            "or MeterReadings (via /upt)."
+            f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any MirrorMeterReadings."
         )
 
     # Encode with the server's reported pow10 (defaulting to 0 as per 2030.5) so values decode as intended
@@ -255,16 +255,19 @@ async def action_upsert_mup(
             MirrorUsagePoint, step, context, HTTPMethod.POST, list_href, request_mup
         )
 
-        # BRIDGE: The server returns MUP without mirrorMeterReadings (they're not exposed via GET). (TODO)
-        # We copy them from our request so that:
-        #   1. action_insert_readings can extract pow10_multiplier for formatting readings
-        #   2. check_mirror_usage_point can validate MMR structure
-        # This is a workaround - ideally we'd store pow10_multiplier in annotations and remove
-        # the MMR validation from checks (since we're just validating what we constructed).
-        inserted_mup.mirrorMeterReadings = list(request_mup.mirrorMeterReadings or [])
-
         upserted_sr = resource_store.upsert_resource(
             CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup
         )
         context.resource_annotations(step, upserted_sr.id).alias = mup_id
+
+        # Some servers only expose the readings of a MUP via the UsagePoint tree (/upt) - refresh it from the
+        # already discovered FunctionSetAssignments. Servers without FSAs or a UsagePointListLink make no requests here.
+        for resource in [
+            CSIPAusResource.UsagePointList,
+            CSIPAusResource.UsagePoint,
+            CSIPAusResource.MeterReadingList,
+            CSIPAusResource.MeterReading,
+            CSIPAusResource.ReadingType,
+        ]:
+            await discover_resource(resource, step, context, None)
     return ActionResult.done()
