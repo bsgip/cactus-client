@@ -473,13 +473,14 @@ VA = CSIPAusReadingType.VoltageSinglePhaseAverage
         (True, [(APA, APA), (FA, FA), (VA, VA)], False),  # extra reading type
         (True, [(APA, APM), (FA, FA)], False),  # MeterReading mRID matches but ReadingType is mismatched
         (True, [(APA, APA), (VA, FA)], False),  # ReadingType matches but MeterReading mRID is mismatched
+        (True, [(APA, APA), (FA, None)], False),  # MeterReading has no ReadingType - rejected (not raised)
         (False, [(APA, APA), (FA, FA)], False),  # UsagePoint has a different mRID to the MUP
         (False, None, False),  # No UsagePoints discovered
     ],
 )
 async def test_check_mirror_usage_point_usage_point_fallback(
     up_same_mrid: bool,
-    up_readings: list[tuple[CSIPAusReadingType, CSIPAusReadingType]] | None,
+    up_readings: list[tuple[CSIPAusReadingType, CSIPAusReadingType | None]] | None,
     expected_pass: bool,
     testing_contexts_factory,
 ):
@@ -521,6 +522,8 @@ async def test_check_mirror_usage_point_usage_point_fallback(
         )
 
         assert result.passed == expected_pass, result.description
+        if up_readings is not None and any(rt_values is None for _, rt_values in up_readings):
+            assert result.description and "have no readingType (from UsagePoint)" in result.description
 
 
 def test_find_mup_readings():
@@ -537,16 +540,22 @@ def test_find_mup_readings():
     create_discovered_usage_point(resource_store, "OTHER", [(APA, "MR2")])
     create_discovered_usage_point(resource_store, "MUP2", [(APA, "MR3"), (None, "MR4")])
 
-    result = find_mup_readings(resource_store, mup_with_mmrs)
+    result, source = find_mup_readings(resource_store, mup_with_mmrs)
     assert [(mrid, rt.uom if rt else None) for mrid, rt in result] == [("MMR1", UomType.FREQUENCY_HZ)]
+    assert source == ""
 
-    result = find_mup_readings(resource_store, mup_no_mmrs)
+    result, source = find_mup_readings(resource_store, mup_no_mmrs)
     assert [(mrid, rt.uom if rt else None) for mrid, rt in result] == [
         ("MR3", UomType.REAL_POWER_WATT),
         ("MR4", None),
     ]
+    assert source == " (from UsagePoint)"
 
-    assert find_mup_readings(resource_store, mup_no_up) == []
+    assert find_mup_readings(resource_store, mup_no_up) == (
+        [],
+        " (no MirrorMeterReadings or UsagePoint with mRID MUP3)",
+    )
+    assert find_mup_readings(ResourceStore(CSIPAusResourceTree()), mup_no_up) == ([], " (no MirrorMeterReadings)")
 
 
 @pytest.mark.parametrize(
