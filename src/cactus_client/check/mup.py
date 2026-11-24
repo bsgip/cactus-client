@@ -159,18 +159,21 @@ def generate_role_flags(location: CSIPAusReadingLocation) -> RoleFlagsType:
             )
 
 
-def find_mup_readings(store: ResourceStore, mup: MirrorUsagePoint) -> list[tuple[str, ReadingType | None]]:
+def find_mup_readings(store: ResourceStore, mup: MirrorUsagePoint) -> tuple[list[tuple[str, ReadingType | None]], str]:
     """Returns the (mRID, ReadingType) pairs for mup's MirrorMeterReadings. If the server doesn't expose them via /mup,
-    falls back to the MeterReadings under the UsagePoint (discovered via /upt) with the same mRID as mup."""
-    if mup.mirrorMeterReadings:
-        return [(mmr.mRID, mmr.readingType) for mmr in mup.mirrorMeterReadings]
+    falls back to the MeterReadings under the UsagePoint (discovered via /upt) with the same mRID as mup.
 
-    up_sr = next(
-        (sr for sr in store.get_for_type(CSIPAusResource.UsagePoint) if cast(UsagePoint, sr.resource).mRID == mup.mRID),
-        None,
-    )
+    Also returns a description of where the readings came from (for rejection messages) - only mentions UsagePoints
+    when the server is hosting them."""
+    if mup.mirrorMeterReadings:
+        return [(mmr.mRID, mmr.readingType) for mmr in mup.mirrorMeterReadings], ""
+
+    usage_points = store.get_for_type(CSIPAusResource.UsagePoint)
+    up_sr = next((sr for sr in usage_points if cast(UsagePoint, sr.resource).mRID == mup.mRID), None)
     if up_sr is None:
-        return []
+        if usage_points:
+            return [], f" (no MirrorMeterReadings or UsagePoint with mRID {mup.mRID})"
+        return [], " (no MirrorMeterReadings)"
 
     readings: list[tuple[str, ReadingType | None]] = []
     for mr_sr in store.get_descendents_of(CSIPAusResource.MeterReading, up_sr.id):
@@ -178,7 +181,7 @@ def find_mup_readings(store: ResourceStore, mup: MirrorUsagePoint) -> list[tuple
         readings.append(
             (cast(MeterReading, mr_sr.resource).mRID, cast(ReadingType, rt_srs[0].resource) if rt_srs else None)
         )
-    return readings
+    return readings, " (from UsagePoint)"
 
 
 def find_mrids_matching(
@@ -192,22 +195,11 @@ def find_mrids_matching(
     all_matches: list[StoredResource] = []
     rejection_details: list[str] = []
     all_mups = store.get_for_type(CSIPAusResource.MirrorUsagePoint)
-    usage_points = store.get_for_type(CSIPAusResource.UsagePoint)
 
     for mup in all_mups:
         resource = cast(MirrorUsagePoint, mup.resource)
         mup_id = resource.mRID or resource.href or "unknown"
-        readings = find_mup_readings(store, resource)
-
-        # Describes where readings came from - only mentions UsagePoints when the server is hosting them
-        if resource.mirrorMeterReadings:
-            source = ""
-        elif any(cast(UsagePoint, up.resource).mRID == resource.mRID for up in usage_points):
-            source = " (from UsagePoint)"
-        elif usage_points:
-            source = f" (no MirrorMeterReadings or UsagePoint with mRID {resource.mRID})"
-        else:
-            source = " (no MirrorMeterReadings)"
+        readings, source = find_mup_readings(store, resource)
 
         # Look to disqualify mups as matches by checking things one by one
         if post_rate_seconds is not None and resource.postRate is not None and post_rate_seconds != resource.postRate:
@@ -234,17 +226,20 @@ def find_mrids_matching(
 
         # Check the readingType values for each MirrorMeterReading - we want an exact match
         if reading_type_vals is not None:
-            comparison_reading_type_value: list[tuple[UomType, KindType, DataQualifierType]] = []
-            for mrid, reading_type in readings:
-                if reading_type is None:
-                    raise CactusClientError(f"Reading {mrid} for {mup_id} has no readingType")
-                comparison_reading_type_value.append(
-                    (
-                        reading_type.uom or UomType.NOT_APPLICABLE,
-                        reading_type.kind or KindType.NOT_APPLICABLE,
-                        reading_type.dataQualifier or DataQualifierType.NOT_APPLICABLE,
-                    )
+            missing_reading_type = [mrid for mrid, reading_type in readings if reading_type is None]
+            if missing_reading_type:
+                rejection_details.append(f"{mup_id}: readings {missing_reading_type} have no readingType{source}")
+                continue
+
+            comparison_reading_type_value = [
+                (
+                    reading_type.uom or UomType.NOT_APPLICABLE,
+                    reading_type.kind or KindType.NOT_APPLICABLE,
+                    reading_type.dataQualifier or DataQualifierType.NOT_APPLICABLE,
                 )
+                for _, reading_type in readings
+                if reading_type is not None
+            ]
             if set(comparison_reading_type_value) != set(reading_type_vals):
                 rejection_details.append(
                     f"{mup_id}: readingTypes {comparison_reading_type_value} != expected {reading_type_vals}{source}"

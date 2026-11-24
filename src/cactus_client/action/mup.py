@@ -21,7 +21,7 @@ from envoy_schema.server.schema.sep2.types import (
     ServiceKind,
 )
 
-from cactus_client.action.discovery import discover_resource
+from cactus_client.action.discovery import discover_upt_fallback
 from cactus_client.action.server import (
     client_error_request_for_step,
     request_for_step,
@@ -177,14 +177,18 @@ async def action_insert_readings(
     mup_sr = mups_with_id[0]
     mup = cast(MirrorUsagePoint, mup_sr.resource)
     mup_href = cast(str, mup.href)  # We know this is set from an earlier filter
-    readings = find_mup_readings(resource_store, mup)
-    if not readings:
-        raise CactusClientError(
-            f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any MirrorMeterReadings."
-        )
 
-    # Encode with the server's reported pow10 (defaulting to 0 as per 2030.5) so values decode as intended
-    pow10_by_mrid = {mrid: (rt.powerOfTenMultiplier or 0) if rt else 0 for mrid, rt in readings}
+    # Encode with the pow10 we requested at upsert-mup - warn if the server reports something different
+    pow10_by_mrid = context.resource_annotations(step, mup_sr.id).pow10_by_mrid
+    readings, _ = find_mup_readings(resource_store, mup)
+    for mrid, rt in readings:
+        server_pow10 = (rt.powerOfTenMultiplier or 0) if rt else None  # 2030.5 defaults powerOfTenMultiplier to 0
+        if server_pow10 is not None and mrid in pow10_by_mrid and server_pow10 != pow10_by_mrid[mrid]:
+            context.warnings.log_step_warning(
+                step,
+                f"Server reports powerOfTenMultiplier {server_pow10} for reading {mrid} but {pow10_by_mrid[mrid]} was"
+                " requested. Readings will be sent using the requested value.",
+            )
 
     # Now we are ready to submit readings
     post_rate_seconds = mup.postRate or 60
@@ -258,16 +262,9 @@ async def action_upsert_mup(
         upserted_sr = resource_store.upsert_resource(
             CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup
         )
-        context.resource_annotations(step, upserted_sr.id).alias = mup_id
+        annotations = context.resource_annotations(step, upserted_sr.id)
+        annotations.alias = mup_id
+        annotations.pow10_by_mrid.update({mmr.mRID: pow10_multiplier for mmr in request_mup.mirrorMeterReadings or []})
 
-        # Some servers only expose the readings of a MUP via the UsagePoint tree (/upt) - refresh it from the
-        # already discovered FunctionSetAssignments. Servers without FSAs or a UsagePointListLink make no requests here.
-        for resource in [
-            CSIPAusResource.UsagePointList,
-            CSIPAusResource.UsagePoint,
-            CSIPAusResource.MeterReadingList,
-            CSIPAusResource.MeterReading,
-            CSIPAusResource.ReadingType,
-        ]:
-            await discover_resource(resource, step, context, None)
+        await discover_upt_fallback(step, context)
     return ActionResult.done()
