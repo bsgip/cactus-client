@@ -19,7 +19,7 @@ from envoy_schema.server.schema.sep2.metering import (
     MeterReadingListResponse,
     UsagePointListResponse,
 )
-from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePointListResponse
+from envoy_schema.server.schema.sep2.metering_mirror import MirrorUsagePoint, MirrorUsagePointListResponse
 from envoy_schema.server.schema.sep2.pricing import (
     ConsumptionTariffIntervalListResponse,
     RateComponentListResponse,
@@ -220,6 +220,25 @@ async def discover_resource(
                 )
 
 
+async def discover_upt_fallback(step: StepExecution, context: ExecutionContext) -> None:
+    """Some servers only expose the readings of a MirrorUsagePoint via the UsagePoint tree (/upt). If any stored
+    MirrorUsagePoint has no MirrorMeterReadings, (re)walk that tree so that checks can fall back to it. Reuses already
+    discovered FunctionSetAssignments, otherwise walks down from the EndDeviceList."""
+    resource_store = context.discovered_resources(step)
+    mups = resource_store.get_for_type(CSIPAusResource.MirrorUsagePoint)
+    if all(cast(MirrorUsagePoint, sr.resource).mirrorMeterReadings for sr in mups):
+        return
+
+    plan = context.resource_tree.discover_resource_plan([CSIPAusResource.ReadingType])
+    if resource_store.get_for_type(CSIPAusResource.FunctionSetAssignments):
+        plan = plan[plan.index(CSIPAusResource.UsagePointList) :]
+    else:
+        plan = plan[plan.index(CSIPAusResource.EndDeviceList) :]
+
+    for resource in plan:
+        await discover_resource(resource, step, context, None)
+
+
 async def action_discovery(
     resolved_parameters: dict[str, Any], step: StepExecution, context: ExecutionContext
 ) -> ActionResult:
@@ -236,7 +255,11 @@ async def action_discovery(
         await asyncio.sleep(delay_seconds)
 
     # Start making requests for resources
-    for resource in context.resource_tree.discover_resource_plan([CSIPAusResource(r) for r in resources]):
+    plan = context.resource_tree.discover_resource_plan([CSIPAusResource(r) for r in resources])
+    for resource in plan:
         await discover_resource(resource, step, context, list_limit)
+
+    if CSIPAusResource.MirrorUsagePoint in plan:
+        await discover_upt_fallback(step, context)
 
     return ActionResult.done()

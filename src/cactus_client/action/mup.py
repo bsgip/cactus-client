@@ -21,6 +21,7 @@ from envoy_schema.server.schema.sep2.types import (
     ServiceKind,
 )
 
+from cactus_client.action.discovery import discover_upt_fallback
 from cactus_client.action.server import (
     client_error_request_for_step,
     request_for_step,
@@ -28,6 +29,7 @@ from cactus_client.action.server import (
     submit_and_refetch_resource_for_step,
 )
 from cactus_client.check.mup import (
+    find_mup_readings,
     generate_mmr_mrids,
     generate_mup_mrids,
     generate_reading_type_values,
@@ -175,22 +177,9 @@ async def action_insert_readings(
     mup_sr = mups_with_id[0]
     mup = cast(MirrorUsagePoint, mup_sr.resource)
     mup_href = cast(str, mup.href)  # We know this is set from an earlier filter
-    if not mup.mirrorMeterReadings:
-        raise CactusClientError(
-            f"{CSIPAusResource.MirrorUsagePoint} {mup_href} {mup.mRID} hasn't got any logged MirrorMeterReadings."
-        )
 
-    pow10_by_mrid: dict[str, int] = {}
-    for mmr in mup.mirrorMeterReadings:
-        if mmr.readingType is None:
-            raise CactusClientError(
-                f"MirrorUsagePoint {mup_href} {mup.mRID} has MirrorMeterReading {mmr.mRID} with no logged ReadingType"
-            )
-        if mmr.readingType.powerOfTenMultiplier is None:
-            raise CactusClientError(
-                f"MirrorUsagePoint {mup_href} {mup.mRID} has MirrorMeterReading {mmr.mRID} with no powerOfTenMultiplier"
-            )
-        pow10_by_mrid[mmr.mRID] = mmr.readingType.powerOfTenMultiplier
+    # Encode with the pow10 we requested at upsert-mup (any server disagreement was warned about there)
+    pow10_by_mrid = context.resource_annotations(step, mup_sr.id).pow10_by_mrid
 
     # Now we are ready to submit readings
     post_rate_seconds = mup.postRate or 60
@@ -261,16 +250,32 @@ async def action_upsert_mup(
             MirrorUsagePoint, step, context, HTTPMethod.POST, list_href, request_mup
         )
 
-        # BRIDGE: The server returns MUP without mirrorMeterReadings (they're not exposed via GET). (TODO)
-        # We copy them from our request so that:
-        #   1. action_insert_readings can extract pow10_multiplier for formatting readings
-        #   2. check_mirror_usage_point can validate MMR structure
-        # This is a workaround - ideally we'd store pow10_multiplier in annotations and remove
-        # the MMR validation from checks (since we're just validating what we constructed).
-        inserted_mup.mirrorMeterReadings = list(request_mup.mirrorMeterReadings or [])
-
         upserted_sr = resource_store.upsert_resource(
             CSIPAusResource.MirrorUsagePoint, mup_list_resources[0].id, inserted_mup
         )
-        context.resource_annotations(step, upserted_sr.id).alias = mup_id
+        annotations = context.resource_annotations(step, upserted_sr.id)
+        annotations.alias = mup_id
+        requested_mrids = {mmr.mRID for mmr in request_mup.mirrorMeterReadings or []}
+        annotations.pow10_by_mrid.update({mrid: pow10_multiplier for mrid in requested_mrids})
+
+        await discover_upt_fallback(step, context)
+
+        # Readings are always sent with the requested pow10 - warn (once, here) if the server reports something else.
+        # A UsagePoint is the server's own view of the readings, so a different pow10 there may be legitimate rescaling
+        readings, _ = find_mup_readings(resource_store, inserted_mup)
+        for mrid, rt in readings:
+            server_pow10 = (rt.powerOfTenMultiplier or 0) if rt else None  # 2030.5 defaults powerOfTenMultiplier to 0
+            if server_pow10 is None or mrid not in requested_mrids or server_pow10 == pow10_multiplier:
+                continue
+            if inserted_mup.mirrorMeterReadings:
+                source = f"MirrorMeterReading {mrid}"
+                consequence = ""
+            else:
+                source = f"UsagePoint MeterReading {mrid}"
+                consequence = " This may be the server rescaling its own view of the readings."
+            context.warnings.log_step_warning(
+                step,
+                f"Server reports powerOfTenMultiplier {server_pow10} for {source} but {pow10_multiplier} was"
+                f" requested. Readings will be sent using the requested value.{consequence}",
+            )
     return ActionResult.done()

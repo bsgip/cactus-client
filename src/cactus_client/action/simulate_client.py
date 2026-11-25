@@ -35,8 +35,8 @@ async def action_simulate_client(
     now = utc_now()
 
     #
-    # Do discovery. If this is the first run, get MirrorUsagePoint, else
-    # skip to avoid clearing resource store, which contains MirrorMeterReadings
+    # Do discovery. If this is the first run, get MirrorUsagePoint, else skip it - rediscovery would clear the
+    # store and only fetch the first DISCOVERY_LIST_PAGE_SIZE MUPs, which may not include our simulated MUP
     #
     if step.repeat_number == 0:
         for resource in context.resource_tree.discover_resource_plan(

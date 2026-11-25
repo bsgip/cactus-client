@@ -11,12 +11,15 @@ from envoy_schema.server.schema.sep2.end_device import (
     EndDeviceListResponse,
     EndDeviceResponse,
 )
+from envoy_schema.server.schema.sep2.function_set_assignments import FunctionSetAssignmentsResponse
+from envoy_schema.server.schema.sep2.metering_mirror import MirrorMeterReading, MirrorUsagePoint
 
 from cactus_client.action.discovery import (
     DISCOVERY_LIST_PAGE_SIZE,
     action_discovery,
     calculate_wait_next_polling_window,
     discover_resource,
+    discover_upt_fallback,
 )
 from cactus_client.error import CactusClientError
 from cactus_client.model.context import ExecutionContext
@@ -480,3 +483,85 @@ async def test_discover_resource_with_list_limit(
     stored_children = resource_store.get_for_type(CSIPAusResource.EndDevice)
     assert len(stored_children) == list_limit
     assert all(sr.resource_type == CSIPAusResource.EndDevice for sr in stored_children)
+
+
+UPT_TREE = [
+    CSIPAusResource.UsagePointList,
+    CSIPAusResource.UsagePoint,
+    CSIPAusResource.MeterReadingList,
+    CSIPAusResource.MeterReading,
+    CSIPAusResource.ReadingType,
+]
+FSA_TREE = [
+    CSIPAusResource.EndDeviceList,
+    CSIPAusResource.EndDevice,
+    CSIPAusResource.FunctionSetAssignmentsList,
+    CSIPAusResource.FunctionSetAssignments,
+]
+
+
+@pytest.mark.parametrize(
+    "mups_have_mmrs, has_fsa, expected_walk",
+    [
+        ([], True, []),  # No MUPs - nothing to fall back for
+        ([True, True], True, []),  # Server exposes MMRs via /mup - no extra requests
+        ([True, False], True, UPT_TREE),  # A MUP without MMRs - walk /upt from the already discovered FSAs
+        ([False], False, FSA_TREE + UPT_TREE),  # No FSAs discovered yet - walk down from the EndDeviceList
+    ],
+)
+@mock.patch("cactus_client.action.discovery.discover_resource")
+@pytest.mark.asyncio
+async def test_discover_upt_fallback(
+    mock_discover_resource: mock.MagicMock,
+    mups_have_mmrs: list[bool],
+    has_fsa: bool,
+    expected_walk: list[CSIPAusResource],
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    context, step = testing_contexts_factory(mock.Mock())
+    resource_store = context.discovered_resources(step)
+    for idx, has_mmrs in enumerate(mups_have_mmrs):
+        mmrs = [generate_class_instance(MirrorMeterReading)] if has_mmrs else None
+        resource_store.append_resource(
+            CSIPAusResource.MirrorUsagePoint,
+            None,
+            generate_class_instance(MirrorUsagePoint, seed=idx, href=f"/mup/{idx}", mirrorMeterReadings=mmrs),
+        )
+    if has_fsa:
+        resource_store.append_resource(
+            CSIPAusResource.FunctionSetAssignments,
+            None,
+            generate_class_instance(FunctionSetAssignmentsResponse, href="/fsa/1"),
+        )
+
+    await discover_upt_fallback(step, context)
+
+    assert [c.args[0] for c in mock_discover_resource.call_args_list] == expected_walk
+    assert all(c.args[3] is None for c in mock_discover_resource.call_args_list)  # Fallback is never truncated
+
+
+@pytest.mark.parametrize(
+    "resources, expect_fallback",
+    [
+        ([CSIPAusResource.MirrorUsagePoint], True),
+        ([CSIPAusResource.EndDevice, CSIPAusResource.MirrorUsagePoint], True),
+        ([CSIPAusResource.MirrorUsagePointList], False),
+        ([CSIPAusResource.EndDevice], False),
+    ],
+)
+@mock.patch("cactus_client.action.discovery.discover_upt_fallback")
+@mock.patch("cactus_client.action.discovery.discover_resource")
+@pytest.mark.asyncio
+async def test_action_discovery_upt_fallback(
+    mock_discover_resource: mock.MagicMock,
+    mock_discover_upt_fallback: mock.MagicMock,
+    resources: list[CSIPAusResource],
+    expect_fallback: bool,
+    testing_contexts_factory: Callable[[ClientSession], tuple[ExecutionContext, StepExecution]],
+):
+    """The /upt fallback is only considered when the step discovers MirrorUsagePoints"""
+    context, step = testing_contexts_factory(mock.Mock())
+
+    await action_discovery({"resources": resources}, step, context)
+
+    assert mock_discover_upt_fallback.called is expect_fallback
