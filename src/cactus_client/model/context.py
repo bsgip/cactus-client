@@ -49,6 +49,9 @@ class StoredResourceAnnotations:
     tag_creations: dict[tuple[AnnotationNamespace, str | StrEnum | IntEnum], datetime] = field(
         default_factory=dict
     )  # Tags with a value of the created_at
+    pow10_by_mrid: dict[str, int] = field(
+        default_factory=dict
+    )  # MirrorUsagePoint only - the powerOfTenMultiplier this client requested, keyed by MirrorMeterReading mRID
 
     def add_tag(self, namespace: AnnotationNamespace, value: str | StrEnum | IntEnum) -> None:
         """Adds a tag to the store - if it already exists, has no effect"""
